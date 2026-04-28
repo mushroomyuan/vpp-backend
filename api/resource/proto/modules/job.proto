@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package resourcepb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
+
+import "google/protobuf/timestamp.proto";
+import "modules/common.proto";
+import "modules/resource.proto";
+import "modules/cu.proto";
+import "modules/point.proto";
+import "modules/error.proto";
+
+
+message Job {
+  string ID = 1;
+  string TenantID = 2;
+  JobType Type = 3;
+  JobStatus Status = 4;
+  bytes Payload = 5;
+  int64 Total = 6;
+  int64 Succeeded = 7;
+  int64 FailedCount = 8;
+  string ErrorMsg = 9;
+  bytes ResultJSON = 10;
+  int64 Attempts = 11;
+  int64 MaxAttempts = 12;
+  google.protobuf.Timestamp CreatedAt = 13;
+  google.protobuf.Timestamp UpdatedAt = 14;
+  google.protobuf.Timestamp StartedAt = 15;
+  google.protobuf.Timestamp FinishedAt = 16;
+  google.protobuf.Timestamp NextRetryAt = 17;
+}
+
+
+// ── GetJob ─────────────────────────────────────────────────────────────
+
+message GetJobRequest {
+  string ID = 1;
+}
+
+// ── RetryJob ────────────────────────────────────────────────────────────
+
+message RetryJobRequest {
+  string ID = 1;
+}
+
+// ── SubmitBatch — batch wrapper messages ────────────────────────────────
+
+// Resource import — scope: tenant + site
+message ResourceBatch {
+  string TenantID                   = 1;
+  string SiteID                     = 2;
+  repeated ResourceItem items = 3;
+}
+
+// CU import — scope: tenant + resource
+message CUBatch {
+  string TenantID               = 1;
+  string ResourceID             = 2;
+  repeated CUItem items   = 3;
+}
+
+// Point import — scope: tenant + resource + CU
+message PointBatch {
+  string TenantID                 = 1;
+  string ResourceID               = 2;
+  string CUID                     = 3;
+  repeated PointItem items  = 4;
+}
+
+// ── Batch delete (async job) — per-target ID lists ───────────────────────
+
+message ResourceDeleteBatch {
+  string          TenantID = 1;
+  repeated string ids      = 2;
+}
+
+message CUDeleteBatch {
+  string          TenantID = 1;
+  repeated string ids      = 2;
+}
+
+message PointDeleteBatch {
+  string          TenantID = 1;
+  repeated string ids      = 2;
+}
+
+// ── SubmitBatch — request / response ────────────────────────────────────
+
+message SubmitBatchRequest {
+  int32 batch_size = 1; // 0 = executor default
+
+  // Exactly one batch variant must be set; it also encodes the job type.
+  oneof batch {
+    ResourceBatch resource = 2;
+    CUBatch       cu      = 3;
+    PointBatch    point   = 4;
+  }
+}
+
+// SubmitBatchDeleteRequest enqueues a soft-delete job (same response shape as import).
+message SubmitBatchDeleteRequest {
+  int32 batch_size = 1; // 0 = executor default
+
+  oneof batch {
+    ResourceDeleteBatch resource = 2;
+    CUDeleteBatch       cu       = 3;
+    PointDeleteBatch    point    = 4;
+  }
+}
+
+message SubmitBatchResponse {
+  string                   job_id       = 1;
+  repeated BatchItemError  failed_items = 2; // set only when validation fails
+}

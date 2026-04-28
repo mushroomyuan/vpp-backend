@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package resourcepb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
+
+import "google/protobuf/struct.proto";
+import "modules/error.proto";
+
+message CU {
+  string ID = 1;
+  string ResourceID = 2;
+  string ParentCUID = 3;
+  string Name = 4;
+  string Type = 5;
+  repeated string CapabilityTags = 6;
+  google.protobuf.Struct Metadata = 7;
+}
+
+message CreateCURequest {
+  string ResourceID = 1;
+  string ParentCUID = 2;
+  string Name = 3;
+  string Type = 4;
+  repeated string CapabilityTags = 5;
+  google.protobuf.Struct Metadata = 6;
+}
+
+message CreateCUResponse {
+  string CUID = 1;
+}
+
+message UpdateCURequest {
+  string ID = 1;
+  string ParentCUID = 2;
+  string Name = 3;
+  string Type = 4;
+  repeated string CapabilityTags = 5;
+  google.protobuf.Struct Metadata = 6;
+}
+
+message DeleteCURequest {
+  string ID = 1;
+}
+
+message GetCURequest {
+  string ID = 1;
+}
+
+message ListCUsRequest {
+  string TenantID = 1;
+  string SiteID = 2;
+  string ResourceID = 3;
+  string ParentCUID = 4;
+  repeated string Capability = 5;
+  repeated string IDs = 6;
+  string NameLike = 7;
+  int32 Offset = 8;
+  int32 Limit = 9;
+}
+
+message ListCUsResponse {
+  repeated CU CUs = 1;
+}
+
+message CUItem {
+  string ParentCUID = 1;
+  string Name = 2;
+  string Type = 3;
+  repeated string CapabilityTags = 4;
+  google.protobuf.Struct Metadata = 5;
+}
+
+
+
+message BatchCreateCUsRequest {
+  string ResourceID = 1;
+  repeated CUItem Items = 2;
+  int32 BatchSize = 3;
+}
+
+message BatchCreateCUsResponse {
+  repeated string CUIDs = 1;
+  repeated BatchItemError FailedItems = 2;
+  int32 TotalCount = 3;
+  int32 SuccessCount = 4;
+}

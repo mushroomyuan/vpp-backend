@@ -1,0 +1,144 @@
+syntax = "proto3";
+
+package resourcepb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+import "modules/site.proto";
+import "modules/resource.proto";
+import "modules/cu.proto";
+import "modules/point.proto";
+import "modules/job.proto";
+
+// ResourceService exposes CRUD + list APIs for the 4-tier resource hierarchy:
+// Site → Resource → CU → Point, plus Job status inspection.
+service ResourceService {
+  rpc CreateSite(CreateSiteRequest) returns (CreateSiteResponse) {
+    option (google.api.http) = {
+      post: "/api/tenants/{TenantID}/sites"
+      body: "*"
+    };
+  }
+  rpc GetSite(GetSiteRequest) returns (Site) {
+    option (google.api.http) = {get: "/api/tenants/{TenantID}/sites/{ID}"};
+  }
+  rpc ListSites(ListSitesRequest) returns (ListSitesResponse) {
+    option (google.api.http) = {get: "/api/tenants/{TenantID}/sites"};
+  }
+  rpc UpdateSite(UpdateSiteRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/api/tenants/{TenantID}/sites/{ID}"
+      body: "*"
+    };
+  }
+  rpc DeleteSite(DeleteSiteRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/tenants/{TenantID}/sites/{ID}"};
+  }
+
+  rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {
+    option (google.api.http) = {
+      post: "/api/tenants/{TenantID}/sites/{SiteID}/resources"
+      body: "*"
+    };
+  }
+  rpc GetResource(GetResourceRequest) returns (Resource) {
+    option (google.api.http) = {get: "/api/tenants/{TenantID}/resources/{ID}"};
+  }
+  rpc ListResources(ListResourcesRequest) returns (ListResourcesResponse) {
+    option (google.api.http) = {get: "/api/tenants/{TenantID}/sites/{SiteID}/resources"};
+  }
+  rpc UpdateResource(UpdateResourceRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/api/tenants/{TenantID}/resources/{ID}"
+      body: "*"
+    };
+  }
+  rpc DeleteResource(DeleteResourceRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/tenants/{TenantID}/resources/{ID}"};
+  }
+  rpc BatchCreateResources(BatchCreateResourcesRequest) returns (BatchCreateResourcesResponse) {
+    option (google.api.http) = {
+      post: "/api/tenants/{TenantID}/sites/{SiteID}/resources:batchCreate"
+      body: "*"
+    };
+  }
+
+  rpc CreateCU(CreateCURequest) returns (CreateCUResponse) {
+    option (google.api.http) = {
+      post: "/api/resources/{ResourceID}/cus"
+      body: "*"
+    };
+  }
+  rpc GetCU(GetCURequest) returns (CU) {
+    option (google.api.http) = {get: "/api/cus/{ID}"};
+  }
+  rpc ListCUs(ListCUsRequest) returns (ListCUsResponse) {
+    option (google.api.http) = {get: "/api/resources/{ResourceID}/cus"};
+  }
+  rpc UpdateCU(UpdateCURequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/api/cus/{ID}"
+      body: "*"
+    };
+  }
+  rpc DeleteCU(DeleteCURequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/cus/{ID}"};
+  }
+  rpc BatchCreateCUs(BatchCreateCUsRequest) returns (BatchCreateCUsResponse) {
+    option (google.api.http) = {
+      post: "/api/resources/{ResourceID}/cus:batchCreate"
+      body: "*"
+    };
+  }
+  rpc CreatePoint(CreatePointRequest) returns (CreatePointResponse) {
+    option (google.api.http) = {
+      post: "/api/cus/{CUID}/points"
+      body: "*"
+    };
+  }
+  rpc GetPoint(GetPointRequest) returns (Point) {
+    option (google.api.http) = {get: "/api/points/{ID}"};
+  }
+  rpc ListPoints(ListPointsRequest) returns (ListPointsResponse) {
+    option (google.api.http) = {get: "/api/cus/{CUID}/points"};
+  }
+  rpc UpdatePoint(UpdatePointRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/api/points/{ID}"
+      body: "*"
+    };
+  }
+  rpc DeletePoint(DeletePointRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/points/{ID}"};
+  }
+  rpc BatchCreatePoints(BatchCreatePointsRequest) returns (BatchCreatePointsResponse) {
+    option (google.api.http) = {
+      post: "/api/cus/{CUID}/points:batchCreate"
+      body: "*"
+    };
+  }
+
+  rpc GetJob(GetJobRequest) returns (Job) {
+    option (google.api.http) = {get: "/api/import-jobs/{ID}"};
+  }
+  rpc SubmitBatchImport(SubmitBatchRequest) returns (SubmitBatchResponse) {
+    option (google.api.http) = {
+      post: "/api/import-jobs:submit"
+      body: "*"
+    };
+  }
+  rpc SubmitBatchDelete(SubmitBatchDeleteRequest) returns (SubmitBatchResponse) {
+    option (google.api.http) = {
+      post: "/api/delete-jobs:submit"
+      body: "*"
+    };
+  }
+  rpc RetryJob(RetryJobRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/api/import-jobs/{ID}:retry"
+      body: "*"
+    };
+  }
+}

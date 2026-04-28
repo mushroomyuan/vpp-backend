@@ -1,0 +1,21 @@
+version: v2
+
+modules:
+  - path: .
+    excludes:
+      - gen
+
+deps:
+  # We vendor google/api protos under third_party/, but declaring the upstream
+  # module also makes imports work even if we later stop vendoring.
+  - buf.build/googleapis/googleapis
+
+lint:
+  use:
+    - STANDARD
+  ignore:
+    - third_party
+
+breaking:
+  use:
+    - FILE

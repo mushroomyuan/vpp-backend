@@ -1,0 +1,13 @@
+
+
+syntax = "proto3";
+
+package resourcepb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
+
+message BatchItemError {
+  int32 Index = 1;
+  string Name = 2;
+  string Reason = 3;
+}

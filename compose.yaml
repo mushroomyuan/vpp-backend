@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  consul:
+    image: hashicorp/consul
+    command: agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0
+    ports:
+      - 8500:8500
+      - 8600:8600/udp
+
+  jaeger:
+    image: "jaegertracing/all-in-one:latest"
+    ports:
+      - "6831:6831"
+      - "16686:16686"
+      - "14268:14268"
+      - "4318:4318"
+      - "4317:4317"
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+
+
+  prometheus:
+    image: prom/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+
+
+  postgres:
+    image: postgres:16-alpine
+    restart: on-failure
+    ports:
+      - "5432:5432"
+    environment:
+      # Keep in sync with config/resource.yaml → database.*
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: resource
+    volumes:
+      - ./migrations/resource/000001_init.up.sql:/docker-entrypoint-initdb.d/10-resource-schema.sql
+      - ./data/postgres_data:/var/lib/postgresql/data
+
+

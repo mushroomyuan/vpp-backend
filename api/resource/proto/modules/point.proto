@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package resourcepb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/wrappers.proto";
+import "modules/common.proto";
+import "modules/error.proto";
+
+message Point {
+  string ID = 1;
+  string ResourceID = 2;
+  string CUID = 3;
+  string PointKey = 4;
+  string ExternalAddress = 5;
+  PointDataType DataType = 6;
+  google.protobuf.Struct ExtConfig = 7;
+  string Description = 8;
+  bool ControlFlag = 9;
+  bool IsVirtual = 10;
+  google.protobuf.Struct SafetyThresholds = 11;
+  string CacheKeyAlias = 12;
+}
+
+message CreatePointRequest {
+  string ResourceID = 1;
+  string CUID = 2;
+  string PointKey = 3;
+  string ExternalAddress = 4;
+  PointDataType DataType = 5;
+  google.protobuf.Struct ExtConfig = 6;
+  string Description = 7;
+  bool ControlFlag = 8;
+  bool IsVirtual = 9;
+  google.protobuf.Struct SafetyThresholds = 10;
+  string CacheKeyAlias = 11;
+}
+
+message CreatePointResponse {
+  string PointID = 1;
+}
+
+message UpdatePointRequest {
+  string ID = 1;
+  string PointKey = 2;
+  string ExternalAddress = 3;
+  PointDataType DataType = 4;
+  google.protobuf.Struct ExtConfig = 5;
+  string Description = 6;
+  bool ControlFlag = 7;
+  bool IsVirtual = 8;
+  google.protobuf.Struct SafetyThresholds = 9;
+  string CacheKeyAlias = 10;
+}
+
+message DeletePointRequest {
+  string ID = 1;
+}
+
+message GetPointRequest {
+  string ID = 1;
+}
+
+message ListPointsRequest {
+  string TenantID = 1;
+  string SiteID = 2;
+  string CUID = 3;
+  repeated string PointKeys = 4;
+  google.protobuf.BoolValue IsVirtual = 5;
+  repeated string DataTypes = 6;
+  repeated string IDs = 7;
+  int32 Offset = 8;
+  int32 Limit = 9;
+}
+
+message ListPointsResponse {
+  repeated Point Points = 1;
+}
+
+message PointItem {
+  string PointKey = 1;
+  string ExternalAddress = 2;
+  PointDataType DataType = 3;
+  google.protobuf.Struct ExtConfig = 4;
+  string Description = 5;
+  bool ControlFlag = 6;
+  bool IsVirtual = 7;
+  google.protobuf.Struct SafetyThresholds = 8;
+  string CacheKeyAlias = 9;
+}
+
+
+
+message BatchCreatePointsRequest {
+  string ResourceID = 1;
+  string CUID = 2;
+  repeated PointItem Items = 3;
+  int32 BatchSize = 4;
+}
+
+message BatchCreatePointsResponse {
+  repeated string PointIDs = 1;
+  repeated BatchItemError FailedItems = 2;
+  int32 TotalCount = 3;
+  int32 SuccessCount = 4;
+}

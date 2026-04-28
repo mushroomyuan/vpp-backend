@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package resourcepb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
+
+import "modules/common.proto";
+
+message Site {
+  string ID = 1;
+  string TenantID = 2;
+  string Name = 3;
+  Location Location = 4;
+  string Description = 5;
+  SiteStatus Status = 6;
+}
+
+message CreateSiteRequest {
+  string TenantID = 1;
+  string Name = 2;
+  Location Location = 3;
+  string Description = 4;
+  SiteStatus Status = 5;
+}
+
+message CreateSiteResponse {
+  string SiteID = 1;
+}
+
+message UpdateSiteRequest {
+  string TenantID = 1;
+  string ID = 2;
+  string Name = 3;
+  Location Location = 4;
+  string Description = 5;
+  SiteStatus Status = 6;
+}
+
+message DeleteSiteRequest {
+  string TenantID = 1;
+  string ID = 2;
+}
+
+message GetSiteRequest {
+  string TenantID = 1;
+  string ID = 2;
+}
+
+message ListSitesRequest {
+  string TenantID = 1;
+  repeated string IDs = 2;
+  repeated string Status = 3;
+  string NameLike = 4;
+  int32 Offset = 5;
+  int32 Limit = 6;
+}
+
+message ListSitesResponse {
+  repeated Site Sites = 1;
+}
+

@@ -1,0 +1,46 @@
+# 忽略可执行文件和临时文件
+*.exe      # Windows 可执行文件
+*.exe~     # 临时 Windows 可执行文件
+*.dll      # Windows 动态链接库
+*.so       # Linux 共享库
+*.dylib    # macOS 动态库
+
+*.test     # Go 生成的测试可执行文件
+*.out      # 编译输出的二进制文件
+
+# 忽略 Go 相关文件
+go.work     # Go 工作区文件
+go.work.sum # Go 工作区依赖信息
+
+# 忽略 IDE 及编辑器配置文件
+.idea/      # JetBrains IDE (如 GoLand) 生成的项目配置文件
+**/.idea/
+.idea/*
+*/.idea/
+.vscode/    # VSCode 项目配置文件
+
+# 忽略 macOS 及 Linux 生成的系统文件
+.DS_Store   # macOS 目录元数据文件
+
+# Go 相关的临时缓存文件
+.gobincache/ # Go 编译缓存目录
+
+# 临时文件和目录
+**/tmp/     # 所有子目录中的 tmp 文件夹
+tmp/
+tmp/*
+*/tmp/
+**/tmp/
+**/bin/     # 所有子目录中的 bin 文件夹 (用于存放编译生成的可执行文件)
+
+data/
+**/log/
+log/
+log/*
+*/log/
+
+
+# 环境变量和敏感信息文件
+.env        # 环境变量配置文件 (可能包含数据库凭据、API Key 等)
+.env.local  # 本地开发环境的环境变量文件
+.env.*      # 其他环境相关的 env 文件
