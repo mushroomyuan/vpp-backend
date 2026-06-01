@@ -51,7 +51,13 @@ services:
       POSTGRES_PASSWORD: postgres123
       POSTGRES_DB: resource
     volumes:
-      - ./migrations/resource/000001_init.up.sql:/docker-entrypoint-initdb.d/10-resource-schema.sql
+      - ./migrations/resource/initdb:/docker-entrypoint-initdb.d
       - ./data/postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: on-failure
+    ports:
+      - "6379:6379"
 
 

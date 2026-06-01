@@ -5,13 +5,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// Site builds a GORM query for the sites table.
-// All setter methods return *Site to allow method chaining.
+// Site builds a GORM query for the sites extension table.
 type Site struct {
 	tenantID string
-	ids      []string
-	statuses []int8
-	nameLike string
+	nodeIDs  []string // sites.node_id (same as site node id)
+	statuses []int8   // operating_status
+	nameLike string   // nodes.display_name
 	limit    int
 	offset   int
 }
@@ -19,7 +18,7 @@ type Site struct {
 func NewSite() *Site { return &Site{} }
 
 func (s *Site) TenantID(v string) *Site          { s.tenantID = v; return s }
-func (s *Site) IDs(v ...string) *Site            { s.ids = v; return s }
+func (s *Site) IDs(v ...string) *Site            { s.nodeIDs = v; return s }
 func (s *Site) NameLike(v string) *Site          { s.nameLike = v; return s }
 func (s *Site) Paginate(limit, offset int) *Site { s.limit = limit; s.offset = offset; return s }
 
@@ -34,21 +33,21 @@ func (s *Site) StatusNames(names ...string) *Site {
 	return s
 }
 
-// Fill applies all stored conditions to db and returns the modified chain.
-// Pagination (LIMIT/OFFSET) is applied only when Paginate has been called.
 func (s *Site) Fill(db *gorm.DB) *gorm.DB {
-	db = db.Order("created_at DESC")
+	db = db.Table("sites").Order("sites.created_at DESC")
 	if s.tenantID != "" {
-		db = db.Where("tenant_id = ?", s.tenantID)
+		db = db.Where("sites.tenant_id = ?", s.tenantID)
 	}
-	if len(s.ids) > 0 {
-		db = db.Where("id IN ?", s.ids)
+	if len(s.nodeIDs) > 0 {
+		db = db.Where("sites.node_id IN ?", s.nodeIDs)
 	}
 	if len(s.statuses) > 0 {
-		db = db.Where("status IN ?", s.statuses)
+		db = db.Where("sites.operating_status IN ?", s.statuses)
 	}
 	if s.nameLike != "" {
-		db = db.Where("name ILIKE ?", "%"+s.nameLike+"%")
+		db = db.Joins(`JOIN nodes AS sn ON sn.id = sites.node_id AND sn.deleted_at IS NULL`).
+			Where("sn.display_name ILIKE ?", "%"+s.nameLike+"%").
+			Select("sites.*")
 	}
 	if s.limit > 0 {
 		db = db.Limit(s.limit).Offset(s.offset)
@@ -56,7 +55,6 @@ func (s *Site) Fill(db *gorm.DB) *gorm.DB {
 	return db
 }
 
-// FormatArg implements logging.ArgFormatter so WhenDB can log the query params.
 func (s *Site) FormatArg() (string, error) {
 	return util.MarshalString(s)
 }

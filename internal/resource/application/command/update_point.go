@@ -11,6 +11,7 @@ import (
 
 type UpdatePoint struct {
 	ID               string
+	TenantID         string
 	PointKey         string
 	ExternalAddress  string
 	DataType         model.DataType
@@ -45,7 +46,7 @@ func (h updatePointHandler) Handle(ctx context.Context, cmd UpdatePoint) (struct
 	ctx, span := telemetry.Start(ctx, "update_point")
 	defer span.End()
 
-	point, err := h.pointRepo.FindByID(ctx, cmd.ID)
+	point, err := h.pointRepo.FindByID(ctx, cmd.TenantID, cmd.ID)
 	if err != nil {
 		return struct{}{}, err
 	}
@@ -53,11 +54,11 @@ func (h updatePointHandler) Handle(ctx context.Context, cmd UpdatePoint) (struct
 	point.PointKey = cmd.PointKey
 	point.ExternalAddress = cmd.ExternalAddress
 	point.DataType = cmd.DataType
-	point.ExtConfig = cmd.ExtConfig
+	point.SetExtConfig(cmd.ExtConfig)
 	point.Description = cmd.Description
 	point.ControlFlag = cmd.ControlFlag
 	point.IsVirtual = cmd.IsVirtual
-	point.SafetyThresholds = cmd.SafetyThresholds
+	point.SetSafetyThresholds(cmd.SafetyThresholds)
 	point.CacheKeyAlias = cmd.CacheKeyAlias
 
 	if err := h.pointRepo.Update(ctx, point); err != nil {

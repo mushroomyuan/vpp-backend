@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package resourcepb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
+
+import "google/protobuf/struct.proto";
+import "modules/common.proto";
+import "modules/error.proto";
+import "modules/runtime.proto";
+
+
+message Asset {
+  string ID = 1;
+  string TenantID = 2;
+  string SiteID = 3;
+  string Name = 4;
+  string DispatchStatus = 5;
+  double RatedCapacityKW = 6;
+  string DispatchMode = 7;
+  string EnergyType = 8;
+  string OwnerType = 9;
+  string SubType = 10;
+  string Description = 11;
+  bool MarketEnabled = 12;
+  google.protobuf.Struct Metadata = 13;
+  AssetRuntime Runtime = 14;
+}
+
+
+message CreateAssetRequest {
+  string TenantID = 1;
+  string SiteID = 2;
+  string Name = 3;
+  string DispatchStatus = 4;
+  double RatedCapacityKW = 5;
+  string DispatchMode = 6;
+  string EnergyType = 7;
+  string OwnerType = 8;
+  string SubType = 9;
+  string Description = 10;
+  bool MarketEnabled = 11;
+  google.protobuf.Struct Metadata = 12;
+}
+
+message CreateAssetResponse {
+  string AssetID = 1;
+}
+
+message UpdateAssetRequest {
+  string TenantID = 1;
+  string ID = 2;
+  string Name = 3;
+  string DispatchStatus = 4;
+  double RatedCapacityKW = 5;
+  string DispatchMode = 6;
+  string EnergyType = 7;
+  string OwnerType = 8;
+  string SubType = 9;
+  string Description = 10;
+  bool MarketEnabled = 11;
+  google.protobuf.Struct Metadata = 12;
+}
+
+
+
+message GetAssetRequest {
+  string TenantID = 1;
+  string ID = 2;
+}
+
+message ListAssetsRequest {
+  string TenantID = 1;
+  string SiteID = 2;
+  repeated string IDs = 3;
+  repeated string Types = 4;
+  string NameLike = 5;
+  int32 Offset = 6;
+  int32 Limit = 7;
+}
+
+message ListAssetsResponse {
+  repeated Asset Assets = 1;
+}
+
+message AssetItem {
+  string Name = 1;
+  string DispatchStatus = 2;
+  double RatedCapacityKW = 3;
+  string DispatchMode = 4;
+  string EnergyType = 5;
+  string OwnerType = 6;
+  string SubType = 7;
+  string Description = 8;
+  bool MarketEnabled = 9;
+  google.protobuf.Struct Metadata = 10;
+}
+
+message BatchCreateAssetsRequest {
+  string TenantID = 1;
+  string SiteID = 2;
+  repeated AssetItem Items = 3;
+  int32 BatchSize = 4;
+}
+
+message BatchCreateAssetsResponse {
+  repeated string AssetIDs = 1;
+  repeated BatchItemError FailedItems = 2;
+  int32 TotalCount = 3;
+  int32 SuccessCount = 4;
+}

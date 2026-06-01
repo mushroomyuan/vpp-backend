@@ -11,9 +11,9 @@ type CURepository interface {
 	BatchCreate(ctx context.Context, cus []*model.CU) error
 	Update(ctx context.Context, cu *model.CU) error
 
-	FindByID(ctx context.Context, id string) (*model.CU, error)
-	List(ctx context.Context, filter CUFilter) ([]*model.CU, error)
+	FindByID(ctx context.Context, tenantID, id string) (*model.CU, error)
+	List(ctx context.Context, filter CUFilter) (*PageResult[*model.CU], error)
 
-	SoftDelete(ctx context.Context, id string) error
-	BatchDelete(ctx context.Context, tenantID string, ids []string) error
+	// SoftDelete(ctx context.Context,tenantID, id string) error
+	// BatchDelete(ctx context.Context, tenantID string, ids []string) error
 }

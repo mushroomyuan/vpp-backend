@@ -28,12 +28,10 @@ func (r *SiteRepository) UpdateSite(ctx context.Context, s *SiteModel) (err erro
 	defer func() { deferLog(nil, &err) }()
 	result := r.pg.DB().WithContext(ctx).
 		Model(&SiteModel{}).
-		Where("id = ? AND tenant_id = ?", s.ID, s.TenantID).
+		Where("node_id = ? AND tenant_id = ?", s.NodeID, s.TenantID).
 		Updates(map[string]any{
-			"name":        s.Name,
-			"location":    s.Location,
-			"description": s.Description,
-			"status":      s.Status,
+			"location":         s.Location,
+			"operating_status": s.OperatingStatus,
 		})
 	if result.Error != nil {
 		return result.Error
@@ -56,9 +54,18 @@ func (r *SiteRepository) FindSiteByID(ctx context.Context, query *builder.Site) 
 	return
 }
 
-func (r *SiteRepository) ListSites(ctx context.Context, query *builder.Site) (results []*SiteModel, err error) {
+func (r *SiteRepository) ListSites(ctx context.Context, query *builder.Site) (results []*SiteModel, totalCount int64, err error) {
 	_, deferLog := logging.WhenDB(ctx, "SiteRepository.ListSites", query)
 	defer func() { deferLog(results, &err) }()
+
+	countDB := query.Fill(r.pg.DB().WithContext(ctx)).Session(&gorm.Session{}).Limit(-1).Offset(-1)
+	if err = countDB.Count(&totalCount).Error; err != nil {
+		return
+	}
+	if totalCount == 0 {
+		return nil, 0, nil
+	}
+
 	err = query.Fill(r.pg.DB().WithContext(ctx)).Find(&results).Error
 	return
 }

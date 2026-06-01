@@ -5,7 +5,6 @@ import (
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
-	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -22,24 +21,32 @@ type ListPoints struct {
 }
 
 type ListPointsResult struct {
-	Points []*model.Point
+	Items      []*PointView
+	TotalCount int64
+	Offset     int
+	Limit      int
 }
 
 type ListPointsHandler decorator.QueryHandler[ListPoints, *ListPointsResult]
 
 type listPointsHandler struct {
-	pointRepo port.PointRepository
+	pointRepo    port.PointRepository
+	pointRuntime port.PointRuntimeReader
 }
 
 func NewListPointsHandler(
 	pointRepo port.PointRepository,
+	pointRuntime port.PointRuntimeReader,
 	metricClient decorator.MetricsClient,
 ) ListPointsHandler {
 	if pointRepo == nil {
 		panic("NewListPointsHandler parameter pointRepo is nil")
 	}
+	if pointRuntime == nil {
+		panic("NewListPointsHandler parameter pointRuntime is nil")
+	}
 	return decorator.ApplyQueryDecorators[ListPoints, *ListPointsResult](
-		listPointsHandler{pointRepo: pointRepo},
+		listPointsHandler{pointRepo: pointRepo, pointRuntime: pointRuntime},
 		metricClient,
 	)
 }
@@ -62,9 +69,41 @@ func (h listPointsHandler) Handle(ctx context.Context, q ListPoints) (*ListPoint
 		IDs:       q.IDs,
 	}
 
-	points, err := h.pointRepo.List(ctx, filter)
+	page, err := h.pointRepo.List(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
-	return &ListPointsResult{Points: points}, nil
+
+	items := make([]*PointView, 0, len(page.Items))
+	if len(page.Items) == 0 {
+		return &ListPointsResult{
+			Items:      items,
+			TotalCount: page.TotalCount,
+			Offset:     page.Offset,
+			Limit:      page.Limit,
+		}, nil
+	}
+
+	pointIDs := make([]string, len(page.Items))
+	for i, point := range page.Items {
+		pointIDs[i] = point.ID
+	}
+	runtimeByID, err := h.pointRuntime.MGetPointRuntimes(ctx, q.TenantID, pointIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, point := range page.Items {
+		items = append(items, &PointView{
+			Point:   point,
+			Runtime: runtimeByID[point.ID],
+		})
+	}
+
+	return &ListPointsResult{
+		Items:      items,
+		TotalCount: page.TotalCount,
+		Offset:     page.Offset,
+		Limit:      page.Limit,
+	}, nil
 }

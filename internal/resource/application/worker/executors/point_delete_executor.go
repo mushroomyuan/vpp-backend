@@ -3,6 +3,7 @@ package executors
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/mushroomyuan/vpp-backend/resource/application/batch"
@@ -38,6 +39,8 @@ func (e *PointDeleteExecutor) Execute(ctx context.Context, job *model.Job) ([]by
 		return nil, fmt.Errorf("unmarshal point delete payload: %w", err)
 	}
 
+	succeeded := 0
+	failed := 0
 	if err := batch.BatchDeletePoints(
 		ctx,
 		e.pointRepo,
@@ -50,6 +53,14 @@ func (e *PointDeleteExecutor) Execute(ctx context.Context, job *model.Job) ([]by
 			return nil
 		},
 	); err != nil {
+		var partialErr *batch.BatchDeletePointsPartialError
+		if errors.As(err, &partialErr) {
+			succeeded = partialErr.Succeeded
+			failed = len(partialErr.FailedIDs)
+			job.Total = len(payload.IDs)
+			job.Succeeded = succeeded
+			job.FailedCount = failed
+		}
 		return nil, err
 	}
 

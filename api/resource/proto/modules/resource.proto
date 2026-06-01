@@ -5,91 +5,94 @@ package resourcepb;
 option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
 
 import "google/protobuf/struct.proto";
+import "modules/common.proto";
 import "modules/error.proto";
 
+
+// Resource represents the node table entity exposed as "resource" in
+// application/business semantics.
 message Resource {
   string ID = 1;
   string TenantID = 2;
-  string SiteID = 3;
-  string Name = 4;
+  string ParentID = 3;
+  string DisplayName = 4;
   string Type = 5;
-  double Capacity = 6;
-  string Manufacturer = 7;
-  string Model = 8;
-  google.protobuf.Struct Metadata = 9;
+  string SubType = 6;
+  ResourceLifecycleStatus LifecycleStatus = 7;
+  string Description = 8;
+  string Path = 9;
+  int32 Depth = 10;
+  google.protobuf.Struct Metadata = 11;
 }
 
-message CreateResourceRequest {
+message MoveResourceRequest {
   string TenantID = 1;
-  string SiteID = 2;
-  string Name = 3;
-  string Type = 4;
-  double Capacity = 5;
-  string Manufacturer = 6;
-  string Model = 7;
-  google.protobuf.Struct Metadata = 8;
+  string ResourceID = 2;
+  string NewParentID = 3;
 }
 
-message CreateResourceResponse {
-  string ResourceID = 1;
-}
-
-message UpdateResourceRequest {
+message BatchMoveResourcesRequest {
   string TenantID = 1;
-  string ID = 2;
-  string Name = 3;
-  string Type = 4;
-  double Capacity = 5;
-  string Manufacturer = 6;
-  string Model = 7;
-  google.protobuf.Struct Metadata = 8;
+  repeated string ResourceIDs = 2;
+  string NewParentID = 3;
+}
+
+message BatchMoveResourcesResponse {
+  int32 MovedCount = 1;
+}
+
+message RenameResourceRequest {
+  string TenantID = 1;
+  string ResourceID = 2;
+  string NewName = 3;
+}
+
+message ChangeResourceLifecycleRequest {
+  string TenantID = 1;
+  string ResourceID = 2;
+  ResourceLifecycleStatus Status = 3;
+}
+
+message GetResourceDetailRequest {
+  string TenantID = 1;
+  string ResourceID = 2;
+}
+
+message ListChildrenRequest {
+  string TenantID = 1;
+  string ParentID = 2;
+  int32 Offset = 3;
+  int32 Limit = 4;
+}
+
+message ListChildrenResponse {
+  repeated Resource Items = 1;
+  int32 TotalCount = 2;
+  int32 Offset = 3;
+  int32 Limit = 4;
+}
+
+message GetBreadcrumbRequest {
+  string TenantID = 1;
+  string ResourceID = 2;
+}
+
+message GetBreadcrumbResponse {
+  repeated Resource Items = 1;
+}
+
+message ExportResourceTreeRequest {
+  string TenantID = 1;
+  string RootID = 2;
+  int32 MaxDepth = 3;
+}
+
+message ExportResourceTreeResponse {
+  repeated Resource Items = 1;
 }
 
 message DeleteResourceRequest {
   string TenantID = 1;
   string ID = 2;
-}
-
-message GetResourceRequest {
-  string TenantID = 1;
-  string ID = 2;
-}
-
-message ListResourcesRequest {
-  string TenantID = 1;
-  string SiteID = 2;
-  repeated string IDs = 3;
-  repeated string Types = 4;
-  string NameLike = 5;
-  int32 Offset = 6;
-  int32 Limit = 7;
-}
-
-message ListResourcesResponse {
-  repeated Resource Resources = 1;
-}
-
-message ResourceItem {
-  string Name = 1;
-  string Type = 2;
-  double Capacity = 3;
-  string Manufacturer = 4;
-  string Model = 5;
-  google.protobuf.Struct Metadata = 6;
-}
-
-
-
-message BatchCreateResourcesRequest {
-  string TenantID = 1;
-  string SiteID = 2;
-  repeated ResourceItem Items = 3;
-  int32 BatchSize = 4;
-}
-
-message BatchCreateResourcesResponse {
-  repeated string ResourceIDs = 1;
-  repeated BatchItemError FailedItems = 2;
-  int32 TotalCount = 3;
-  int32 SuccessCount = 4;
+  bool IncludeDescendants = 3;
 }

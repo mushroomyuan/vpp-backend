@@ -9,7 +9,8 @@ import (
 )
 
 type DeletePoint struct {
-	ID string
+	TenantID string
+	ID       string
 }
 
 type DeletePointHandler decorator.CommandHandler[DeletePoint, struct{}]
@@ -35,5 +36,5 @@ func (h deletePointHandler) Handle(ctx context.Context, cmd DeletePoint) (struct
 	ctx, span := telemetry.Start(ctx, "delete_point")
 	defer span.End()
 
-	return struct{}{}, h.pointRepo.SoftDelete(ctx, cmd.ID)
+	return struct{}{}, h.pointRepo.SoftDelete(ctx, cmd.TenantID, cmd.ID)
 }

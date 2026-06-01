@@ -3,171 +3,260 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/infrastructure/persistent/postgres"
 )
 
-// ─── Site ─────────────────────────────────────────────────────────────────────
+// ─── Node (shared tree row) ───────────────────────────────────────────────────
+
+func NodeDomainToDB(n *model.Node) (*postgres.NodeModel, error) {
+	meta := n.Metadata
+	if meta == nil {
+		meta = map[string]any{}
+	}
+	metaBytes, err := json.Marshal(meta)
+	if err != nil {
+		return nil, fmt.Errorf("marshal node metadata: %w", err)
+	}
+	return &postgres.NodeModel{
+		ID:              n.ID,
+		TenantID:        n.TenantID,
+		ParentID:        n.ParentID,
+		DisplayName:     n.DisplayName,
+		Type:            n.Type,
+		SubType:         n.SubType,
+		LifecycleStatus: string(n.LifecycleStatus),
+		Description:     n.Description,
+		Path:            n.Path,
+		Depth:           n.Depth,
+		Metadata:        metaBytes,
+		Version:         n.Version,
+		CreatedAt:       n.CreatedAt,
+		UpdatedAt:       n.UpdatedAt,
+	}, nil
+}
+
+func NodeDBToDomain(row *postgres.NodeModel) (*model.Node, error) {
+	var meta map[string]any
+	if len(row.Metadata) > 0 && string(row.Metadata) != "null" {
+		if err := json.Unmarshal(row.Metadata, &meta); err != nil {
+			return nil, fmt.Errorf("unmarshal node metadata: %w", err)
+		}
+	}
+	if meta == nil {
+		meta = make(map[string]any)
+	}
+	var deletedAt *time.Time
+	if row.DeletedAt.Valid {
+		t := row.DeletedAt.Time
+		deletedAt = &t
+	}
+	return &model.Node{
+		ID:              row.ID,
+		TenantID:        row.TenantID,
+		ParentID:        row.ParentID,
+		DisplayName:     row.DisplayName,
+		Type:            row.Type,
+		SubType:         row.SubType,
+		LifecycleStatus: model.NodeLifecycleStatus(row.LifecycleStatus),
+		Description:     row.Description,
+		Path:            row.Path,
+		Depth:           row.Depth,
+		Metadata:        meta,
+		Version:         row.Version,
+		DeletedAt:       deletedAt,
+		DeletedBy:       row.DeletedBy,
+		DeleteJobID:     row.DeleteJobID,
+		DeleteReason:    row.DeleteReason,
+		RestoredAt:      row.RestoredAt,
+		RestoredBy:      row.RestoredBy,
+		CreatedAt:       row.CreatedAt,
+		UpdatedAt:       row.UpdatedAt,
+	}, nil
+}
+
+// ─── Site extension (+ node) ──────────────────────────────────────────────────
 
 func SiteDomainToDB(s *model.Site) (*postgres.SiteModel, error) {
-	loc, err := json.Marshal(s.Location)
-	if err != nil {
-		return nil, fmt.Errorf("marshal location: %w", err)
+	var loc []byte
+	var err error
+	if s.Location != nil {
+		loc, err = json.Marshal(s.Location)
+		if err != nil {
+			return nil, fmt.Errorf("marshal location: %w", err)
+		}
+	} else {
+		loc = []byte("null")
 	}
 	return &postgres.SiteModel{
-		ID:          s.ID,
-		TenantID:    s.TenantID,
-		Name:        s.Name,
-		Location:    loc,
-		Description: s.Description,
-		Status:      int8(s.Status),
+		NodeID:          s.ID,
+		TenantID:        s.TenantID,
+		OperatingStatus: int8(s.OperatingStatus),
+		Location:        loc,
 	}, nil
 }
 
-func SiteDBToDomain(row *postgres.SiteModel) (*model.Site, error) {
-	var loc model.Location
-	if err := json.Unmarshal(row.Location, &loc); err != nil {
-		return nil, fmt.Errorf("unmarshal location: %w", err)
+func SiteToDomain(node *postgres.NodeModel, row *postgres.SiteModel) (*model.Site, error) {
+	n, err := NodeDBToDomain(node)
+	if err != nil {
+		return nil, err
+	}
+	var loc *model.Location
+	if len(row.Location) > 0 && string(row.Location) != "null" {
+		var l model.Location
+		if err := json.Unmarshal(row.Location, &l); err != nil {
+			return nil, fmt.Errorf("unmarshal location: %w", err)
+		}
+		loc = &l
 	}
 	return &model.Site{
-		ID:          row.ID,
-		TenantID:    row.TenantID,
-		Name:        row.Name,
-		Location:    loc,
-		Description: row.Description,
-		Status:      model.SiteStatus(row.Status),
+		Node:            *n,
+		OperatingStatus: model.OperatingStatus(row.OperatingStatus),
+		Location:        loc,
 	}, nil
 }
 
-func BatchSiteDBToDomain(rows []*postgres.SiteModel) ([]*model.Site, error) {
-	out := make([]*model.Site, 0, len(rows))
-	for _, row := range rows {
-		s, err := SiteDBToDomain(row)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, s)
-	}
-	return out, nil
+// ─── Asset extension (+ node) ─────────────────────────────────────────────────
+
+func AssetDomainToDB(a *model.Asset) (*postgres.AssetModel, error) {
+	return &postgres.AssetModel{
+		NodeID:          a.ID,
+		TenantID:        a.TenantID,
+		DispatchStatus:  string(a.DispatchStatus),
+		RatedCapacityKW: a.RatedCapacityKW,
+		DispatchMode:    a.DispatchMode,
+		EnergyType:      a.EnergyType,
+		OwnerType:       a.OwnerType,
+		MarketEnabled:   a.MarketEnabled,
+	}, nil
 }
 
-// ─── Resource ─────────────────────────────────────────────────────────────────
-
-func ResourceDomainToDB(r *model.Resource) (*postgres.ResourceModel, error) {
-	meta, err := json.Marshal(r.Metadata)
+func AssetToDomain(node *postgres.NodeModel, row *postgres.AssetModel) (*model.Asset, error) {
+	n, err := NodeDBToDomain(node)
 	if err != nil {
-		return nil, fmt.Errorf("marshal metadata: %w", err)
+		return nil, err
 	}
-	return &postgres.ResourceModel{
-		ID:           r.ID,
-		TenantID:     r.TenantID,
-		SiteID:       r.SiteID,
-		Name:         r.Name,
-		Type:         r.Type,
-		Capacity:     r.Capacity,
-		Manufacturer: r.Manufacturer,
-		Model:        r.Model,
-		Metadata:     meta,
+	return &model.Asset{
+		Node:            *n,
+		DispatchStatus:  model.DispatchStatus(row.DispatchStatus),
+		RatedCapacityKW: row.RatedCapacityKW,
+		DispatchMode:    row.DispatchMode,
+		EnergyType:      row.EnergyType,
+		OwnerType:       row.OwnerType,
+		MarketEnabled:   row.MarketEnabled,
 	}, nil
 }
 
-func ResourceDBToDomain(row *postgres.ResourceModel) (*model.Resource, error) {
-	var meta map[string]any
-	if len(row.Metadata) > 0 {
-		if err := json.Unmarshal(row.Metadata, &meta); err != nil {
-			return nil, fmt.Errorf("unmarshal metadata: %w", err)
-		}
-	}
-	return &model.Resource{
-		ID:           row.ID,
-		TenantID:     row.TenantID,
-		SiteID:       row.SiteID,
-		Name:         row.Name,
-		Type:         row.Type,
-		Capacity:     row.Capacity,
-		Manufacturer: row.Manufacturer,
-		Model:        row.Model,
-		Metadata:     meta,
-	}, nil
-}
-
-func BatchResourceDBToDomain(rows []*postgres.ResourceModel) ([]*model.Resource, error) {
-	out := make([]*model.Resource, 0, len(rows))
-	for _, row := range rows {
-		r, err := ResourceDBToDomain(row)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, r)
-	}
-	return out, nil
-}
-
-// ─── CU ───────────────────────────────────────────────────────────────────────
+// ─── CU extension (+ node) ────────────────────────────────────────────────────
 
 func CUDomainToDB(c *model.CU) (*postgres.CUModel, error) {
+	connStatus := string(c.ConnStatus)
+	if strings.TrimSpace(connStatus) == "" {
+		connStatus = string(model.ConnStatusUnknown)
+	}
 
-	tags, err := json.Marshal(c.CapabilityTags)
-	var parentCUID *string
-	if c.ParentCUID == "" {
-		parentCUID = nil
+	var tags []byte
+	var err error
+	if c.CapabilityTags == nil {
+		tags = []byte("[]")
 	} else {
-		parentCUID = &c.ParentCUID
+		tags, err = json.Marshal(c.CapabilityTags)
+		if err != nil {
+			return nil, fmt.Errorf("marshal capability_tags: %w", err)
+		}
 	}
-	if err != nil {
-		return nil, fmt.Errorf("marshal capability_tags: %w", err)
+
+	pc := []byte("{}")
+	if len(c.ProtocolConfig) > 0 {
+		pc, err = json.Marshal(c.ProtocolConfig)
+		if err != nil {
+			return nil, fmt.Errorf("marshal protocol_config: %w", err)
+		}
 	}
-	meta, err := json.Marshal(c.Metadata)
-	if err != nil {
-		return nil, fmt.Errorf("marshal metadata: %w", err)
+
+	var conn []byte
+	if c.Connection != nil {
+		conn, err = json.Marshal(c.Connection)
+		if err != nil {
+			return nil, fmt.Errorf("marshal connection: %w", err)
+		}
 	}
 
 	return &postgres.CUModel{
-		ID:             c.ID,
-		ResourceID:     c.ResourceID,
-		ParentCUID:     parentCUID,
-		Name:           c.Name,
-		Type:           c.Type,
+		NodeID:         c.ID,
+		TenantID:       c.TenantID,
+		ConnStatus:     connStatus,
+		Provider:       c.Provider,
+		ExternalID:     c.ExternalID,
+		Protocol:       c.Protocol,
+		ProtocolConfig: pc,
+		Connection:     conn,
 		CapabilityTags: tags,
-		Metadata:       meta,
 	}, nil
 }
 
-func CUDBToDomain(row *postgres.CUModel) (*model.CU, error) {
+// CUToDomain assembles a full CU aggregate from the nodes row and cus extension row.
+func CUToDomain(node *postgres.NodeModel, row *postgres.CUModel) (*model.CU, error) {
+	n, err := NodeDBToDomain(node)
+	if err != nil {
+		return nil, err
+	}
+
 	var tags []string
-	if len(row.CapabilityTags) > 0 {
+	if len(row.CapabilityTags) > 0 && string(row.CapabilityTags) != "null" {
 		if err := json.Unmarshal(row.CapabilityTags, &tags); err != nil {
 			return nil, fmt.Errorf("unmarshal capability_tags: %w", err)
 		}
 	}
-	var meta map[string]any
-	if len(row.Metadata) > 0 {
-		if err := json.Unmarshal(row.Metadata, &meta); err != nil {
-			return nil, fmt.Errorf("unmarshal metadata: %w", err)
+
+	var pc map[string]any
+	if len(row.ProtocolConfig) > 0 && string(row.ProtocolConfig) != "null" {
+		if err := json.Unmarshal(row.ProtocolConfig, &pc); err != nil {
+			return nil, fmt.Errorf("unmarshal protocol_config: %w", err)
 		}
 	}
-	var parentCUID string
-	if row.ParentCUID != nil {
-		parentCUID = *row.ParentCUID
-	} else {
-		parentCUID = ""
+	if pc == nil {
+		pc = make(map[string]any)
 	}
+
+	var conn *model.ConnectionConfig
+	if len(row.Connection) > 0 && string(row.Connection) != "null" {
+		var cc model.ConnectionConfig
+		if err := json.Unmarshal(row.Connection, &cc); err != nil {
+			return nil, fmt.Errorf("unmarshal connection: %w", err)
+		}
+		conn = &cc
+	}
+
+	st := model.ConnStatus(row.ConnStatus)
+	if strings.TrimSpace(string(st)) == "" {
+		st = model.ConnStatusUnknown
+	}
+
 	return &model.CU{
-		ID:             row.ID,
-		ResourceID:     row.ResourceID,
-		ParentCUID:     parentCUID,
-		Name:           row.Name,
-		Type:           row.Type,
+		Node:           *n,
+		ConnStatus:     st,
+		Provider:       row.Provider,
+		ExternalID:     row.ExternalID,
+		Protocol:       row.Protocol,
+		ProtocolConfig: pc,
+		Connection:     conn,
 		CapabilityTags: tags,
-		Metadata:       meta,
 	}, nil
 }
 
-func BatchCUDBToDomain(rows []*postgres.CUModel) ([]*model.CU, error) {
+// BatchCUToDomain merges cus rows with node rows keyed by node id (same pattern as Site / Asset list).
+func BatchCUToDomain(rows []*postgres.CUModel, nodeByID map[string]*postgres.NodeModel) ([]*model.CU, error) {
 	out := make([]*model.CU, 0, len(rows))
 	for _, row := range rows {
-		c, err := CUDBToDomain(row)
+		nm, ok := nodeByID[row.NodeID]
+		if !ok {
+			return nil, fmt.Errorf("cu %s: node row missing from batch", row.NodeID)
+		}
+		c, err := CUToDomain(nm, row)
 		if err != nil {
 			return nil, err
 		}
@@ -179,6 +268,9 @@ func BatchCUDBToDomain(rows []*postgres.CUModel) ([]*model.CU, error) {
 // ─── Point ────────────────────────────────────────────────────────────────────
 
 func PointDomainToDB(p *model.Point) (*postgres.PointModel, error) {
+	if strings.TrimSpace(p.TenantID) == "" {
+		return nil, fmt.Errorf("point tenant_id is required")
+	}
 	extCfg, err := json.Marshal(p.ExtConfig)
 	if err != nil {
 		return nil, fmt.Errorf("marshal ext_config: %w", err)
@@ -189,7 +281,8 @@ func PointDomainToDB(p *model.Point) (*postgres.PointModel, error) {
 	}
 	return &postgres.PointModel{
 		ID:               p.ID,
-		ResourceID:       p.ResourceID,
+		TenantID:         p.TenantID,
+		AssetID:          p.AssetID,
 		CUID:             p.CUID,
 		PointKey:         p.PointKey,
 		ExternalAddress:  p.ExternalAddress,
@@ -218,7 +311,8 @@ func PointDBToDomain(row *postgres.PointModel) (*model.Point, error) {
 	}
 	return &model.Point{
 		ID:               row.ID,
-		ResourceID:       row.ResourceID,
+		TenantID:         row.TenantID,
+		AssetID:          row.AssetID,
 		CUID:             row.CUID,
 		PointKey:         row.PointKey,
 		ExternalAddress:  row.ExternalAddress,
@@ -232,8 +326,6 @@ func PointDBToDomain(row *postgres.PointModel) (*model.Point, error) {
 	}, nil
 }
 
-// ─── Job ────────────────────────────────────────────────────────────────────
-
 func BatchPointDBToDomain(rows []*postgres.PointModel) ([]*model.Point, error) {
 	out := make([]*model.Point, 0, len(rows))
 	for _, row := range rows {
@@ -245,6 +337,8 @@ func BatchPointDBToDomain(rows []*postgres.PointModel) ([]*model.Point, error) {
 	}
 	return out, nil
 }
+
+// ─── Job ────────────────────────────────────────────────────────────────────
 
 func jobDomainToDB(j *model.Job) *postgres.JobModel {
 	return &postgres.JobModel{

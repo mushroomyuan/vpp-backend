@@ -22,25 +22,25 @@ type PointDeletePayload struct {
 
 // ── Payload types (stored in import_jobs.payload; tenant comes from Job.TenantID) ──
 
-// ResourceImportPayload is the JSON-encoded payload for import jobs with
-// model.JobTargetResource. Use model.Job.TenantID at execution time.
-type ResourceImportPayload struct {
-	SiteID    string         `json:"site_id"`
-	BatchSize int            `json:"batch_size,omitempty"`
-	Items     []ResourceItem `json:"items"`
+// AssetImportPayload is the JSON-encoded payload for import jobs with
+// model.JobTargetAsset. Use model.Job.TenantID at execution time.
+type AssetImportPayload struct {
+	SiteID    string      `json:"site_id"`
+	BatchSize int         `json:"batch_size,omitempty"`
+	Items     []AssetItem `json:"items"`
 }
 
 // CUImportPayload is the JSON-encoded payload for import jobs with model.JobTargetCU.
 type CUImportPayload struct {
-	ResourceID string   `json:"resource_id"`
-	BatchSize  int      `json:"batch_size,omitempty"`
-	Items      []CUItem `json:"items"`
+	AssetID   string   `json:"asset_id"`
+	BatchSize int      `json:"batch_size,omitempty"`
+	Items     []CUItem `json:"items"`
 }
 
 // PointImportPayload is the JSON-encoded payload for import jobs with model.JobTargetPoint.
 type PointImportPayload struct {
-	ResourceID string      `json:"resource_id"`
-	CUID       string      `json:"cu_id"`
-	BatchSize  int         `json:"batch_size,omitempty"`
-	Items      []PointItem `json:"items"`
+	AssetID   string      `json:"asset_id"`
+	CUID      string      `json:"cu_id"`
+	BatchSize int         `json:"batch_size,omitempty"`
+	Items     []PointItem `json:"items"`
 }

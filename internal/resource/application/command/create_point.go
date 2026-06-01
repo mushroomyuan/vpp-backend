@@ -2,6 +2,8 @@ package command
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
@@ -11,7 +13,8 @@ import (
 )
 
 type CreatePoint struct {
-	ResourceID       string
+	TenantID         string
+	AssetID          string
 	CUID             string
 	PointKey         string
 	ExternalAddress  string
@@ -32,17 +35,22 @@ type CreatePointHandler decorator.CommandHandler[CreatePoint, *CreatePointResult
 
 type createPointHandler struct {
 	pointRepo port.PointRepository
+	nodes     port.NodeRepository
 }
 
 func NewCreatePointHandler(
 	pointRepo port.PointRepository,
+	nodes port.NodeRepository,
 	metricClient decorator.MetricsClient,
 ) CreatePointHandler {
 	if pointRepo == nil {
 		panic("NewCreatePointHandler parameter pointRepo is nil")
 	}
+	if nodes == nil {
+		panic("NewCreatePointHandler parameter nodes is nil")
+	}
 	return decorator.ApplyCommandDecorators[CreatePoint, *CreatePointResult](
-		createPointHandler{pointRepo: pointRepo},
+		createPointHandler{pointRepo: pointRepo, nodes: nodes},
 		metricClient,
 	)
 }
@@ -52,20 +60,35 @@ func (h createPointHandler) Handle(ctx context.Context, cmd CreatePoint) (*Creat
 	defer span.End()
 
 	id := idgen.Must()
-	point, err := model.NewPoint(
-		id,
-		cmd.ResourceID,
-		cmd.CUID,
-		cmd.PointKey,
-		cmd.ExternalAddress,
-		cmd.DataType,
-		cmd.ExtConfig,
-		cmd.Description,
-		cmd.ControlFlag,
-		cmd.IsVirtual,
-		cmd.SafetyThresholds,
-		cmd.CacheKeyAlias,
-	)
+
+	tenantID := strings.TrimSpace(cmd.TenantID)
+	if tenantID == "" {
+		rid := strings.TrimSpace(cmd.AssetID)
+		if rid == "" {
+			return nil, fmt.Errorf("tenant_id is required when resource_id is empty")
+		}
+		tid, err := h.nodes.TenantIDForNode(ctx, rid)
+		if err != nil {
+			return nil, fmt.Errorf("resolve tenant_id from resource: %w", err)
+		}
+		tenantID = tid
+	}
+
+	point, err := model.NewPoint(model.CreatePointParams{
+		ID:               id,
+		TenantID:         tenantID,
+		AssetID:          strings.TrimSpace(cmd.AssetID),
+		CUID:             strings.TrimSpace(cmd.CUID),
+		PointKey:         cmd.PointKey,
+		ExternalAddress:  cmd.ExternalAddress,
+		DataType:         cmd.DataType,
+		ExtConfig:        cmd.ExtConfig,
+		Description:      cmd.Description,
+		ControlFlag:      cmd.ControlFlag,
+		IsVirtual:        cmd.IsVirtual,
+		SafetyThresholds: cmd.SafetyThresholds,
+		CacheKeyAlias:    cmd.CacheKeyAlias,
+	})
 	if err != nil {
 		return nil, err
 	}

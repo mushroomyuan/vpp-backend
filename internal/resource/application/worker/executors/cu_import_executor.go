@@ -41,7 +41,7 @@ func (e *CUImportExecutor) Execute(ctx context.Context, job *model.Job) ([]byte,
 	allIDs, err := batch.BatchCreateCUs(
 		ctx,
 		e.cuRepo,
-		payload.ResourceID,
+		job.TenantID,
 		payload.Items,
 		payload.BatchSize,
 		func(succeeded int) error {

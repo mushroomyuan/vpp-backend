@@ -10,16 +10,20 @@ import (
 )
 
 type ListSites struct {
-	TenantID string
-	IDs      []string
-	Status   []string
-	NameLike string
-	Offset   int
-	Limit    int
+	TenantID        string
+	IDs             []string
+	Status          []string
+	OperatingStatus []model.OperatingStatus
+	NameLike        string
+	Offset          int
+	Limit           int
 }
 
 type ListSitesResult struct {
-	Sites []*model.Site
+	Sites      []*model.Site
+	TotalCount int64
+	Offset     int
+	Limit      int
 }
 
 type ListSitesHandler decorator.QueryHandler[ListSites, *ListSitesResult]
@@ -56,9 +60,14 @@ func (h listSitesHandler) Handle(ctx context.Context, q ListSites) (*ListSitesRe
 		NameLike: q.NameLike,
 	}
 
-	sites, err := h.siteRepo.List(ctx, filter)
+	page, err := h.siteRepo.List(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
-	return &ListSitesResult{Sites: sites}, nil
+	return &ListSitesResult{
+		Sites:      page.Items,
+		TotalCount: page.TotalCount,
+		Offset:     page.Offset,
+		Limit:      page.Limit,
+	}, nil
 }

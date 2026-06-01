@@ -13,34 +13,50 @@ import (
 )
 
 type PointRepositoryPostgres struct {
-	repo *postgres.PointRepository
+	repo     *postgres.PointRepository
+	nodeRepo *postgres.NodeRepository
 }
 
-func NewPointRepositoryPostgres(repo *postgres.PointRepository) *PointRepositoryPostgres {
-	return &PointRepositoryPostgres{repo: repo}
+func NewPointRepositoryPostgres(repo *postgres.PointRepository, nodeRepo *postgres.NodeRepository) *PointRepositoryPostgres {
+	if repo == nil || nodeRepo == nil {
+		panic("NewPointRepositoryPostgres: repo and nodeRepo are required")
+	}
+	return &PointRepositoryPostgres{repo: repo, nodeRepo: nodeRepo}
 }
 
 var _ port.PointRepository = (*PointRepositoryPostgres)(nil)
 
 func (r *PointRepositoryPostgres) Create(ctx context.Context, p *model.Point) (*model.Point, error) {
-	row, err := PointDomainToDB(p)
+	pcopy := *p
+	if pcopy.TenantID == "" {
+		tid, err := r.nodeRepo.TenantIDByNodeID(ctx, pcopy.AssetID)
+		if err != nil {
+			return nil, err
+		}
+		pcopy.TenantID = tid
+	}
+	row, err := PointDomainToDB(&pcopy)
 	if err != nil {
 		return nil, err
 	}
 	if err := r.repo.CreatePoint(ctx, row); err != nil {
 		return nil, err
 	}
-	res, err := PointDBToDomain(row)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
+	return PointDBToDomain(row)
 }
 
 func (r *PointRepositoryPostgres) BatchCreate(ctx context.Context, points []*model.Point) error {
 	rows := make([]*postgres.PointModel, 0, len(points))
 	for _, p := range points {
-		row, err := PointDomainToDB(p)
+		pcopy := *p
+		if pcopy.TenantID == "" {
+			tid, err := r.nodeRepo.TenantIDByNodeID(ctx, pcopy.AssetID)
+			if err != nil {
+				return err
+			}
+			pcopy.TenantID = tid
+		}
+		row, err := PointDomainToDB(&pcopy)
 		if err != nil {
 			return err
 		}
@@ -61,10 +77,12 @@ func (r *PointRepositoryPostgres) Update(ctx context.Context, p *model.Point) er
 	return err
 }
 
-func (r *PointRepositoryPostgres) FindByID(ctx context.Context, id string) (*model.Point, error) {
-	row, err := r.repo.FindPointByID(ctx,
-		builder.NewPoint().IDs(id),
-	)
+func (r *PointRepositoryPostgres) FindByID(ctx context.Context, tenantID, id string) (*model.Point, error) {
+	q := builder.NewPoint().IDs(id)
+	if tenantID != "" {
+		q = q.TenantID(tenantID)
+	}
+	row, err := r.repo.FindPointByID(ctx, q)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domain.ErrPointNotFound
 	}
@@ -74,7 +92,7 @@ func (r *PointRepositoryPostgres) FindByID(ctx context.Context, id string) (*mod
 	return PointDBToDomain(row)
 }
 
-func (r *PointRepositoryPostgres) List(ctx context.Context, f port.PointFilter) ([]*model.Point, error) {
+func (r *PointRepositoryPostgres) List(ctx context.Context, f port.PointFilter) (*port.PageResult[*model.Point], error) {
 	q := builder.NewPoint().
 		TenantID(f.TenantID).
 		SiteID(f.SiteID).
@@ -86,15 +104,36 @@ func (r *PointRepositoryPostgres) List(ctx context.Context, f port.PointFilter) 
 	if f.IsVirtual != nil {
 		q = q.IsVirtual(*f.IsVirtual)
 	}
-	rows, err := r.repo.ListPoints(ctx, q)
+	rows, totalCount, err := r.repo.ListPoints(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	return BatchPointDBToDomain(rows)
+	if len(rows) == 0 {
+		return &port.PageResult[*model.Point]{
+			Items:      []*model.Point{},
+			TotalCount: totalCount,
+			Offset:     f.Offset,
+			Limit:      f.Limit,
+		}, nil
+	}
+	items, err := BatchPointDBToDomain(rows)
+	if err != nil {
+		return nil, err
+	}
+	return &port.PageResult[*model.Point]{
+		Items:      items,
+		TotalCount: totalCount,
+		Offset:     f.Offset,
+		Limit:      f.Limit,
+	}, nil
 }
 
-func (r *PointRepositoryPostgres) SoftDelete(ctx context.Context, id string) error {
-	err := r.repo.SoftDeletePoint(ctx, builder.NewPoint().IDs(id))
+func (r *PointRepositoryPostgres) SoftDelete(ctx context.Context, tenantID, id string) error {
+	q := builder.NewPoint().IDs(id)
+	if tenantID != "" {
+		q = q.TenantID(tenantID)
+	}
+	err := r.repo.SoftDeletePoint(ctx, q)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return domain.ErrPointNotFound
 	}

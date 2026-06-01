@@ -45,9 +45,17 @@ func (h updateSiteHandler) Handle(ctx context.Context, cmd UpdateSite) (struct{}
 		return struct{}{}, err
 	}
 
-	site.Name = cmd.Name
-	site.Description = cmd.Description
-	site.Location = cmd.Location
+	if err := site.Rename(cmd.Name); err != nil {
+		return struct{}{}, err
+	}
+	site.UpdateDescription(cmd.Description)
+
+	var loc *model.Location
+	if cmd.Location != (model.Location{}) {
+		l := cmd.Location
+		loc = &l
+	}
+	site.SetLocation(loc)
 
 	if err = h.siteRepo.Update(ctx, site); err != nil {
 		return struct{}{}, err

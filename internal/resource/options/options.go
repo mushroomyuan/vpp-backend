@@ -12,6 +12,7 @@ type Options struct {
 	Resource ResourceOptions `mapstructure:"resource"`
 	Tracing  TracingOptions  `mapstructure:"tracing"`
 	Database DatabaseOptions `mapstructure:"database"`
+	Redis    RedisOptions    `mapstructure:"redis"`
 }
 
 type ResourceOptions struct {
@@ -53,6 +54,18 @@ type DatabaseOptions struct {
 	ConnMaxIdleTimeSeconds int `mapstructure:"conn-max-idle-time-seconds"`
 }
 
+type RedisOptions struct {
+	Addr                string `mapstructure:"addr"`
+	Password            string `mapstructure:"password"`
+	DB                  int    `mapstructure:"db"`
+	PoolSize            int    `mapstructure:"pool-size"`
+	MinIdleConns        int    `mapstructure:"min-idle-conns"`
+	DialTimeoutSeconds  int    `mapstructure:"dial-timeout-seconds"`
+	ReadTimeoutSeconds  int    `mapstructure:"read-timeout-seconds"`
+	WriteTimeoutSeconds int    `mapstructure:"write-timeout-seconds"`
+	PingTimeoutSeconds  int    `mapstructure:"ping-timeout-seconds"`
+}
+
 func NewOptions() *Options {
 	return &Options{
 		Resource: ResourceOptions{
@@ -63,16 +76,26 @@ func NewOptions() *Options {
 			PollInterval: 5 * time.Second,
 		},
 		Database: DatabaseOptions{
-			Driver:   "postgres",
-			Host:     "127.0.0.1",
-			Port:     5432,
-			User:     "postgres",
-			DBName:   "resource",
-			Params:   map[string]string{"sslmode": "disable", "TimeZone": "Asia/Shanghai"},
+			Driver:                 "postgres",
+			Host:                   "127.0.0.1",
+			Port:                   5432,
+			User:                   "postgres",
+			DBName:                 "resource",
+			Params:                 map[string]string{"sslmode": "disable", "TimeZone": "Asia/Shanghai"},
 			MaxOpenConns:           50,
 			MaxIdleConns:           10,
 			ConnMaxLifetimeSeconds: 1800,
 			ConnMaxIdleTimeSeconds: 300,
+		},
+		Redis: RedisOptions{
+			Addr:                "127.0.0.1:6379",
+			DB:                  0,
+			PoolSize:            10,
+			MinIdleConns:        2,
+			DialTimeoutSeconds:  5,
+			ReadTimeoutSeconds:  3,
+			WriteTimeoutSeconds: 3,
+			PingTimeoutSeconds:  3,
 		},
 	}
 }
@@ -90,6 +113,9 @@ func (o *Options) Validate() []error {
 	}
 	if o.Database.Driver == "" {
 		errs = append(errs, fmt.Errorf("database.driver must not be empty"))
+	}
+	if o.Redis.Addr == "" {
+		errs = append(errs, fmt.Errorf("redis.addr must not be empty"))
 	}
 	// When DSN is explicitly set, structured fields are not required.
 	if o.Database.DSN == "" {

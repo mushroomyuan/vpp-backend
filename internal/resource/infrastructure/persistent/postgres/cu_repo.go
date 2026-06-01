@@ -34,13 +34,15 @@ func (r *CURepository) UpdateCU(ctx context.Context, m *CUModel) (err error) {
 	defer func() { deferLog(nil, &err) }()
 	result := r.pg.DB().WithContext(ctx).
 		Model(&CUModel{}).
-		Where("id = ?", m.ID).
+		Where("node_id = ? AND tenant_id = ?", m.NodeID, m.TenantID).
 		Updates(map[string]any{
-			"parent_cu_id":    m.ParentCUID,
-			"name":            m.Name,
-			"type":            m.Type,
+			"conn_status":     m.ConnStatus,
+			"provider":        m.Provider,
+			"external_id":     m.ExternalID,
+			"protocol":        m.Protocol,
+			"protocol_config": m.ProtocolConfig,
+			"connection":      m.Connection,
 			"capability_tags": m.CapabilityTags,
-			"metadata":        m.Metadata,
 		})
 	if result.Error != nil {
 		return result.Error
@@ -55,7 +57,7 @@ func (r *CURepository) FindCUByID(ctx context.Context, query *builder.CU) (resul
 	_, deferLog := logging.WhenDB(ctx, "CURepository.FindCUByID", query)
 	defer func() { deferLog(result, &err) }()
 	var m CUModel
-	err = query.Fill(r.pg.DB().WithContext(ctx)).First(&m).Error
+	err = query.Fill(r.pg.DB().WithContext(ctx), true).First(&m).Error
 	if err != nil {
 		return nil, err
 	}
@@ -63,17 +65,26 @@ func (r *CURepository) FindCUByID(ctx context.Context, query *builder.CU) (resul
 	return
 }
 
-func (r *CURepository) ListCUs(ctx context.Context, query *builder.CU) (results []*CUModel, err error) {
+func (r *CURepository) ListCUs(ctx context.Context, query *builder.CU) (results []*CUModel, totalCount int64, err error) {
 	_, deferLog := logging.WhenDB(ctx, "CURepository.ListCUs", query)
 	defer func() { deferLog(results, &err) }()
-	err = query.Fill(r.pg.DB().WithContext(ctx)).Find(&results).Error
+
+	countDB := query.Fill(r.pg.DB().WithContext(ctx), false).Session(&gorm.Session{}).Limit(-1).Offset(-1)
+	if err = countDB.Count(&totalCount).Error; err != nil {
+		return
+	}
+	if totalCount == 0 {
+		return nil, 0, nil
+	}
+
+	err = query.Fill(r.pg.DB().WithContext(ctx), true).Find(&results).Error
 	return
 }
 
 func (r *CURepository) SoftDeleteCU(ctx context.Context, query *builder.CU) (err error) {
 	_, deferLog := logging.WhenDB(ctx, "CURepository.SoftDeleteCU", query)
 	defer func() { deferLog(nil, &err) }()
-	result := query.Fill(r.pg.DB().WithContext(ctx)).Delete(&CUModel{})
+	result := query.Fill(r.pg.DB().WithContext(ctx), false).Delete(&CUModel{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -83,19 +94,15 @@ func (r *CURepository) SoftDeleteCU(ctx context.Context, query *builder.CU) (err
 	return nil
 }
 
-// BatchDeleteCU soft-deletes multiple CUs. Tenant isolation is enforced via a
-// subquery on the resources table since the cus table has no tenant_id column.
-func (r *CURepository) BatchDeleteCU(ctx context.Context, tenantID string, ids []string) (err error) {
-	_, deferLog := logging.WhenDB(ctx, "CURepository.BatchDeleteCU", ids)
+// BatchDeleteCU deletes extension rows for the given CU node ids scoped by tenant.
+func (r *CURepository) BatchDeleteCU(ctx context.Context, tenantID string, nodeIDs []string) (err error) {
+	_, deferLog := logging.WhenDB(ctx, "CURepository.BatchDeleteCU", nodeIDs)
 	defer func() { deferLog(nil, &err) }()
-	if len(ids) == 0 {
+	if len(nodeIDs) == 0 {
 		return nil
 	}
-	subQuery := r.pg.DB().Model(&ResourceModel{}).
-		Where("tenant_id = ?", tenantID).
-		Select("id")
 	return r.pg.DB().WithContext(ctx).
 		Model(&CUModel{}).
-		Where("id IN ? AND resource_id IN (?)", ids, subQuery).
+		Where("node_id IN ? AND tenant_id = ?", nodeIDs, tenantID).
 		Delete(&CUModel{}).Error
 }

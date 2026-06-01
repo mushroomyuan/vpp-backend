@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/mushroomyuan/vpp-backend/platform/discovery"
+	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/config"
 	infradb "github.com/mushroomyuan/vpp-backend/resource/infrastructure/db"
@@ -19,7 +20,7 @@ import (
 // dbCfg is the driver-agnostic database configuration; it is an infrastructure
 // concern assembled in the composition root and passed straight through without
 // touching any application-layer types.
-func Run(appCfg *config.Config, dbCfg infradb.Config) error {
+func Run(appCfg *config.Config, dbCfg infradb.Config, redisCfg platformredis.Config) error {
 	if appCfg.TelemetryEndpoint != "" {
 		shutdown, err := telemetry.InitTracing(context.Background(), telemetry.Config{
 			Endpoint:    appCfg.TelemetryEndpoint,
@@ -55,7 +56,7 @@ func Run(appCfg *config.Config, dbCfg infradb.Config) error {
 		logrus.Warn("discovery.consul-addr not configured, service discovery is disabled")
 	}
 
-	srv, err := createServer(appCfg, dbCfg)
+	srv, err := createServer(appCfg, dbCfg, redisCfg)
 	if err != nil {
 		return err
 	}

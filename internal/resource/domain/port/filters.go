@@ -1,5 +1,7 @@
 package port
 
+import "github.com/mushroomyuan/vpp-backend/resource/domain/model"
+
 type BaseFilter struct {
 	TenantID string
 	Offset   int
@@ -9,13 +11,14 @@ type BaseFilter struct {
 // ---- Site ----
 type SiteFilter struct {
 	BaseFilter
-	IDs      []string // 可选
-	Status   []string // 运行状态过滤
-	NameLike string   // 模糊搜索
+	IDs             []string // 可选
+	Status          []string // 运行状态过滤
+	OperatingStatus []model.OperatingStatus
+	NameLike        string // 模糊搜索
 }
 
-// ---- Resource ----
-type ResourceFilter struct {
+// ---- Asset ----
+type AssetFilter struct {
 	BaseFilter
 	SiteID   string   // 必须：站点下的资源
 	IDs      []string // 可选
@@ -26,12 +29,11 @@ type ResourceFilter struct {
 // ---- CU ----
 type CUFilter struct {
 	BaseFilter
-	SiteID     string   // 可选
-	ResourceID string   // 可选：资源下的 CU
-	ParentCUID string   // 支持嵌套聚合
-	Capability []string // ["frequency_regulation","peak_shaving"]
-	IDs        []string
-	NameLike   string
+	SiteID         string   // 可选
+	AssetID        string   // 可选：资源下的 CU
+	CapabilityTags []string // ["frequency_regulation","peak_shaving"]
+	IDs            []string
+	NameLike       string
 }
 
 // ---- Point ----

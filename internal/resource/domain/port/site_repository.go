@@ -11,7 +11,7 @@ type SiteRepository interface {
 	Update(ctx context.Context, s *model.Site) error
 
 	FindByID(ctx context.Context, tenantID, id string) (*model.Site, error)
-	List(ctx context.Context, filter SiteFilter) ([]*model.Site, error)
+	List(ctx context.Context, filter SiteFilter) (*PageResult[*model.Site], error)
 
-	SoftDelete(ctx context.Context, tenantID, id string) error
+	// SoftDelete(ctx context.Context, tenantID, id string) error
 }

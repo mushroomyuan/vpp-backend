@@ -16,10 +16,10 @@ const (
 )
 
 const (
-	JobTargetSite     JobTargetType = "site"
-	JobTargetResource JobTargetType = "resource"
-	JobTargetCU       JobTargetType = "cu"
-	JobTargetPoint    JobTargetType = "point"
+	JobTargetSite  JobTargetType = "site"
+	JobTargetAsset JobTargetType = "asset"
+	JobTargetCU    JobTargetType = "cu"
+	JobTargetPoint JobTargetType = "point"
 )
 
 const (

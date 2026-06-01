@@ -3,7 +3,9 @@ package types
 import "errors"
 
 var (
-	ErrResourceBatchValidation = errors.New("resource batch validation failed: one or more items are invalid")
+	ErrAssetBatchValidation = errors.New("asset batch validation failed: one or more items are invalid")
+	// Deprecated: use ErrAssetBatchValidation.
+	ErrResourceBatchValidation = ErrAssetBatchValidation
 	ErrCUBatchValidation       = errors.New("cu batch validation failed: one or more items are invalid")
 	ErrPointBatchValidation    = errors.New("point batch validation failed: one or more items are invalid")
 	ErrBatchDeleteValidation   = errors.New("batch delete validation failed: one or more items are invalid")

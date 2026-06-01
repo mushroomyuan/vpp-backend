@@ -19,9 +19,9 @@ import (
 // gRPC/proto oneof is mutually exclusive; only one of Resource / CU / Point should be set.
 // BatchSize is set inside the embedded Payload when constructing the Spec.
 type SubmitBatchImport struct {
-	Resource *types.ResourceImportSpec
-	CU       *types.CUImportSpec
-	Point    *types.PointImportSpec
+	Asset *types.AssetImportSpec
+	CU    *types.CUImportSpec
+	Point *types.PointImportSpec
 }
 
 type SubmitBatchImportResult struct {
@@ -85,15 +85,15 @@ func buildJobPayload(cmd SubmitBatchImport) (
 	err error,
 ) {
 	switch {
-	case cmd.Resource != nil:
-		s := cmd.Resource
-		failedItems = validateResourceItems(s.Items)
+	case cmd.Asset != nil:
+		s := cmd.Asset
+		failedItems = validateAssetItems(s.Items)
 		if len(failedItems) > 0 {
 			return
 		}
-		targetType = model.JobTargetResource
+		targetType = model.JobTargetAsset
 		tenantID = s.TenantID
-		payload, err = json.Marshal(s.ResourceImportPayload)
+		payload, err = json.Marshal(s.AssetImportPayload)
 
 	case cmd.CU != nil:
 		s := cmd.CU
@@ -121,7 +121,7 @@ func buildJobPayload(cmd SubmitBatchImport) (
 	return
 }
 
-func validateResourceItems(items []types.ResourceItem) []types.BatchItemError {
+func validateAssetItems(items []types.AssetItem) []types.BatchItemError {
 	var out []types.BatchItemError
 	for i, item := range items {
 		if err := item.Validate(); err != nil {

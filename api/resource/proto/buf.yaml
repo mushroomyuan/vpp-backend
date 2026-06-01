@@ -4,6 +4,8 @@ modules:
   - path: .
     excludes:
       - gen
+      # Vendored google/api protos conflict with buf.build/googleapis/googleapis.
+      - third_party
 
 deps:
   # We vendor google/api protos under third_party/, but declaring the upstream

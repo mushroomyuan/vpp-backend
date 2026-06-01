@@ -3,6 +3,7 @@ package batch
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/mushroomyuan/vpp-backend/resource/application/types"
 
@@ -17,13 +18,25 @@ import (
 // loop. Pass nil for onChunk if no progress callback is needed.
 func BatchCreatePoints(
 	ctx context.Context,
+	tenantID string,
 	pointRepo port.PointRepository,
-	resourceID, cuID string,
+	assetID, cuID string,
 	items []types.PointItem,
 	batchSize int,
 	onChunk func(succeeded int) error,
 ) ([]string, error) {
-	// Phase 1: validate all items upfront so the caller receives every error at
+	// Validate tenant ID first
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required")
+	}
+	if assetID == "" {
+		return nil, fmt.Errorf("asset_id is required")
+	}
+	if cuID == "" {
+		return nil, fmt.Errorf("cu_id is required")
+	}
+	// validate all items upfront so the caller receives every error at
 	// once instead of discovering them one batch at a time.
 	var failedItems []types.BatchItemError
 	for i, item := range items {
@@ -58,20 +71,21 @@ func BatchCreatePoints(
 
 		for _, item := range chunk {
 			id := idgen.Must()
-			point, err := model.NewPoint(
-				id,
-				resourceID,
-				cuID,
-				item.PointKey,
-				item.ExternalAddress,
-				item.DataType,
-				item.ExtConfig,
-				item.Description,
-				item.ControlFlag,
-				item.IsVirtual,
-				item.SafetyThresholds,
-				item.CacheKeyAlias,
-			)
+			point, err := model.NewPoint(model.CreatePointParams{
+				ID:               id,
+				TenantID:         tenantID,
+				AssetID:          assetID,
+				CUID:             cuID,
+				PointKey:         item.PointKey,
+				ExternalAddress:  item.ExternalAddress,
+				DataType:         item.DataType,
+				ExtConfig:        item.ExtConfig,
+				Description:      item.Description,
+				ControlFlag:      item.ControlFlag,
+				IsVirtual:        item.IsVirtual,
+				SafetyThresholds: item.SafetyThresholds,
+				CacheKeyAlias:    item.CacheKeyAlias,
+			})
 			if err != nil {
 				return nil, fmt.Errorf("build point at index %d: %w", start+len(chunkIDs), err)
 			}

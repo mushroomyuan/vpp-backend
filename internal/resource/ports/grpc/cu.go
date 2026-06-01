@@ -2,10 +2,8 @@ package grpc
 
 import (
 	"context"
-	"fmt"
 
 	resourcepb "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
-	"github.com/mushroomyuan/vpp-backend/platform/idgen"
 	"github.com/mushroomyuan/vpp-backend/resource/application/command"
 	"github.com/mushroomyuan/vpp-backend/resource/application/query"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
@@ -19,13 +17,47 @@ func (s *Server) CreateCU(ctx context.Context, req *resourcepb.CreateCURequest) 
 	if req.GetMetadata() != nil {
 		meta = req.GetMetadata().AsMap()
 	}
+	var parentID *string
+	if v := req.GetParentID(); v != "" {
+		parentID = &v
+	}
+	var protocol *string
+	if v := req.GetProtocol(); v != "" {
+		protocol = &v
+	}
+	var provider *string
+	if v := req.GetProvider(); v != "" {
+		provider = &v
+	}
+	var externalID *string
+	if v := req.GetExternalID(); v != "" {
+		externalID = &v
+	}
+	var description *string
+	if v := req.GetDescription(); v != "" {
+		description = &v
+	}
+	protocolConfig := map[string]any(nil)
+	if req.GetProtocolConfig() != nil {
+		protocolConfig = req.GetProtocolConfig().AsMap()
+	}
+	conn, err := ConnectionProtoToDomain(req.GetConnection())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
 
 	res, err := s.createCU.Handle(ctx, command.CreateCU{
-		ResourceID:     req.GetResourceID(),
-		ParentCUID:     req.GetParentCUID(),
+		TenantID:       req.GetTenantID(),
+		ParentID:       parentID,
 		Name:           req.GetName(),
 		Type:           req.GetType(),
+		Description:    description,
 		CapabilityTags: req.GetCapabilityTags(),
+		Provider:       provider,
+		ExternalID:     externalID,
+		Protocol:       protocol,
+		ProtocolConfig: protocolConfig,
+		Connection:     conn,
 		Metadata:       meta,
 	})
 	if err != nil {
@@ -37,12 +69,15 @@ func (s *Server) CreateCU(ctx context.Context, req *resourcepb.CreateCURequest) 
 func (s *Server) GetCU(ctx context.Context, req *resourcepb.GetCURequest) (*resourcepb.CU, error) {
 	logIn("get_cu", req)
 
-	cu, err := s.getCU.Handle(ctx, query.GetCU{ID: req.GetID()})
+	cu, err := s.getCU.Handle(ctx, query.GetCU{
+		TenantID: req.GetTenantID(),
+		ID:       req.GetID(),
+	})
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	out, err := CUDomainToProto(cu)
+	out, err := CUToProto(cu.CU, cu.Runtime)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -53,23 +88,22 @@ func (s *Server) ListCUs(ctx context.Context, req *resourcepb.ListCUsRequest) (*
 	logIn("list_cus", req)
 
 	result, err := s.listCUs.Handle(ctx, query.ListCUs{
-		TenantID:   req.GetTenantID(),
-		SiteID:     req.GetSiteID(),
-		ResourceID: req.GetResourceID(),
-		ParentCUID: req.GetParentCUID(),
-		Capability: req.GetCapability(),
-		IDs:        req.GetIDs(),
-		NameLike:   req.GetNameLike(),
-		Offset:     int(req.GetOffset()),
-		Limit:      int(req.GetLimit()),
+		TenantID:       req.GetTenantID(),
+		SiteID:         req.GetSiteID(),
+		AssetID:        req.GetAssetID(),
+		CapabilityTags: req.GetCapability(),
+		IDs:            req.GetIDs(),
+		NameLike:       req.GetNameLike(),
+		Offset:         int(req.GetOffset()),
+		Limit:          int(req.GetLimit()),
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	out := make([]*resourcepb.CU, 0, len(result.CUs))
-	for _, item := range result.CUs {
-		pb, err := CUDomainToProto(item)
+	out := make([]*resourcepb.CU, 0, len(result.Items))
+	for _, item := range result.Items {
+		pb, err := CUToProto(item.CU, item.Runtime)
 		if err != nil {
 			return nil, toGRPCError(err)
 		}
@@ -85,126 +119,48 @@ func (s *Server) UpdateCU(ctx context.Context, req *resourcepb.UpdateCURequest) 
 	if req.GetMetadata() != nil {
 		meta = req.GetMetadata().AsMap()
 	}
+	protocolConfig := map[string]any(nil)
+	if req.GetProtocolConfig() != nil {
+		protocolConfig = req.GetProtocolConfig().AsMap()
+	}
+	var protocol *string
+	if v := req.GetProtocol(); v != "" {
+		protocol = &v
+	}
+	var provider *string
+	if v := req.GetProvider(); v != "" {
+		provider = &v
+	}
+	var externalID *string
+	if v := req.GetExternalID(); v != "" {
+		externalID = &v
+	}
+	var connStatus *model.ConnStatus
+	if v := req.GetConnStatus(); v != "" {
+		cs := model.ConnStatus(v)
+		connStatus = &cs
+	}
+	conn, err := ConnectionProtoToDomain(req.GetConnection())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
 
-	_, err := s.updateCU.Handle(ctx, command.UpdateCU{
+	_, err = s.updateCU.Handle(ctx, command.UpdateCU{
+		TenantID:       req.GetTenantID(),
 		ID:             req.GetID(),
-		ParentCUID:     req.GetParentCUID(),
 		Name:           req.GetName(),
 		Type:           req.GetType(),
 		CapabilityTags: req.GetCapabilityTags(),
+		Provider:       provider,
+		ExternalID:     externalID,
+		Protocol:       protocol,
+		ProtocolConfig: protocolConfig,
+		Connection:     conn,
+		ConnStatus:     connStatus,
 		Metadata:       meta,
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 	return &emptypb.Empty{}, nil
-}
-
-func (s *Server) DeleteCU(ctx context.Context, req *resourcepb.DeleteCURequest) (*emptypb.Empty, error) {
-	logIn("delete_cu", req)
-
-	_, err := s.deleteCU.Handle(ctx, command.DeleteCU{ID: req.GetID()})
-	if err != nil {
-		return nil, toGRPCError(err)
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (s *Server) BatchCreateCUs(ctx context.Context, req *resourcepb.BatchCreateCUsRequest) (*resourcepb.BatchCreateCUsResponse, error) {
-	logIn("batch_create_cus", req)
-
-	total := len(req.GetItems())
-	if total == 0 {
-		return &resourcepb.BatchCreateCUsResponse{
-			CUIDs:        nil,
-			FailedItems:  nil,
-			TotalCount:   0,
-			SuccessCount: 0,
-		}, nil
-	}
-
-	batchSize := int(req.GetBatchSize())
-	if batchSize <= 0 {
-		batchSize = 100
-	}
-
-	var (
-		createdIDs []string
-		failed     []*resourcepb.BatchItemError
-		validBatch []*model.CU
-	)
-
-	flush := func() error {
-		if len(validBatch) == 0 {
-			return nil
-		}
-		if err := s.cuRepo.BatchCreate(ctx, validBatch); err != nil {
-			return fmt.Errorf("batch insert: %w", err)
-		}
-		validBatch = validBatch[:0]
-		return nil
-	}
-
-	for idx, item := range req.GetItems() {
-		if item == nil {
-			failed = append(failed, &resourcepb.BatchItemError{
-				Index:  int32(idx),
-				Name:   "",
-				Reason: "item is nil",
-			})
-			continue
-		}
-		if item.GetName() == "" || item.GetType() == "" {
-			failed = append(failed, &resourcepb.BatchItemError{
-				Index:  int32(idx),
-				Name:   item.GetName(),
-				Reason: "Name and Type are required",
-			})
-			continue
-		}
-
-		meta := map[string]any(nil)
-		if item.GetMetadata() != nil {
-			meta = item.GetMetadata().AsMap()
-		}
-
-		id := idgen.Must()
-		cu, err := model.NewCU(
-			id,
-			req.GetResourceID(),
-			item.GetParentCUID(),
-			item.GetName(),
-			item.GetType(),
-			item.GetCapabilityTags(),
-			meta,
-		)
-		if err != nil {
-			failed = append(failed, &resourcepb.BatchItemError{
-				Index:  int32(idx),
-				Name:   item.GetName(),
-				Reason: err.Error(),
-			})
-			continue
-		}
-
-		createdIDs = append(createdIDs, id)
-		validBatch = append(validBatch, cu)
-
-		if len(validBatch) >= batchSize {
-			if err := flush(); err != nil {
-				return nil, toGRPCError(err)
-			}
-		}
-	}
-
-	if err := flush(); err != nil {
-		return nil, toGRPCError(err)
-	}
-
-	return &resourcepb.BatchCreateCUsResponse{
-		CUIDs:        createdIDs,
-		FailedItems:  failed,
-		TotalCount:   int32(total),
-		SuccessCount: int32(len(createdIDs)),
-	}, nil
 }

@@ -3,6 +3,7 @@ package batch
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/mushroomyuan/vpp-backend/resource/application/types"
 
@@ -18,13 +19,18 @@ import (
 func BatchCreateCUs(
 	ctx context.Context,
 	cuRepo port.CURepository,
-	resourceID string,
+	tenantID string,
 	items []types.CUItem,
 	batchSize int,
 	onChunk func(succeeded int) error,
 ) ([]string, error) {
-	// Phase 1: validate all items upfront so the caller receives every error at
-	// once instead of discovering them one batch at a time.
+	// Validate tenant ID first
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required")
+	}
+
+	// Phase 1: validate all items upfront
 	var failedItems []types.BatchItemError
 	for i, item := range items {
 		if err := item.Validate(); err != nil {
@@ -33,11 +39,14 @@ func BatchCreateCUs(
 				Name:   item.Name,
 				Reason: err.Error(),
 			})
+			continue
 		}
 	}
+
 	if len(failedItems) > 0 {
 		return nil, fmt.Errorf("%w: %v", types.ErrCUBatchValidation, failedItems)
 	}
+
 	if batchSize <= 0 {
 		batchSize = defaultBatchSize
 	}
@@ -55,19 +64,38 @@ func BatchCreateCUs(
 		batch := make([]*model.CU, 0, len(chunk))
 		chunkIDs := make([]string, 0, len(chunk))
 
-		for _, item := range chunk {
+		for idx, cuItem := range chunk { // 重命名避免混淆
+			globalIdx := start + idx
 			id := idgen.Must()
+			subType := strings.TrimSpace(cuItem.Type)
+			var subTypePtr *string
+			if subType != "" {
+				subTypePtr = &subType
+			}
+
 			cu, err := model.NewCU(
-				id,
-				resourceID,
-				item.ParentCUID,
-				item.Name,
-				item.Type,
-				item.CapabilityTags,
-				item.Metadata,
+				model.CreateCUParams{
+					ID:             id,
+					TenantID:       tenantID,
+					ParentID:       cuItem.ParentID,
+					DisplayName:    strings.TrimSpace(cuItem.Name),
+					SubType:        subTypePtr,
+					Provider:       cuItem.Provider,
+					ExternalID:     cuItem.ExternalID,
+					Protocol:       cuItem.Protocol,
+					Description:    cuItem.Description,
+					ProtocolConfig: cuItem.ProtocolConfig,
+					Connection:     cuItem.Connection,
+					CapabilityTags: cuItem.CapabilityTags,
+				},
 			)
 			if err != nil {
-				return nil, fmt.Errorf("build cu at index %d: %w", start+len(chunkIDs), err)
+				return nil, fmt.Errorf("build cu at index %d: %w", globalIdx, err)
+			}
+			if cuItem.Metadata != nil {
+				for k, v := range cuItem.Metadata {
+					cu.Metadata[k] = v
+				}
 			}
 			batch = append(batch, cu)
 			chunkIDs = append(chunkIDs, id)
@@ -82,6 +110,7 @@ func BatchCreateCUs(
 
 		if onChunk != nil {
 			if err := onChunk(succeeded); err != nil {
+				// 注意: 此时部分数据已写入数据库，调用方需处理清理逻辑
 				return allIDs, err
 			}
 		}

@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package resourcepb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
+
+import "google/protobuf/timestamp.proto";
+
+// AssetRuntime is hot scheduling state cached in Redis.
+message AssetRuntime {
+  bool Online = 1;
+  optional double CurrentPowerKW = 2;
+  optional double AvailablePowerKW = 3;
+  optional double SOC = 4;
+  bool Dispatchable = 5;
+  optional string NotDispatchableReason = 6;
+  optional double MaxChargePowerKW = 7;
+  optional double MaxDischargePowerKW = 8;
+  google.protobuf.Timestamp UpdatedAt = 9;
+}
+
+// CURuntime is connection-plane runtime cached in Redis.
+message CURuntime {
+  string ConnStatus = 1;
+  google.protobuf.Timestamp LastSeenAt = 2;
+  optional int64 LatencyMS = 3;
+  optional string LastError = 4;
+  google.protobuf.Timestamp UpdatedAt = 5;
+}
+
+// PointRuntime is the latest cached point value in Redis.
+message PointRuntime {
+  optional string Value = 1;
+  optional double NumericValue = 2;
+  optional string QualityStatus = 3;
+  int64 Sequence = 4;
+  google.protobuf.Timestamp SampledAt = 5;
+  google.protobuf.Timestamp UpdatedAt = 6;
+}

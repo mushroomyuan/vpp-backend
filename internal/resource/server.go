@@ -17,12 +17,14 @@ import (
 
 	resourcepb "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
 	"github.com/mushroomyuan/vpp-backend/platform/metrics"
+	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 	"github.com/mushroomyuan/vpp-backend/resource/adapters"
 	"github.com/mushroomyuan/vpp-backend/resource/application"
 	"github.com/mushroomyuan/vpp-backend/resource/config"
 	infradb "github.com/mushroomyuan/vpp-backend/resource/infrastructure/db"
 	"github.com/mushroomyuan/vpp-backend/resource/infrastructure/persistent/postgres"
+	redisruntime "github.com/mushroomyuan/vpp-backend/resource/infrastructure/runtime/redis"
 	grpcpkg "github.com/mushroomyuan/vpp-backend/resource/ports/grpc"
 
 	// gateway.go declares `package ports` — alias for clarity
@@ -38,6 +40,7 @@ type resourceServer struct {
 	cfg           *config.Config
 	metricsClient *metrics.Client
 	metricsCancel context.CancelFunc
+	redisClient   *platformredis.Client
 }
 
 type preparedServer struct {
@@ -53,7 +56,7 @@ type preparedServer struct {
 //
 // dbCfg is driver-agnostic and intentionally separate from appCfg so that
 // infrastructure details never leak into the application config type.
-func createServer(appCfg *config.Config, dbCfg infradb.Config) (*resourceServer, error) {
+func createServer(appCfg *config.Config, dbCfg infradb.Config, redisCfg platformredis.Config) (*resourceServer, error) {
 	cfg := appCfg
 
 	// ── metrics ───────────────────────────────────────────────────────────────
@@ -72,6 +75,12 @@ func createServer(appCfg *config.Config, dbCfg infradb.Config) (*resourceServer,
 
 	// ── infrastructure layer ──────────────────────────────────────────────────
 	pg := postgres.NewPostgres(dbCfg)
+	redisClient, err := platformredis.New(redisCfg)
+	if err != nil {
+		metricsCancel()
+		return nil, fmt.Errorf("init redis client: %w", err)
+	}
+	logrus.Infof("redis client connected to %s (db=%d)", redisCfg.Addr, redisCfg.DB)
 
 	// Register DB connection-pool metrics on the same /metrics endpoint.
 	if sqlDB, err := pg.SQLDb(); err != nil {
@@ -83,25 +92,35 @@ func createServer(appCfg *config.Config, dbCfg infradb.Config) (*resourceServer,
 	}
 
 	siteInfra := postgres.NewSiteRepository(pg)
-	resourceInfra := postgres.NewResourceRepository(pg)
+	assetInfra := postgres.NewAssetRepository(pg)
 	cuInfra := postgres.NewCURepository(pg)
 	pointInfra := postgres.NewPointRepository(pg)
 	jobInfra := postgres.NewJobRepository(pg)
+	nodeInfra := postgres.NewNodeRepository(pg)
 
 	// ── adapters (port.XxxRepository implementations) ─────────────────────────
-	siteRepo := adapters.NewSiteRepositoryPostgres(siteInfra)
-	resourceRepo := adapters.NewResourceRepositoryPostgres(resourceInfra)
-	cuRepo := adapters.NewCURepositoryPostgres(cuInfra)
-	pointRepo := adapters.NewPointRepositoryPostgres(pointInfra)
+	siteRepo := adapters.NewSiteRepositoryPostgres(siteInfra, nodeInfra)
+	assetRepo := adapters.NewAssetRepositoryPostgres(assetInfra, nodeInfra)
+	cuRepo := adapters.NewCURepositoryPostgres(cuInfra, nodeInfra)
+	pointRepo := adapters.NewPointRepositoryPostgres(pointInfra, nodeInfra)
 	jobRepo := adapters.NewJobRepositoryPostgres(jobInfra)
+	nodeRepo := adapters.NewNodeRepositoryPostgres(nodeInfra)
+
+	assetRuntime := redisruntime.NewAssetRuntimeCache(redisClient, 0)
+	cuRuntime := redisruntime.NewCURuntimeCache(redisClient, 0)
+	pointRuntime := redisruntime.NewPointRuntimeCache(redisClient, 0)
 
 	// ── application layer (all CQRS handlers + background worker) ─────────────
 	app := application.NewApplication(application.Dependencies{
 		SiteRepo:           siteRepo,
-		ResourceRepo:       resourceRepo,
+		AssetRepo:          assetRepo,
 		CURepo:             cuRepo,
 		PointRepo:          pointRepo,
 		JobRepo:            jobRepo,
+		NodeRepo:           nodeRepo,
+		AssetRuntime:       assetRuntime,
+		CURuntime:          cuRuntime,
+		PointRuntime:       pointRuntime,
 		Metrics:            metricsClient,
 		ImportWorkerConfig: cfg.WorkerConfig,
 	})
@@ -110,7 +129,7 @@ func createServer(appCfg *config.Config, dbCfg infradb.Config) (*resourceServer,
 	// resourceRepo, cuRepo, pointRepo are passed explicitly because the gRPC
 	// batch handlers (BatchCreateResources / CUs / Points) call repo methods
 	// directly rather than going through CQRS command handlers.
-	resourceSvc := grpcpkg.NewServer(app, resourceRepo, cuRepo, pointRepo)
+	resourceSvc := grpcpkg.NewServer(app)
 
 	grpcSrv := platformserver.NewGRPCServer()
 	resourcepb.RegisterResourceServiceServer(grpcSrv, resourceSvc)
@@ -121,6 +140,7 @@ func createServer(appCfg *config.Config, dbCfg infradb.Config) (*resourceServer,
 
 	if err := gatewaypkg.MountGateway(context.Background(), ginEngine, resourceSvc); err != nil {
 		metricsCancel()
+		_ = redisClient.Close()
 		return nil, fmt.Errorf("mount grpc-gateway: %w", err)
 	}
 
@@ -136,6 +156,7 @@ func createServer(appCfg *config.Config, dbCfg infradb.Config) (*resourceServer,
 		cfg:           cfg,
 		metricsClient: metricsClient,
 		metricsCancel: metricsCancel,
+		redisClient:   redisClient,
 	}, nil
 }
 
@@ -243,7 +264,12 @@ func (s *preparedServer) Run() error {
 		// 2. Stop background worker after traffic drains.
 		workerCancel()
 
-		// 3. Stop metrics last — /metrics remains scrapeable during drain.
+		// 3. Close redis client.
+		if err := s.redisClient.Close(); err != nil {
+			logrus.WithError(err).Warn("redis close error")
+		}
+
+		// 4. Stop metrics last — /metrics remains scrapeable during drain.
 		s.metricsCancel()
 	}()
 

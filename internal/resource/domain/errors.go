@@ -8,4 +8,5 @@ var (
 	ErrCUNotFound       = errors.New("cu not found")
 	ErrPointNotFound    = errors.New("point not found")
 	ErrJobNotFound      = errors.New("import job not found")
+	ErrNodeNotFound     = errors.New("node not found")
 )

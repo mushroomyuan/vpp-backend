@@ -74,16 +74,3 @@ func (s *Server) UpdateSite(ctx context.Context, req *resourcepb.UpdateSiteReque
 	}
 	return &emptypb.Empty{}, nil
 }
-
-func (s *Server) DeleteSite(ctx context.Context, req *resourcepb.DeleteSiteRequest) (*emptypb.Empty, error) {
-	logIn("delete_site", req)
-
-	_, err := s.deleteSite.Handle(ctx, command.DeleteSite{
-		TenantID: req.GetTenantID(),
-		ID:       req.GetID(),
-	})
-	if err != nil {
-		return nil, toGRPCError(err)
-	}
-	return &emptypb.Empty{}, nil
-}

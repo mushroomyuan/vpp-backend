@@ -37,30 +37,30 @@ func toGRPCError(err error) error {
 	}
 }
 
-func SiteStatusProtoToDomain(s resourcepb.SiteStatus) model.SiteStatus {
+func SiteStatusProtoToDomain(s resourcepb.SiteStatus) model.OperatingStatus {
 	switch s {
 	case resourcepb.SiteStatus_SITE_STATUS_UNDER_CONSTRUCTION:
-		return model.SiteStatusUnderConstruction
+		return model.OperatingStatusUnderConstruction
 	case resourcepb.SiteStatus_SITE_STATUS_OPERATING:
-		return model.SiteStatusOperating
+		return model.OperatingStatusOperating
 	case resourcepb.SiteStatus_SITE_STATUS_FAULT:
-		return model.SiteStatusFault
+		return model.OperatingStatusFault
 	case resourcepb.SiteStatus_SITE_STATUS_OFFLINE:
-		return model.SiteStatusOffline
+		return model.OperatingStatusOffline
 	default:
-		return model.SiteStatusUnknown
+		return model.OperatingStatusUnknown
 	}
 }
 
-func SiteStatusDomainToProto(s model.SiteStatus) resourcepb.SiteStatus {
+func SiteStatusDomainToProto(s model.OperatingStatus) resourcepb.SiteStatus {
 	switch s {
-	case model.SiteStatusUnderConstruction:
+	case model.OperatingStatusUnderConstruction:
 		return resourcepb.SiteStatus_SITE_STATUS_UNDER_CONSTRUCTION
-	case model.SiteStatusOperating:
+	case model.OperatingStatusOperating:
 		return resourcepb.SiteStatus_SITE_STATUS_OPERATING
-	case model.SiteStatusFault:
+	case model.OperatingStatusFault:
 		return resourcepb.SiteStatus_SITE_STATUS_FAULT
-	case model.SiteStatusOffline:
+	case model.OperatingStatusOffline:
 		return resourcepb.SiteStatus_SITE_STATUS_OFFLINE
 	default:
 		return resourcepb.SiteStatus_SITE_STATUS_UNKNOWN
@@ -114,42 +114,231 @@ func SiteDomainToProto(s *model.Site) *resourcepb.Site {
 	if s == nil {
 		return nil
 	}
-	return &resourcepb.Site{
-		ID:       s.ID,
-		TenantID: s.TenantID,
-		Name:     s.Name,
-		Location: &resourcepb.Location{
+	var location *resourcepb.Location
+	if s.Location != nil {
+		location = &resourcepb.Location{
 			Latitude:  s.Location.Latitude,
 			Longitude: s.Location.Longitude,
 			Address:   s.Location.Address,
-		},
-		Description: s.Description,
-		Status:      SiteStatusDomainToProto(s.Status),
+		}
+	}
+	desc := ""
+	if s.Description != nil {
+		desc = *s.Description
+	}
+	return &resourcepb.Site{
+		ID:          s.ID,
+		TenantID:    s.TenantID,
+		Name:        s.DisplayName,
+		Location:    location,
+		Description: desc,
+		Status:      SiteStatusDomainToProto(s.OperatingStatus),
 	}
 }
 
-func ResourceDomainToProto(r *model.Resource) (*resourcepb.Resource, error) {
-	if r == nil {
+func AssetDomainToProto(a *model.Asset) (*resourcepb.Asset, error) {
+	return AssetToProto(a, nil)
+}
+
+func AssetToProto(a *model.Asset, runtime *model.AssetRuntime) (*resourcepb.Asset, error) {
+	if a == nil {
 		return nil, nil
 	}
-	meta, err := MapToStructPB(r.Metadata)
+	meta, err := MapToStructPB(a.Metadata)
 	if err != nil {
 		return nil, err
 	}
-	return &resourcepb.Resource{
-		ID:           r.ID,
-		TenantID:     r.TenantID,
-		SiteID:       r.SiteID,
-		Name:         r.Name,
-		Type:         r.Type,
-		Capacity:     r.Capacity,
-		Manufacturer: r.Manufacturer,
-		Model:        r.Model,
-		Metadata:     meta,
+	siteID := ""
+	if a.ParentID != nil {
+		siteID = *a.ParentID
+	}
+	subType := ""
+	if a.SubType != nil {
+		subType = *a.SubType
+	}
+	capacity := 0.0
+	if a.RatedCapacityKW != nil {
+		capacity = *a.RatedCapacityKW
+	}
+	dispatchMode := ""
+	if a.DispatchMode != nil {
+		dispatchMode = *a.DispatchMode
+	}
+	energyType := ""
+	if a.EnergyType != nil {
+		energyType = *a.EnergyType
+	}
+	ownerType := ""
+	if a.OwnerType != nil {
+		ownerType = *a.OwnerType
+	}
+	desc := ""
+	if a.Description != nil {
+		desc = *a.Description
+	}
+	market := false
+	if a.MarketEnabled != nil {
+		market = *a.MarketEnabled
+	}
+	return &resourcepb.Asset{
+		ID:              a.ID,
+		TenantID:        a.TenantID,
+		SiteID:          siteID,
+		Name:            a.DisplayName,
+		DispatchStatus:  string(a.DispatchStatus),
+		RatedCapacityKW: capacity,
+		DispatchMode:    dispatchMode,
+		EnergyType:      energyType,
+		OwnerType:       ownerType,
+		SubType:         subType,
+		Description:     desc,
+		MarketEnabled:   market,
+		Metadata:        meta,
+		Runtime:         AssetRuntimeDomainToProto(runtime),
 	}, nil
 }
 
+func AssetRuntimeDomainToProto(r *model.AssetRuntime) *resourcepb.AssetRuntime {
+	if r == nil {
+		return nil
+	}
+	pb := &resourcepb.AssetRuntime{
+		Online:       r.Online,
+		Dispatchable: r.Dispatchable,
+	}
+	if r.CurrentPowerKW != nil {
+		v := *r.CurrentPowerKW
+		pb.CurrentPowerKW = &v
+	}
+	if r.AvailablePowerKW != nil {
+		v := *r.AvailablePowerKW
+		pb.AvailablePowerKW = &v
+	}
+	if r.SOC != nil {
+		v := *r.SOC
+		pb.SOC = &v
+	}
+	if r.NotDispatchableReason != nil {
+		v := *r.NotDispatchableReason
+		pb.NotDispatchableReason = &v
+	}
+	if r.MaxChargePowerKW != nil {
+		v := *r.MaxChargePowerKW
+		pb.MaxChargePowerKW = &v
+	}
+	if r.MaxDischargePowerKW != nil {
+		v := *r.MaxDischargePowerKW
+		pb.MaxDischargePowerKW = &v
+	}
+	if !r.UpdatedAt.IsZero() {
+		pb.UpdatedAt = timestamppb.New(r.UpdatedAt)
+	}
+	return pb
+}
+
+func ResourceDomainToProto(n *model.Node) (*resourcepb.Resource, error) {
+	if n == nil {
+		return nil, nil
+	}
+	meta, err := MapToStructPB(n.Metadata)
+	if err != nil {
+		return nil, err
+	}
+	parentID := ""
+	if n.ParentID != nil {
+		parentID = *n.ParentID
+	}
+	subType := ""
+	if n.SubType != nil {
+		subType = *n.SubType
+	}
+	description := ""
+	if n.Description != nil {
+		description = *n.Description
+	}
+	return &resourcepb.Resource{
+		ID:              n.ID,
+		TenantID:        n.TenantID,
+		ParentID:        parentID,
+		DisplayName:     n.DisplayName,
+		Type:            n.Type,
+		SubType:         subType,
+		LifecycleStatus: ResourceLifecycleStatusDomainToProto(n.LifecycleStatus),
+		Description:     description,
+		Path:            n.Path,
+		Depth:           int32(n.Depth),
+		Metadata:        meta,
+	}, nil
+}
+
+func ResourceLifecycleStatusProtoToDomain(s resourcepb.ResourceLifecycleStatus) model.NodeLifecycleStatus {
+	switch s {
+	case resourcepb.ResourceLifecycleStatus_RESOURCE_LIFECYCLE_STATUS_ACTIVE:
+		return model.NodeLifecycleActive
+	case resourcepb.ResourceLifecycleStatus_RESOURCE_LIFECYCLE_STATUS_DISABLED:
+		return model.NodeLifecycleDisabled
+	case resourcepb.ResourceLifecycleStatus_RESOURCE_LIFECYCLE_STATUS_DECOMMISSIONED:
+		return model.NodeLifecycleArchived
+	default:
+		return model.NodeLifecycleDraft
+	}
+}
+
+func ResourceLifecycleStatusDomainToProto(s model.NodeLifecycleStatus) resourcepb.ResourceLifecycleStatus {
+	switch s {
+	case model.NodeLifecycleActive:
+		return resourcepb.ResourceLifecycleStatus_RESOURCE_LIFECYCLE_STATUS_ACTIVE
+	case model.NodeLifecycleDisabled:
+		return resourcepb.ResourceLifecycleStatus_RESOURCE_LIFECYCLE_STATUS_DISABLED
+	case model.NodeLifecycleArchived, model.NodeLifecycleDeleted:
+		return resourcepb.ResourceLifecycleStatus_RESOURCE_LIFECYCLE_STATUS_DECOMMISSIONED
+	default:
+		return resourcepb.ResourceLifecycleStatus_RESOURCE_LIFECYCLE_STATUS_UNSPECIFIED
+	}
+}
+
+func ConnectionDomainToProto(c *model.ConnectionConfig) *resourcepb.ConnectionConfig {
+	if c == nil {
+		return nil
+	}
+	return &resourcepb.ConnectionConfig{
+		Host:    c.Host,
+		Port:    int32(c.Port),
+		Timeout: int32(c.Timeout),
+		RetryPolicy: &resourcepb.RetryPolicy{
+			MaxAttempts:       int32(c.RetryPolicy.MaxAttempts),
+			InitialBackoffMS:  int32(c.RetryPolicy.InitialBackoffMS),
+			MaxBackoffMS:      int32(c.RetryPolicy.MaxBackoffMS),
+			BackoffMultiplier: c.RetryPolicy.BackoffMultiplier,
+		},
+	}
+}
+
+func ConnectionProtoToDomain(pb *resourcepb.ConnectionConfig) (*model.ConnectionConfig, error) {
+	if pb == nil {
+		return nil, nil
+	}
+	cc := &model.ConnectionConfig{
+		Host:    pb.GetHost(),
+		Port:    int(pb.GetPort()),
+		Timeout: int(pb.GetTimeout()),
+	}
+	if rp := pb.GetRetryPolicy(); rp != nil {
+		cc.RetryPolicy = model.RetryPolicy{
+			MaxAttempts:       int(rp.GetMaxAttempts()),
+			InitialBackoffMS:  int(rp.GetInitialBackoffMS()),
+			MaxBackoffMS:      int(rp.GetMaxBackoffMS()),
+			BackoffMultiplier: rp.GetBackoffMultiplier(),
+		}
+	}
+	return cc, nil
+}
+
 func CUDomainToProto(cu *model.CU) (*resourcepb.CU, error) {
+	return CUToProto(cu, nil)
+}
+
+func CUToProto(cu *model.CU, runtime *model.CURuntime) (*resourcepb.CU, error) {
 	if cu == nil {
 		return nil, nil
 	}
@@ -157,18 +346,77 @@ func CUDomainToProto(cu *model.CU) (*resourcepb.CU, error) {
 	if err != nil {
 		return nil, err
 	}
+	parentID := ""
+	if cu.ParentID != nil {
+		parentID = *cu.ParentID
+	}
+	cuType := ""
+	if cu.SubType != nil {
+		cuType = *cu.SubType
+	}
+	protocol := ""
+	if cu.Protocol != nil {
+		protocol = *cu.Protocol
+	}
+	provider := ""
+	if cu.Provider != nil {
+		provider = *cu.Provider
+	}
+	externalID := ""
+	if cu.ExternalID != nil {
+		externalID = *cu.ExternalID
+	}
+	protocolConfig, err := MapToStructPB(cu.ProtocolConfig)
+	if err != nil {
+		return nil, err
+	}
 	return &resourcepb.CU{
 		ID:             cu.ID,
-		ResourceID:     cu.ResourceID,
-		ParentCUID:     cu.ParentCUID,
-		Name:           cu.Name,
-		Type:           cu.Type,
+		TenantID:       cu.TenantID,
+		ParentID:       parentID,
+		Name:           cu.DisplayName,
+		Type:           cuType,
 		CapabilityTags: cu.CapabilityTags,
 		Metadata:       meta,
+		Protocol:       protocol,
+		ProtocolConfig: protocolConfig,
+		ConnStatus:     string(cu.ConnStatus),
+		Provider:       provider,
+		ExternalID:     externalID,
+		Connection:     ConnectionDomainToProto(cu.Connection),
+		Runtime:        CURuntimeDomainToProto(runtime),
 	}, nil
 }
 
+func CURuntimeDomainToProto(r *model.CURuntime) *resourcepb.CURuntime {
+	if r == nil {
+		return nil
+	}
+	pb := &resourcepb.CURuntime{
+		ConnStatus: r.ConnStatus,
+	}
+	if !r.LastSeenAt.IsZero() {
+		pb.LastSeenAt = timestamppb.New(r.LastSeenAt)
+	}
+	if r.LatencyMS != nil {
+		v := *r.LatencyMS
+		pb.LatencyMS = &v
+	}
+	if r.LastError != nil {
+		v := *r.LastError
+		pb.LastError = &v
+	}
+	if !r.UpdatedAt.IsZero() {
+		pb.UpdatedAt = timestamppb.New(r.UpdatedAt)
+	}
+	return pb
+}
+
 func PointDomainToProto(p *model.Point) (*resourcepb.Point, error) {
+	return PointToProto(p, nil)
+}
+
+func PointToProto(p *model.Point, runtime *model.PointRuntime) (*resourcepb.Point, error) {
 	if p == nil {
 		return nil, nil
 	}
@@ -182,7 +430,7 @@ func PointDomainToProto(p *model.Point) (*resourcepb.Point, error) {
 	}
 	return &resourcepb.Point{
 		ID:               p.ID,
-		ResourceID:       p.ResourceID,
+		AssetID:          p.AssetID,
 		CUID:             p.CUID,
 		PointKey:         p.PointKey,
 		ExternalAddress:  p.ExternalAddress,
@@ -193,7 +441,36 @@ func PointDomainToProto(p *model.Point) (*resourcepb.Point, error) {
 		IsVirtual:        p.IsVirtual,
 		SafetyThresholds: th,
 		CacheKeyAlias:    p.CacheKeyAlias,
+		Runtime:          PointRuntimeDomainToProto(runtime),
 	}, nil
+}
+
+func PointRuntimeDomainToProto(r *model.PointRuntime) *resourcepb.PointRuntime {
+	if r == nil {
+		return nil
+	}
+	pb := &resourcepb.PointRuntime{
+		Sequence: r.Sequence,
+	}
+	if r.Value != nil {
+		v := *r.Value
+		pb.Value = &v
+	}
+	if r.NumericValue != nil {
+		v := *r.NumericValue
+		pb.NumericValue = &v
+	}
+	if r.QualityStatus != nil {
+		v := *r.QualityStatus
+		pb.QualityStatus = &v
+	}
+	if !r.SampledAt.IsZero() {
+		pb.SampledAt = timestamppb.New(r.SampledAt)
+	}
+	if !r.UpdatedAt.IsZero() {
+		pb.UpdatedAt = timestamppb.New(r.UpdatedAt)
+	}
+	return pb
 }
 
 func JobDomainToProto(j *model.Job) *resourcepb.Job {
@@ -223,8 +500,8 @@ func JobDomainToProto(j *model.Job) *resourcepb.Job {
 	var jobType resourcepb.JobType
 	if j.OperationType == model.JobOperationImport {
 		switch j.TargetType {
-		case model.JobTargetResource:
-			jobType = resourcepb.JobType_IMPORT_JOB_TYPE_RESOURCE
+		case model.JobTargetAsset:
+			jobType = resourcepb.JobType_IMPORT_JOB_TYPE_ASSET
 		case model.JobTargetCU:
 			jobType = resourcepb.JobType_IMPORT_JOB_TYPE_CU
 		case model.JobTargetPoint:
@@ -271,20 +548,56 @@ func JobDomainToProto(j *model.Job) *resourcepb.Job {
 	}
 }
 
-// ResourceImportItemProtoToCommand converts a proto ResourceImportItem to the
-// domain types.ResourceItem used by SubmitBatchImport.
-func ResourceImportItemProtoToCommand(p *resourcepb.ResourceItem) types.ResourceItem {
+// AssetImportItemProtoToCommand converts a proto AssetItem to the
+// domain types.AssetItem used by SubmitBatchImport.
+func AssetImportItemProtoToCommand(p *resourcepb.AssetItem) types.AssetItem {
 	if p == nil {
-		return types.ResourceItem{}
+		return types.AssetItem{}
 	}
 	meta, _ := StructPBToMap(p.GetMetadata())
-	return types.ResourceItem{
-		Name:         p.GetName(),
-		Type:         p.GetType(),
-		Capacity:     p.GetCapacity(),
-		Manufacturer: p.GetManufacturer(),
-		Model:        p.GetModel(),
-		Metadata:     meta,
+	subType := strings.TrimSpace(p.GetSubType())
+	var subTypePtr *string
+	if subType != "" {
+		subTypePtr = &subType
+	}
+	kw := p.GetRatedCapacityKW()
+	kwPtr := &kw
+
+	var dispatchMode *string
+	if v := strings.TrimSpace(p.GetDispatchMode()); v != "" {
+		dispatchMode = &v
+	}
+	var energyType *string
+	if v := strings.TrimSpace(p.GetEnergyType()); v != "" {
+		energyType = &v
+	}
+	var ownerType *string
+	if v := strings.TrimSpace(p.GetOwnerType()); v != "" {
+		ownerType = &v
+	}
+	var description *string
+	if v := strings.TrimSpace(p.GetDescription()); v != "" {
+		description = &v
+	}
+	me := p.GetMarketEnabled()
+	mePtr := &me
+
+	ds := model.DispatchStatus(strings.TrimSpace(p.GetDispatchStatus()))
+	if ds == "" {
+		ds = model.DispatchStatusUnknown
+	}
+
+	return types.AssetItem{
+		Name:            strings.TrimSpace(p.GetName()),
+		DispatchStatus:  ds,
+		SubType:         subTypePtr,
+		RatedCapacityKW: kwPtr,
+		DispatchMode:    dispatchMode,
+		EnergyType:      energyType,
+		OwnerType:       ownerType,
+		Description:     description,
+		MarketEnabled:   mePtr,
+		Metadata:        meta,
 	}
 }
 
@@ -294,11 +607,34 @@ func CUImportItemProtoToCommand(p *resourcepb.CUItem) types.CUItem {
 		return types.CUItem{}
 	}
 	meta, _ := StructPBToMap(p.GetMetadata())
+	protocolConfig, _ := StructPBToMap(p.GetProtocolConfig())
+	var parentID *string
+	if v := strings.TrimSpace(p.GetParentID()); v != "" {
+		parentID = &v
+	}
+	var protocol *string
+	if v := strings.TrimSpace(p.GetProtocol()); v != "" {
+		protocol = &v
+	}
+	var provider *string
+	if v := strings.TrimSpace(p.GetProvider()); v != "" {
+		provider = &v
+	}
+	var externalID *string
+	if v := strings.TrimSpace(p.GetExternalID()); v != "" {
+		externalID = &v
+	}
+	conn, _ := ConnectionProtoToDomain(p.GetConnection())
 	return types.CUItem{
-		ParentCUID:     p.GetParentCUID(),
+		ParentID:       parentID,
 		Name:           p.GetName(),
 		Type:           p.GetType(),
 		CapabilityTags: p.GetCapabilityTags(),
+		Provider:       provider,
+		ExternalID:     externalID,
+		Protocol:       protocol,
+		ProtocolConfig: protocolConfig,
+		Connection:     conn,
 		Metadata:       meta,
 	}
 }

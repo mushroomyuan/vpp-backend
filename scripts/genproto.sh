@@ -81,6 +81,10 @@ if command -v buf >/dev/null 2>&1; then
   log "buf detected, generating via buf generate"
   (
     cd "${BUF_DIR}"
+    if [[ ! -f buf.lock ]]; then
+      log "buf.lock missing, running buf dep update"
+      buf dep update
+    fi
     buf generate
   )
 else

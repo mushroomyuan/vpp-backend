@@ -40,8 +40,9 @@ func (e *PointImportExecutor) Execute(ctx context.Context, job *model.Job) ([]by
 
 	allIDs, err := batch.BatchCreatePoints(
 		ctx,
+		job.TenantID,
 		e.pointRepo,
-		payload.ResourceID,
+		payload.AssetID,
 		payload.CUID,
 		payload.Items,
 		payload.BatchSize,

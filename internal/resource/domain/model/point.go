@@ -1,6 +1,9 @@
 package model
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 // DataType enumerates the value types a point can carry.
 type DataType string
@@ -12,6 +15,14 @@ const (
 	DataTypeEnum  DataType = "Enum"
 )
 
+// SafetyThreshold is optional structured alarm / limit metadata (legacy helpers may still use maps in persistence).
+type SafetyThreshold struct {
+	ThresholdType string // e.g. max_power | min_soc
+	Value         float64
+	Action        string // alarm | block | limit
+	Severity      string // warning | error | critical
+}
+
 func (d DataType) IsValid() bool {
 	switch d {
 	case DataTypeFloat, DataTypeInt, DataTypeBool, DataTypeEnum:
@@ -21,60 +32,117 @@ func (d DataType) IsValid() bool {
 	}
 }
 
-// Point represents a single measurement or control point within a CU.
-// ControlFlag=true means it is a writable control point (dispatch plane).
-// IsVirtual=true means its value is computed by an algorithm, not read from hardware.
+// Point is a normalized telemetry / control definition under a resource and CU.
 type Point struct {
 	ID               string
-	ResourceID       string // denormalized for efficient resource-level queries
+	TenantID         string
+	AssetID          string
 	CUID             string
-	PointKey         string // canonical business key, e.g. "read_p", "write_v", "read_soc"
-	ExternalAddress  string // EMS/IoT raw identifier (register address or MQTT topic)
+	PointKey         string
+	ExternalAddress  string
 	DataType         DataType
-	ExtConfig        map[string]any // coefficient, offset, read/write permission, sampling rate, etc.
+	ExtConfig        map[string]any
 	Description      string
-	ControlFlag      bool           // true = dispatch-plane control point
-	IsVirtual        bool           // true = algorithm-computed, no physical sensor
-	SafetyThresholds map[string]any // hard limits enforced before dispatch, e.g. {"max_power": 500}
-	CacheKeyAlias    string         // Redis key alias for low-latency reads
+	ControlFlag      bool
+	IsVirtual        bool
+	SafetyThresholds map[string]any
+	CacheKeyAlias    string
 }
 
-func NewPoint(
-	id, resourceID, cuID, pointKey, externalAddress string,
-	dataType DataType,
-	extConfig map[string]any,
-	description string,
-	controlFlag, isVirtual bool,
-	safetyThresholds map[string]any,
-	cacheKeyAlias string,
-) (*Point, error) {
-	if id == "" {
-		return nil, errors.New("point id is required")
+// CreatePointParams defines fields for creating a Point.
+type CreatePointParams struct {
+	ID               string
+	TenantID         string
+	AssetID          string
+	CUID             string
+	PointKey         string
+	ExternalAddress  string
+	DataType         DataType
+	ExtConfig        map[string]any
+	Description      string
+	ControlFlag      bool
+	IsVirtual        bool
+	SafetyThresholds map[string]any
+	CacheKeyAlias    string
+}
+
+// NewPoint creates a Point aggregate root.
+func NewPoint(params CreatePointParams) (*Point, error) {
+	if err := validatePointParams(params); err != nil {
+		return nil, err
 	}
-	if resourceID == "" {
-		return nil, errors.New("resource id is required")
+	ext := params.ExtConfig
+	if ext == nil {
+		ext = make(map[string]any)
 	}
-	if cuID == "" {
-		return nil, errors.New("cu id is required")
+	th := params.SafetyThresholds
+	if th == nil {
+		th = make(map[string]any)
 	}
-	if pointKey == "" {
-		return nil, errors.New("point key is required")
+	p := &Point{
+		ID:               params.ID,
+		TenantID:         params.TenantID,
+		AssetID:          params.AssetID,
+		CUID:             params.CUID,
+		PointKey:         params.PointKey,
+		ExternalAddress:  params.ExternalAddress,
+		DataType:         params.DataType,
+		ExtConfig:        ext,
+		Description:      params.Description,
+		ControlFlag:      params.ControlFlag,
+		IsVirtual:        params.IsVirtual,
+		SafetyThresholds: th,
+		CacheKeyAlias:    params.CacheKeyAlias,
 	}
-	if !dataType.IsValid() {
-		return nil, errors.New("invalid data type")
+	if err := p.Validate(); err != nil {
+		return nil, err
 	}
-	return &Point{
-		ID:               id,
-		ResourceID:       resourceID,
-		CUID:             cuID,
-		PointKey:         pointKey,
-		ExternalAddress:  externalAddress,
-		DataType:         dataType,
-		ExtConfig:        extConfig,
-		Description:      description,
-		ControlFlag:      controlFlag,
-		IsVirtual:        isVirtual,
-		SafetyThresholds: safetyThresholds,
-		CacheKeyAlias:    cacheKeyAlias,
-	}, nil
+	return p, nil
+}
+
+func validatePointParams(params CreatePointParams) error {
+	if strings.TrimSpace(params.ID) == "" {
+		return errors.New("id is required")
+	}
+	if strings.TrimSpace(params.AssetID) == "" {
+		return errors.New("resource_id is required")
+	}
+	if strings.TrimSpace(params.CUID) == "" {
+		return errors.New("cu_id is required")
+	}
+	if strings.TrimSpace(params.PointKey) == "" {
+		return errors.New("point_key is required")
+	}
+	if !params.DataType.IsValid() {
+		return errors.New("invalid data type")
+	}
+	return nil
+}
+
+// Validate applies business rules.
+func (p *Point) Validate() error {
+	if p.DataType != "" && !p.DataType.IsValid() {
+		return errors.New("invalid data type")
+	}
+	return nil
+}
+
+// ============================================
+// 业务方法 (聚合根的行为)
+// ============================================
+
+// SetExtConfig replaces extension config.
+func (p *Point) SetExtConfig(m map[string]any) {
+	if m == nil {
+		m = make(map[string]any)
+	}
+	p.ExtConfig = m
+}
+
+// SetSafetyThresholds replaces safety threshold map.
+func (p *Point) SetSafetyThresholds(m map[string]any) {
+	if m == nil {
+		m = make(map[string]any)
+	}
+	p.SafetyThresholds = m
 }

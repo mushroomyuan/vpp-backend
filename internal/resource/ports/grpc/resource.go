@@ -2,219 +2,139 @@ package grpc
 
 import (
 	"context"
-	"fmt"
 
 	resourcepb "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
-	"github.com/mushroomyuan/vpp-backend/platform/idgen"
 	"github.com/mushroomyuan/vpp-backend/resource/application/command"
 	"github.com/mushroomyuan/vpp-backend/resource/application/query"
-	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (s *Server) CreateResource(ctx context.Context, req *resourcepb.CreateResourceRequest) (*resourcepb.CreateResourceResponse, error) {
-	logIn("create_resource", req)
+func (s *Server) BatchMoveResources(ctx context.Context, req *resourcepb.BatchMoveResourcesRequest) (*resourcepb.BatchMoveResourcesResponse, error) {
+	logIn("batch_move_resources", req)
 
-	meta := map[string]any(nil)
-	if req.GetMetadata() != nil {
-		meta = req.GetMetadata().AsMap()
-	}
-
-	res, err := s.createResource.Handle(ctx, command.CreateResource{
-		TenantID:     req.GetTenantID(),
-		SiteID:       req.GetSiteID(),
-		Name:         req.GetName(),
-		Type:         req.GetType(),
-		Capacity:     req.GetCapacity(),
-		Manufacturer: req.GetManufacturer(),
-		Model:        req.GetModel(),
-		Metadata:     meta,
+	res, err := s.batchMoveResource.Handle(ctx, command.BatchMoveResources{
+		TenantID:    req.GetTenantID(),
+		ResourceIDs: req.GetResourceIDs(),
+		NewParentID: req.GetNewParentID(),
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
-	return &resourcepb.CreateResourceResponse{ResourceID: res.ResourceID}, nil
+	return &resourcepb.BatchMoveResourcesResponse{MovedCount: int32(res.MovedCount)}, nil
 }
 
-func (s *Server) GetResource(ctx context.Context, req *resourcepb.GetResourceRequest) (*resourcepb.Resource, error) {
-	logIn("get_resource", req)
+func (s *Server) RenameResource(ctx context.Context, req *resourcepb.RenameResourceRequest) (*emptypb.Empty, error) {
+	logIn("rename_resource", req)
 
-	r, err := s.getResource.Handle(ctx, query.GetResource{
-		TenantID: req.GetTenantID(),
-		ID:       req.GetID(),
+	_, err := s.renameResource.Handle(ctx, command.RenameResource{
+		TenantID:   req.GetTenantID(),
+		ResourceID: req.GetResourceID(),
+		NewName:    req.GetNewName(),
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
+	return &emptypb.Empty{}, nil
+}
 
-	out, err := ResourceDomainToProto(r)
+func (s *Server) ChangeResourceLifecycle(ctx context.Context, req *resourcepb.ChangeResourceLifecycleRequest) (*emptypb.Empty, error) {
+	logIn("change_resource_lifecycle", req)
+
+	_, err := s.changeLifecycle.Handle(ctx, command.ChangeResourceLifecycle{
+		TenantID:   req.GetTenantID(),
+		ResourceID: req.GetResourceID(),
+		Status:     ResourceLifecycleStatusProtoToDomain(req.GetStatus()),
+	})
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *Server) GetResourceDetail(ctx context.Context, req *resourcepb.GetResourceDetailRequest) (*resourcepb.Resource, error) {
+	logIn("get_resource_detail", req)
+
+	node, err := s.getResourceDetail.Handle(ctx, query.GetResourceDetail{
+		TenantID:   req.GetTenantID(),
+		ResourceID: req.GetResourceID(),
+	})
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+	out, err := ResourceDomainToProto(node)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 	return out, nil
 }
 
-func (s *Server) ListResources(ctx context.Context, req *resourcepb.ListResourcesRequest) (*resourcepb.ListResourcesResponse, error) {
-	logIn("list_resources", req)
+func (s *Server) ListChildren(ctx context.Context, req *resourcepb.ListChildrenRequest) (*resourcepb.ListChildrenResponse, error) {
+	logIn("list_children", req)
 
-	result, err := s.listResources.Handle(ctx, query.ListResources{
+	result, err := s.listChildren.Handle(ctx, query.ListChildren{
 		TenantID: req.GetTenantID(),
-		SiteID:   req.GetSiteID(),
-		IDs:      req.GetIDs(),
-		Types:    req.GetTypes(),
-		NameLike: req.GetNameLike(),
+		ParentID: req.GetParentID(),
 		Offset:   int(req.GetOffset()),
 		Limit:    int(req.GetLimit()),
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
-
-	resources := make([]*resourcepb.Resource, 0, len(result.Resources))
-	for _, item := range result.Resources {
-		pb, err := ResourceDomainToProto(item)
-		if err != nil {
-			return nil, toGRPCError(err)
+	items := make([]*resourcepb.Resource, 0, len(result.Items))
+	for _, node := range result.Items {
+		pb, convErr := ResourceDomainToProto(node)
+		if convErr != nil {
+			return nil, toGRPCError(convErr)
 		}
-		resources = append(resources, pb)
+		items = append(items, pb)
 	}
-	return &resourcepb.ListResourcesResponse{Resources: resources}, nil
-}
-
-func (s *Server) UpdateResource(ctx context.Context, req *resourcepb.UpdateResourceRequest) (*emptypb.Empty, error) {
-	logIn("update_resource", req)
-
-	meta := map[string]any(nil)
-	if req.GetMetadata() != nil {
-		meta = req.GetMetadata().AsMap()
-	}
-
-	_, err := s.updateResource.Handle(ctx, command.UpdateResource{
-		TenantID:     req.GetTenantID(),
-		ID:           req.GetID(),
-		Name:         req.GetName(),
-		Type:         req.GetType(),
-		Capacity:     req.GetCapacity(),
-		Manufacturer: req.GetManufacturer(),
-		Model:        req.GetModel(),
-		Metadata:     meta,
-	})
-	if err != nil {
-		return nil, toGRPCError(err)
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (s *Server) DeleteResource(ctx context.Context, req *resourcepb.DeleteResourceRequest) (*emptypb.Empty, error) {
-	logIn("delete_resource", req)
-
-	_, err := s.deleteResource.Handle(ctx, command.DeleteResource{
-		TenantID: req.GetTenantID(),
-		ID:       req.GetID(),
-	})
-	if err != nil {
-		return nil, toGRPCError(err)
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (s *Server) BatchCreateResources(ctx context.Context, req *resourcepb.BatchCreateResourcesRequest) (*resourcepb.BatchCreateResourcesResponse, error) {
-	logIn("batch_create_resources", req)
-
-	total := len(req.GetItems())
-	if total == 0 {
-		return &resourcepb.BatchCreateResourcesResponse{
-			ResourceIDs:  nil,
-			FailedItems:  nil,
-			TotalCount:   0,
-			SuccessCount: 0,
-		}, nil
-	}
-
-	batchSize := int(req.GetBatchSize())
-	if batchSize <= 0 {
-		batchSize = 100
-	}
-
-	var (
-		createdIDs []string
-		failed     []*resourcepb.BatchItemError
-		validBatch []*model.Resource
-	)
-
-	flush := func() error {
-		if len(validBatch) == 0 {
-			return nil
-		}
-		if err := s.resourceRepo.BatchCreate(ctx, validBatch); err != nil {
-			return fmt.Errorf("batch insert: %w", err)
-		}
-		validBatch = validBatch[:0]
-		return nil
-	}
-
-	for idx, item := range req.GetItems() {
-		if item == nil {
-			failed = append(failed, &resourcepb.BatchItemError{
-				Index:  int32(idx),
-				Name:   "",
-				Reason: "item is nil",
-			})
-			continue
-		}
-		if item.GetName() == "" || item.GetType() == "" {
-			failed = append(failed, &resourcepb.BatchItemError{
-				Index:  int32(idx),
-				Name:   item.GetName(),
-				Reason: "Name and Type are required",
-			})
-			continue
-		}
-
-		meta := map[string]any(nil)
-		if item.GetMetadata() != nil {
-			meta = item.GetMetadata().AsMap()
-		}
-
-		id := idgen.Must()
-		r, err := model.NewResource(
-			id,
-			req.GetTenantID(),
-			req.GetSiteID(),
-			item.GetName(),
-			item.GetType(),
-			item.GetCapacity(),
-			item.GetManufacturer(),
-			item.GetModel(),
-			meta,
-		)
-		if err != nil {
-			failed = append(failed, &resourcepb.BatchItemError{
-				Index:  int32(idx),
-				Name:   item.GetName(),
-				Reason: err.Error(),
-			})
-			continue
-		}
-
-		createdIDs = append(createdIDs, id)
-		validBatch = append(validBatch, r)
-
-		if len(validBatch) >= batchSize {
-			if err := flush(); err != nil {
-				return nil, toGRPCError(err)
-			}
-		}
-	}
-
-	if err := flush(); err != nil {
-		return nil, toGRPCError(err)
-	}
-
-	return &resourcepb.BatchCreateResourcesResponse{
-		ResourceIDs:  createdIDs,
-		FailedItems:  failed,
-		TotalCount:   int32(total),
-		SuccessCount: int32(len(createdIDs)),
+	return &resourcepb.ListChildrenResponse{
+		Items:      items,
+		TotalCount: int32(result.TotalCount),
+		Offset:     int32(result.Offset),
+		Limit:      int32(result.Limit),
 	}, nil
+}
+
+func (s *Server) GetBreadcrumb(ctx context.Context, req *resourcepb.GetBreadcrumbRequest) (*resourcepb.GetBreadcrumbResponse, error) {
+	logIn("get_breadcrumb", req)
+
+	result, err := s.getBreadcrumb.Handle(ctx, query.GetBreadcrumb{
+		TenantID:   req.GetTenantID(),
+		ResourceID: req.GetResourceID(),
+	})
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+	items := make([]*resourcepb.Resource, 0, len(result.Items))
+	for _, node := range result.Items {
+		pb, convErr := ResourceDomainToProto(node)
+		if convErr != nil {
+			return nil, toGRPCError(convErr)
+		}
+		items = append(items, pb)
+	}
+	return &resourcepb.GetBreadcrumbResponse{Items: items}, nil
+}
+
+func (s *Server) ExportResourceTree(ctx context.Context, req *resourcepb.ExportResourceTreeRequest) (*resourcepb.ExportResourceTreeResponse, error) {
+	logIn("export_resource_tree", req)
+
+	result, err := s.exportTree.Handle(ctx, query.ExportResourceTree{
+		TenantID: req.GetTenantID(),
+		RootID:   req.GetRootID(),
+		MaxDepth: int(req.GetMaxDepth()),
+	})
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+	items := make([]*resourcepb.Resource, 0, len(result.Items))
+	for _, node := range result.Items {
+		pb, convErr := ResourceDomainToProto(node)
+		if convErr != nil {
+			return nil, toGRPCError(convErr)
+		}
+		items = append(items, pb)
+	}
+	return &resourcepb.ExportResourceTreeResponse{Items: items}, nil
 }

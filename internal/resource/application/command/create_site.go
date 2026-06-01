@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"strings"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
@@ -48,13 +49,26 @@ func (c createSiteHandler) Handle(ctx context.Context, cmd CreateSite) (*CreateS
 
 	id := idgen.Must()
 
-	site, err := model.NewSiteUnderConstruction(
-		id,
-		cmd.TenantID,
-		cmd.Name,
-		cmd.Description,
-		cmd.Location,
-	)
+	var desc *string
+	if trimmed := strings.TrimSpace(cmd.Description); trimmed != "" {
+		desc = &trimmed
+	}
+	var loc *model.Location
+	if cmd.Location != (model.Location{}) {
+		l := cmd.Location
+		loc = &l
+	}
+
+	site, err := model.NewSite(model.CreateSiteParams{
+		ID:              id,
+		TenantID:        cmd.TenantID,
+		ParentID:        nil,
+		DisplayName:     strings.TrimSpace(cmd.Name),
+		Description:     desc,
+		Location:        loc,
+		OperatingStatus: model.OperatingStatusUnderConstruction,
+		SubType:         nil,
+	})
 	if err != nil {
 		return nil, err
 	}

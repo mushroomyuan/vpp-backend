@@ -41,74 +41,22 @@ func (s *Server) SubmitBatchImport(ctx context.Context, req *resourcepb.SubmitBa
 	return resp, nil
 }
 
-func (s *Server) SubmitBatchDelete(ctx context.Context, req *resourcepb.SubmitBatchDeleteRequest) (*resourcepb.SubmitBatchResponse, error) {
-	logIn("submit_batch_delete", req)
-
-	cmd, convErr := submitBatchDeleteProtoToCmd(req)
-	if convErr != nil {
-		return nil, toGRPCError(convErr)
-	}
-
-	result, err := s.submitBatchDelete.Handle(ctx, cmd)
-	if err != nil && !errors.Is(err, types.ErrBatchDeleteValidation) {
-		return nil, toGRPCError(err)
-	}
-
-	resp := &resourcepb.SubmitBatchResponse{JobId: result.JobID}
-	for _, fe := range result.FailedItems {
-		resp.FailedItems = append(resp.FailedItems, BatchItemErrorDomainToProto(fe))
-	}
-	return resp, nil
-}
-
-// submitBatchDeleteProtoToCmd maps the proto oneof batch to SubmitBatchDelete.
-func submitBatchDeleteProtoToCmd(req *resourcepb.SubmitBatchDeleteRequest) (command.SubmitBatchDelete, error) {
-	batchSize := int(req.GetBatchSize())
-	var cmd command.SubmitBatchDelete
-	cmd.BatchSize = batchSize
-
-	switch b := req.Batch.(type) {
-	case *resourcepb.SubmitBatchDeleteRequest_Resource:
-		rb := b.Resource
-		cmd.Resource = &types.ResourceDeleteSpec{
-			TenantID: rb.GetTenantID(),
-			IDs:      append([]string(nil), rb.GetIds()...),
-		}
-	case *resourcepb.SubmitBatchDeleteRequest_Cu:
-		cb := b.Cu
-		cmd.CU = &types.CUDeleteSpec{
-			TenantID: cb.GetTenantID(),
-			IDs:      append([]string(nil), cb.GetIds()...),
-		}
-	case *resourcepb.SubmitBatchDeleteRequest_Point:
-		pb := b.Point
-		cmd.Point = &types.PointDeleteSpec{
-			TenantID: pb.GetTenantID(),
-			IDs:      append([]string(nil), pb.GetIds()...),
-		}
-	default:
-		return cmd, errors.New("SubmitBatchDelete: batch field is required (resource, cu, or point)")
-	}
-
-	return cmd, nil
-}
-
 // submitBatchImportProtoToCmd maps the proto oneof batch to SubmitBatchImport.
 func submitBatchImportProtoToCmd(req *resourcepb.SubmitBatchRequest) (command.SubmitBatchImport, error) {
 	batchSize := int(req.GetBatchSize())
 	var cmd command.SubmitBatchImport
 
 	switch b := req.Batch.(type) {
-	case *resourcepb.SubmitBatchRequest_Resource:
-		rb := b.Resource
-		items := make([]types.ResourceItem, 0, len(rb.GetItems()))
-		for _, it := range rb.GetItems() {
-			items = append(items, ResourceImportItemProtoToCommand(it))
+	case *resourcepb.SubmitBatchRequest_Asset:
+		ab := b.Asset
+		items := make([]types.AssetItem, 0, len(ab.GetItems()))
+		for _, it := range ab.GetItems() {
+			items = append(items, AssetImportItemProtoToCommand(it))
 		}
-		cmd.Resource = &types.ResourceImportSpec{
-			TenantID: rb.GetTenantID(),
-			ResourceImportPayload: types.ResourceImportPayload{
-				SiteID:    rb.GetSiteID(),
+		cmd.Asset = &types.AssetImportSpec{
+			TenantID: ab.GetTenantID(),
+			AssetImportPayload: types.AssetImportPayload{
+				SiteID:    ab.GetSiteID(),
 				BatchSize: batchSize,
 				Items:     items,
 			},
@@ -123,9 +71,9 @@ func submitBatchImportProtoToCmd(req *resourcepb.SubmitBatchRequest) (command.Su
 		cmd.CU = &types.CUImportSpec{
 			TenantID: cb.GetTenantID(),
 			CUImportPayload: types.CUImportPayload{
-				ResourceID: cb.GetResourceID(),
-				BatchSize:  batchSize,
-				Items:      items,
+				AssetID:   cb.GetAssetID(),
+				BatchSize: batchSize,
+				Items:     items,
 			},
 		}
 
@@ -138,15 +86,15 @@ func submitBatchImportProtoToCmd(req *resourcepb.SubmitBatchRequest) (command.Su
 		cmd.Point = &types.PointImportSpec{
 			TenantID: pb.GetTenantID(),
 			PointImportPayload: types.PointImportPayload{
-				ResourceID: pb.GetResourceID(),
-				CUID:       pb.GetCUID(),
-				BatchSize:  batchSize,
-				Items:      items,
+				AssetID:   pb.GetAssetID(),
+				CUID:      pb.GetCUID(),
+				BatchSize: batchSize,
+				Items:     items,
 			},
 		}
 
 	default:
-		return cmd, errors.New("SubmitBatchImport: batch field is required (resource, cu, or point)")
+		return cmd, errors.New("SubmitBatchImport: batch field is required (asset, cu, or point)")
 	}
 
 	return cmd, nil

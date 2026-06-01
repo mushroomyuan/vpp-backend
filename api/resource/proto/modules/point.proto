@@ -7,11 +7,27 @@ option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;
 import "google/protobuf/struct.proto";
 import "google/protobuf/wrappers.proto";
 import "modules/common.proto";
-import "modules/error.proto";
+import "modules/runtime.proto";
 
 message Point {
   string ID = 1;
-  string ResourceID = 2;
+  string AssetID = 2;
+  string CUID = 3;
+  string PointKey = 4;
+  string ExternalAddress = 5;
+  PointDataType DataType = 6;
+  google.protobuf.Struct ExtConfig = 7;
+  string Description = 8;
+  bool ControlFlag = 9;
+  bool IsVirtual = 10;
+  google.protobuf.Struct SafetyThresholds = 11;
+  string CacheKeyAlias = 12;
+  PointRuntime Runtime = 13;
+}
+
+message CreatePointRequest {
+  string TenantID = 1;
+  string AssetID = 2;
   string CUID = 3;
   string PointKey = 4;
   string ExternalAddress = 5;
@@ -24,9 +40,13 @@ message Point {
   string CacheKeyAlias = 12;
 }
 
-message CreatePointRequest {
-  string ResourceID = 1;
-  string CUID = 2;
+message CreatePointResponse {
+  string PointID = 1;
+}
+
+message UpdatePointRequest {
+  string TenantID = 1;
+  string ID = 2;
   string PointKey = 3;
   string ExternalAddress = 4;
   PointDataType DataType = 5;
@@ -38,29 +58,14 @@ message CreatePointRequest {
   string CacheKeyAlias = 11;
 }
 
-message CreatePointResponse {
-  string PointID = 1;
-}
-
-message UpdatePointRequest {
-  string ID = 1;
-  string PointKey = 2;
-  string ExternalAddress = 3;
-  PointDataType DataType = 4;
-  google.protobuf.Struct ExtConfig = 5;
-  string Description = 6;
-  bool ControlFlag = 7;
-  bool IsVirtual = 8;
-  google.protobuf.Struct SafetyThresholds = 9;
-  string CacheKeyAlias = 10;
-}
-
 message DeletePointRequest {
-  string ID = 1;
+  string TenantID = 1;
+  string ID = 2;
 }
 
 message GetPointRequest {
-  string ID = 1;
+  string TenantID = 1;
+  string ID = 2;
 }
 
 message ListPointsRequest {
@@ -93,16 +98,3 @@ message PointItem {
 
 
 
-message BatchCreatePointsRequest {
-  string ResourceID = 1;
-  string CUID = 2;
-  repeated PointItem Items = 3;
-  int32 BatchSize = 4;
-}
-
-message BatchCreatePointsResponse {
-  repeated string PointIDs = 1;
-  repeated BatchItemError FailedItems = 2;
-  int32 TotalCount = 3;
-  int32 SuccessCount = 4;
-}

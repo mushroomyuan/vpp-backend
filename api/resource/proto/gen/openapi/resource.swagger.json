@@ -16,7 +16,319 @@
     "application/json"
   ],
   "paths": {
-    "/api/cus/{CUID}/points": {
+    "/api/import-jobs/{ID}": {
+      "get": {
+        "operationId": "ResourceService_GetJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbJob"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/import-jobs/{ID}:retry": {
+      "post": {
+        "operationId": "ResourceService_RetryJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceServiceRetryJobBody"
+            }
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/import-jobs:submit": {
+      "post": {
+        "operationId": "ResourceService_SubmitBatchImport",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbSubmitBatchResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/resourcepbSubmitBatchRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/cus": {
+      "get": {
+        "operationId": "ResourceService_ListCUs",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbListCUsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "SiteID",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "AssetID",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "ParentID",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "Capability",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "IDs",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "NameLike",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "Offset",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "Limit",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/cus/{CUID}/points": {
+      "post": {
+        "operationId": "ResourceService_CreatePoint",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbCreatePointResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "CUID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceServiceCreatePointBody"
+            }
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/cus/{ID}": {
+      "get": {
+        "operationId": "ResourceService_GetCU",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbCU"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      },
+      "put": {
+        "operationId": "ResourceService_UpdateCU",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceServiceUpdateCUBody"
+            }
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/points": {
       "get": {
         "operationId": "ResourceService_ListPoints",
         "responses": {
@@ -35,19 +347,19 @@
         },
         "parameters": [
           {
-            "name": "CUID",
+            "name": "TenantID",
             "in": "path",
             "required": true,
             "type": "string"
           },
           {
-            "name": "TenantID",
+            "name": "SiteID",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "SiteID",
+            "name": "CUID",
             "in": "query",
             "required": false,
             "type": "string"
@@ -106,313 +418,9 @@
         "tags": [
           "ResourceService"
         ]
-      },
-      "put": {
-        "operationId": "ResourceService_CreatePoint",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/resourcepbCreatePointResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "CUID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/ResourceServiceCreatePointBody"
-            }
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
       }
     },
-    "/api/cus/{CUID}/points:batchCreate": {
-      "put": {
-        "operationId": "ResourceService_BatchCreatePoints",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/resourcepbBatchCreatePointsResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "CUID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/ResourceServiceBatchCreatePointsBody"
-            }
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      }
-    },
-    "/api/cus/{ID}": {
-      "get": {
-        "operationId": "ResourceService_GetCU",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/resourcepbCU"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "ID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      },
-      "delete": {
-        "operationId": "ResourceService_DeleteCU",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "ID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      },
-      "post": {
-        "operationId": "ResourceService_UpdateCU",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "ID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/ResourceServiceUpdateCUBody"
-            }
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      }
-    },
-    "/api/delete-jobs:submit": {
-      "put": {
-        "operationId": "ResourceService_SubmitBatchDelete",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/resourcepbSubmitBatchResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "description": "SubmitBatchDeleteRequest enqueues a soft-delete job (same response shape as import).",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/resourcepbSubmitBatchDeleteRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      }
-    },
-    "/api/import-jobs/{ID}": {
-      "get": {
-        "operationId": "ResourceService_GetJob",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/resourcepbJob"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "ID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      }
-    },
-    "/api/import-jobs/{ID}:retry": {
-      "put": {
-        "operationId": "ResourceService_RetryJob",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "ID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/ResourceServiceRetryJobBody"
-            }
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      }
-    },
-    "/api/import-jobs:submit": {
-      "put": {
-        "operationId": "ResourceService_SubmitBatchImport",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/resourcepbSubmitBatchResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/resourcepbSubmitBatchRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      }
-    },
-    "/api/points/{ID}": {
+    "/api/tenants/{TenantID}/points/{ID}": {
       "get": {
         "operationId": "ResourceService_GetPoint",
         "responses": {
@@ -430,6 +438,12 @@
           }
         },
         "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
           {
             "name": "ID",
             "in": "path",
@@ -460,6 +474,12 @@
         },
         "parameters": [
           {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
             "name": "ID",
             "in": "path",
             "required": true,
@@ -470,7 +490,7 @@
           "ResourceService"
         ]
       },
-      "post": {
+      "put": {
         "operationId": "ResourceService_UpdatePoint",
         "responses": {
           "200": {
@@ -488,6 +508,12 @@
           }
         },
         "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
           {
             "name": "ID",
             "in": "path",
@@ -508,176 +534,14 @@
         ]
       }
     },
-    "/api/resources/{ResourceID}/cus": {
-      "get": {
-        "operationId": "ResourceService_ListCUs",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/resourcepbListCUsResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "ResourceID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "TenantID",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "SiteID",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "ParentCUID",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "Capability",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "IDs",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "NameLike",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "Offset",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          },
-          {
-            "name": "Limit",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      },
-      "put": {
-        "operationId": "ResourceService_CreateCU",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/resourcepbCreateCUResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "ResourceID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/ResourceServiceCreateCUBody"
-            }
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      }
-    },
-    "/api/resources/{ResourceID}/cus:batchCreate": {
-      "put": {
-        "operationId": "ResourceService_BatchCreateCUs",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/resourcepbBatchCreateCUsResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "ResourceID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/ResourceServiceBatchCreateCUsBody"
-            }
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      }
-    },
     "/api/tenants/{TenantID}/resources/{ID}": {
       "get": {
-        "operationId": "ResourceService_GetResource",
+        "operationId": "ResourceService_GetAsset",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/resourcepbResource"
+              "$ref": "#/definitions/resourcepbAsset"
             }
           },
           "default": {
@@ -734,14 +598,20 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "IncludeDescendants",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
           "ResourceService"
         ]
       },
-      "post": {
-        "operationId": "ResourceService_UpdateResource",
+      "put": {
+        "operationId": "ResourceService_UpdateAsset",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -775,7 +645,389 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/ResourceServiceUpdateResourceBody"
+              "$ref": "#/definitions/ResourceServiceUpdateAssetBody"
+            }
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/resources/{ParentID}/children": {
+      "get": {
+        "operationId": "ResourceService_ListChildren",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbListChildrenResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ParentID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Offset",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "Limit",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/resources/{ParentID}/cus": {
+      "post": {
+        "operationId": "ResourceService_CreateCU",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbCreateCUResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ParentID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceServiceCreateCUBody"
+            }
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/resources/{ResourceID}/breadcrumb": {
+      "get": {
+        "operationId": "ResourceService_GetBreadcrumb",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbGetBreadcrumbResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ResourceID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/resources/{ResourceID}/detail": {
+      "get": {
+        "operationId": "ResourceService_GetResourceDetail",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbResource"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ResourceID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/resources/{ResourceID}:changeLifecycle": {
+      "post": {
+        "operationId": "ResourceService_ChangeResourceLifecycle",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ResourceID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceServiceChangeResourceLifecycleBody"
+            }
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/resources/{ResourceID}:move": {
+      "post": {
+        "operationId": "ResourceService_MoveResource",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ResourceID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceServiceMoveResourceBody"
+            }
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/resources/{ResourceID}:rename": {
+      "post": {
+        "operationId": "ResourceService_RenameResource",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ResourceID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceServiceRenameResourceBody"
+            }
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/resources/{RootID}:exportTree": {
+      "get": {
+        "operationId": "ResourceService_ExportResourceTree",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbExportResourceTreeResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "RootID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "MaxDepth",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/resources:batchMove": {
+      "post": {
+        "operationId": "ResourceService_BatchMoveResources",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbBatchMoveResourcesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceServiceBatchMoveResourcesBody"
             }
           }
         ],
@@ -853,7 +1105,7 @@
           "ResourceService"
         ]
       },
-      "put": {
+      "post": {
         "operationId": "ResourceService_CreateSite",
         "responses": {
           "200": {
@@ -925,42 +1177,7 @@
           "ResourceService"
         ]
       },
-      "delete": {
-        "operationId": "ResourceService_DeleteSite",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "TenantID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "ID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      },
-      "post": {
+      "put": {
         "operationId": "ResourceService_UpdateSite",
         "responses": {
           "200": {
@@ -1006,12 +1223,12 @@
     },
     "/api/tenants/{TenantID}/sites/{SiteID}/resources": {
       "get": {
-        "operationId": "ResourceService_ListResources",
+        "operationId": "ResourceService_ListAssets",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/resourcepbListResourcesResponse"
+              "$ref": "#/definitions/resourcepbListAssetsResponse"
             }
           },
           "default": {
@@ -1079,13 +1296,13 @@
           "ResourceService"
         ]
       },
-      "put": {
-        "operationId": "ResourceService_CreateResource",
+      "post": {
+        "operationId": "ResourceService_CreateAsset",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/resourcepbCreateResourceResponse"
+              "$ref": "#/definitions/resourcepbCreateAssetResponse"
             }
           },
           "default": {
@@ -1113,51 +1330,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/ResourceServiceCreateResourceBody"
-            }
-          }
-        ],
-        "tags": [
-          "ResourceService"
-        ]
-      }
-    },
-    "/api/tenants/{TenantID}/sites/{SiteID}/resources:batchCreate": {
-      "put": {
-        "operationId": "ResourceService_BatchCreateResources",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/resourcepbBatchCreateResourcesResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "TenantID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "SiteID",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/ResourceServiceBatchCreateResourcesBody"
+              "$ref": "#/definitions/ResourceServiceCreateAssetBody"
             }
           }
         ],
@@ -1168,63 +1341,67 @@
     }
   },
   "definitions": {
-    "ResourceServiceBatchCreateCUsBody": {
+    "ResourceServiceBatchMoveResourcesBody": {
       "type": "object",
       "properties": {
-        "Items": {
+        "ResourceIDs": {
           "type": "array",
           "items": {
-            "type": "object",
-            "$ref": "#/definitions/resourcepbCUItem"
+            "type": "string"
           }
         },
-        "BatchSize": {
-          "type": "integer",
-          "format": "int32"
+        "NewParentID": {
+          "type": "string"
         }
       }
     },
-    "ResourceServiceBatchCreatePointsBody": {
+    "ResourceServiceChangeResourceLifecycleBody": {
       "type": "object",
       "properties": {
-        "ResourceID": {
+        "Status": {
+          "$ref": "#/definitions/resourcepbResourceLifecycleStatus"
+        }
+      }
+    },
+    "ResourceServiceCreateAssetBody": {
+      "type": "object",
+      "properties": {
+        "Name": {
           "type": "string"
         },
-        "Items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/resourcepbPointItem"
-          }
+        "DispatchStatus": {
+          "type": "string"
         },
-        "BatchSize": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "ResourceServiceBatchCreateResourcesBody": {
-      "type": "object",
-      "properties": {
-        "Items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/resourcepbResourceItem"
-          }
+        "RatedCapacityKW": {
+          "type": "number",
+          "format": "double"
         },
-        "BatchSize": {
-          "type": "integer",
-          "format": "int32"
+        "DispatchMode": {
+          "type": "string"
+        },
+        "EnergyType": {
+          "type": "string"
+        },
+        "OwnerType": {
+          "type": "string"
+        },
+        "SubType": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "MarketEnabled": {
+          "type": "boolean"
+        },
+        "Metadata": {
+          "type": "object"
         }
       }
     },
     "ResourceServiceCreateCUBody": {
       "type": "object",
       "properties": {
-        "ParentCUID": {
-          "type": "string"
-        },
         "Name": {
           "type": "string"
         },
@@ -1239,13 +1416,31 @@
         },
         "Metadata": {
           "type": "object"
+        },
+        "Protocol": {
+          "type": "string"
+        },
+        "ProtocolConfig": {
+          "type": "object"
+        },
+        "Provider": {
+          "type": "string"
+        },
+        "ExternalID": {
+          "type": "string"
+        },
+        "Connection": {
+          "$ref": "#/definitions/resourcepbConnectionConfig"
+        },
+        "Description": {
+          "type": "string"
         }
       }
     },
     "ResourceServiceCreatePointBody": {
       "type": "object",
       "properties": {
-        "ResourceID": {
+        "AssetID": {
           "type": "string"
         },
         "PointKey": {
@@ -1277,30 +1472,6 @@
         }
       }
     },
-    "ResourceServiceCreateResourceBody": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Type": {
-          "type": "string"
-        },
-        "Capacity": {
-          "type": "number",
-          "format": "double"
-        },
-        "Manufacturer": {
-          "type": "string"
-        },
-        "Model": {
-          "type": "string"
-        },
-        "Metadata": {
-          "type": "object"
-        }
-      }
-    },
     "ResourceServiceCreateSiteBody": {
       "type": "object",
       "properties": {
@@ -1312,21 +1483,67 @@
         },
         "Description": {
           "type": "string"
-        },
-        "Status": {
-          "$ref": "#/definitions/resourcepbSiteStatus"
+        }
+      }
+    },
+    "ResourceServiceMoveResourceBody": {
+      "type": "object",
+      "properties": {
+        "NewParentID": {
+          "type": "string"
+        }
+      }
+    },
+    "ResourceServiceRenameResourceBody": {
+      "type": "object",
+      "properties": {
+        "NewName": {
+          "type": "string"
         }
       }
     },
     "ResourceServiceRetryJobBody": {
       "type": "object"
     },
+    "ResourceServiceUpdateAssetBody": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "DispatchStatus": {
+          "type": "string"
+        },
+        "RatedCapacityKW": {
+          "type": "number",
+          "format": "double"
+        },
+        "DispatchMode": {
+          "type": "string"
+        },
+        "EnergyType": {
+          "type": "string"
+        },
+        "OwnerType": {
+          "type": "string"
+        },
+        "SubType": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "MarketEnabled": {
+          "type": "boolean"
+        },
+        "Metadata": {
+          "type": "object"
+        }
+      }
+    },
     "ResourceServiceUpdateCUBody": {
       "type": "object",
       "properties": {
-        "ParentCUID": {
-          "type": "string"
-        },
         "Name": {
           "type": "string"
         },
@@ -1341,6 +1558,24 @@
         },
         "Metadata": {
           "type": "object"
+        },
+        "Protocol": {
+          "type": "string"
+        },
+        "ProtocolConfig": {
+          "type": "object"
+        },
+        "Provider": {
+          "type": "string"
+        },
+        "ExternalID": {
+          "type": "string"
+        },
+        "Connection": {
+          "$ref": "#/definitions/resourcepbConnectionConfig"
+        },
+        "ConnStatus": {
+          "type": "string"
         }
       }
     },
@@ -1376,30 +1611,6 @@
         }
       }
     },
-    "ResourceServiceUpdateResourceBody": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Type": {
-          "type": "string"
-        },
-        "Capacity": {
-          "type": "number",
-          "format": "double"
-        },
-        "Manufacturer": {
-          "type": "string"
-        },
-        "Model": {
-          "type": "string"
-        },
-        "Metadata": {
-          "type": "object"
-        }
-      }
-    },
     "ResourceServiceUpdateSiteBody": {
       "type": "object",
       "properties": {
@@ -1411,9 +1622,6 @@
         },
         "Description": {
           "type": "string"
-        },
-        "Status": {
-          "$ref": "#/definitions/resourcepbSiteStatus"
         }
       }
     },
@@ -1434,83 +1642,147 @@
       "default": "NULL_VALUE",
       "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\nThe JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
     },
-    "resourcepbBatchCreateCUsResponse": {
+    "resourcepbAsset": {
       "type": "object",
       "properties": {
-        "CUIDs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "ID": {
+          "type": "string"
         },
-        "FailedItems": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/resourcepbBatchItemError"
-          }
+        "TenantID": {
+          "type": "string"
         },
-        "TotalCount": {
-          "type": "integer",
-          "format": "int32"
+        "SiteID": {
+          "type": "string"
         },
-        "SuccessCount": {
-          "type": "integer",
-          "format": "int32"
+        "Name": {
+          "type": "string"
+        },
+        "DispatchStatus": {
+          "type": "string"
+        },
+        "RatedCapacityKW": {
+          "type": "number",
+          "format": "double"
+        },
+        "DispatchMode": {
+          "type": "string"
+        },
+        "EnergyType": {
+          "type": "string"
+        },
+        "OwnerType": {
+          "type": "string"
+        },
+        "SubType": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "MarketEnabled": {
+          "type": "boolean"
+        },
+        "Metadata": {
+          "type": "object"
+        },
+        "Runtime": {
+          "$ref": "#/definitions/resourcepbAssetRuntime"
         }
       }
     },
-    "resourcepbBatchCreatePointsResponse": {
+    "resourcepbAssetBatch": {
       "type": "object",
       "properties": {
-        "PointIDs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "TenantID": {
+          "type": "string"
         },
-        "FailedItems": {
+        "SiteID": {
+          "type": "string"
+        },
+        "items": {
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/resourcepbBatchItemError"
+            "$ref": "#/definitions/resourcepbAssetItem"
           }
+        }
+      },
+      "title": "Asset import — scope: tenant + site"
+    },
+    "resourcepbAssetItem": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
         },
-        "TotalCount": {
-          "type": "integer",
-          "format": "int32"
+        "DispatchStatus": {
+          "type": "string"
         },
-        "SuccessCount": {
-          "type": "integer",
-          "format": "int32"
+        "RatedCapacityKW": {
+          "type": "number",
+          "format": "double"
+        },
+        "DispatchMode": {
+          "type": "string"
+        },
+        "EnergyType": {
+          "type": "string"
+        },
+        "OwnerType": {
+          "type": "string"
+        },
+        "SubType": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "MarketEnabled": {
+          "type": "boolean"
+        },
+        "Metadata": {
+          "type": "object"
         }
       }
     },
-    "resourcepbBatchCreateResourcesResponse": {
+    "resourcepbAssetRuntime": {
       "type": "object",
       "properties": {
-        "ResourceIDs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "Online": {
+          "type": "boolean"
         },
-        "FailedItems": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/resourcepbBatchItemError"
-          }
+        "CurrentPowerKW": {
+          "type": "number",
+          "format": "double"
         },
-        "TotalCount": {
-          "type": "integer",
-          "format": "int32"
+        "AvailablePowerKW": {
+          "type": "number",
+          "format": "double"
         },
-        "SuccessCount": {
-          "type": "integer",
-          "format": "int32"
+        "SOC": {
+          "type": "number",
+          "format": "double"
+        },
+        "Dispatchable": {
+          "type": "boolean"
+        },
+        "NotDispatchableReason": {
+          "type": "string"
+        },
+        "MaxChargePowerKW": {
+          "type": "number",
+          "format": "double"
+        },
+        "MaxDischargePowerKW": {
+          "type": "number",
+          "format": "double"
+        },
+        "UpdatedAt": {
+          "type": "string",
+          "format": "date-time"
         }
-      }
+      },
+      "description": "AssetRuntime is hot scheduling state cached in Redis."
     },
     "resourcepbBatchItemError": {
       "type": "object",
@@ -1527,16 +1799,25 @@
         }
       }
     },
+    "resourcepbBatchMoveResourcesResponse": {
+      "type": "object",
+      "properties": {
+        "MovedCount": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "resourcepbCU": {
       "type": "object",
       "properties": {
         "ID": {
           "type": "string"
         },
-        "ResourceID": {
+        "TenantID": {
           "type": "string"
         },
-        "ParentCUID": {
+        "ParentID": {
           "type": "string"
         },
         "Name": {
@@ -1553,6 +1834,27 @@
         },
         "Metadata": {
           "type": "object"
+        },
+        "Protocol": {
+          "type": "string"
+        },
+        "ProtocolConfig": {
+          "type": "object"
+        },
+        "ConnStatus": {
+          "type": "string"
+        },
+        "Provider": {
+          "type": "string"
+        },
+        "ExternalID": {
+          "type": "string"
+        },
+        "Connection": {
+          "$ref": "#/definitions/resourcepbConnectionConfig"
+        },
+        "Runtime": {
+          "$ref": "#/definitions/resourcepbCURuntime"
         }
       }
     },
@@ -1562,7 +1864,7 @@
         "TenantID": {
           "type": "string"
         },
-        "ResourceID": {
+        "AssetID": {
           "type": "string"
         },
         "items": {
@@ -1575,24 +1877,10 @@
       },
       "title": "CU import — scope: tenant + resource"
     },
-    "resourcepbCUDeleteBatch": {
-      "type": "object",
-      "properties": {
-        "TenantID": {
-          "type": "string"
-        },
-        "ids": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
     "resourcepbCUItem": {
       "type": "object",
       "properties": {
-        "ParentCUID": {
+        "ParentID": {
           "type": "string"
         },
         "Name": {
@@ -1609,6 +1897,72 @@
         },
         "Metadata": {
           "type": "object"
+        },
+        "Protocol": {
+          "type": "string"
+        },
+        "ProtocolConfig": {
+          "type": "object"
+        },
+        "Provider": {
+          "type": "string"
+        },
+        "ExternalID": {
+          "type": "string"
+        },
+        "Connection": {
+          "$ref": "#/definitions/resourcepbConnectionConfig"
+        }
+      }
+    },
+    "resourcepbCURuntime": {
+      "type": "object",
+      "properties": {
+        "ConnStatus": {
+          "type": "string"
+        },
+        "LastSeenAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "LatencyMS": {
+          "type": "string",
+          "format": "int64"
+        },
+        "LastError": {
+          "type": "string"
+        },
+        "UpdatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "CURuntime is connection-plane runtime cached in Redis."
+    },
+    "resourcepbConnectionConfig": {
+      "type": "object",
+      "properties": {
+        "Host": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Timeout": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "RetryPolicy": {
+          "$ref": "#/definitions/resourcepbRetryPolicy"
+        }
+      }
+    },
+    "resourcepbCreateAssetResponse": {
+      "type": "object",
+      "properties": {
+        "AssetID": {
+          "type": "string"
         }
       }
     },
@@ -1628,19 +1982,35 @@
         }
       }
     },
-    "resourcepbCreateResourceResponse": {
-      "type": "object",
-      "properties": {
-        "ResourceID": {
-          "type": "string"
-        }
-      }
-    },
     "resourcepbCreateSiteResponse": {
       "type": "object",
       "properties": {
         "SiteID": {
           "type": "string"
+        }
+      }
+    },
+    "resourcepbExportResourceTreeResponse": {
+      "type": "object",
+      "properties": {
+        "Items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/resourcepbResource"
+          }
+        }
+      }
+    },
+    "resourcepbGetBreadcrumbResponse": {
+      "type": "object",
+      "properties": {
+        "Items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/resourcepbResource"
+          }
         }
       }
     },
@@ -1727,11 +2097,23 @@
       "type": "string",
       "enum": [
         "IMPORT_JOB_TYPE_UNSPECIFIED",
-        "IMPORT_JOB_TYPE_RESOURCE",
+        "IMPORT_JOB_TYPE_ASSET",
         "IMPORT_JOB_TYPE_CU",
         "IMPORT_JOB_TYPE_POINT"
       ],
       "default": "IMPORT_JOB_TYPE_UNSPECIFIED"
+    },
+    "resourcepbListAssetsResponse": {
+      "type": "object",
+      "properties": {
+        "Assets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/resourcepbAsset"
+          }
+        }
+      }
     },
     "resourcepbListCUsResponse": {
       "type": "object",
@@ -1745,6 +2127,30 @@
         }
       }
     },
+    "resourcepbListChildrenResponse": {
+      "type": "object",
+      "properties": {
+        "Items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/resourcepbResource"
+          }
+        },
+        "TotalCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Offset": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Limit": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "resourcepbListPointsResponse": {
       "type": "object",
       "properties": {
@@ -1753,18 +2159,6 @@
           "items": {
             "type": "object",
             "$ref": "#/definitions/resourcepbPoint"
-          }
-        }
-      }
-    },
-    "resourcepbListResourcesResponse": {
-      "type": "object",
-      "properties": {
-        "Resources": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/resourcepbResource"
           }
         }
       }
@@ -1803,7 +2197,7 @@
         "ID": {
           "type": "string"
         },
-        "ResourceID": {
+        "AssetID": {
           "type": "string"
         },
         "CUID": {
@@ -1835,6 +2229,9 @@
         },
         "CacheKeyAlias": {
           "type": "string"
+        },
+        "Runtime": {
+          "$ref": "#/definitions/resourcepbPointRuntime"
         }
       }
     },
@@ -1844,7 +2241,7 @@
         "TenantID": {
           "type": "string"
         },
-        "ResourceID": {
+        "AssetID": {
           "type": "string"
         },
         "CUID": {
@@ -1858,7 +2255,7 @@
           }
         }
       },
-      "title": "Point import — scope: tenant + resource + CU"
+      "title": "Point import — scope: tenant + asset + CU"
     },
     "resourcepbPointDataType": {
       "type": "string",
@@ -1870,20 +2267,6 @@
         "POINT_DATA_TYPE_ENUM"
       ],
       "default": "POINT_DATA_TYPE_UNSPECIFIED"
-    },
-    "resourcepbPointDeleteBatch": {
-      "type": "object",
-      "properties": {
-        "TenantID": {
-          "type": "string"
-        },
-        "ids": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
     },
     "resourcepbPointItem": {
       "type": "object",
@@ -1917,6 +2300,34 @@
         }
       }
     },
+    "resourcepbPointRuntime": {
+      "type": "object",
+      "properties": {
+        "Value": {
+          "type": "string"
+        },
+        "NumericValue": {
+          "type": "number",
+          "format": "double"
+        },
+        "QualityStatus": {
+          "type": "string"
+        },
+        "Sequence": {
+          "type": "string",
+          "format": "int64"
+        },
+        "SampledAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "UpdatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "PointRuntime is the latest cached point value in Redis."
+    },
     "resourcepbResource": {
       "type": "object",
       "properties": {
@@ -1926,84 +2337,65 @@
         "TenantID": {
           "type": "string"
         },
-        "SiteID": {
+        "ParentID": {
           "type": "string"
         },
-        "Name": {
+        "DisplayName": {
           "type": "string"
         },
         "Type": {
           "type": "string"
         },
-        "Capacity": {
-          "type": "number",
-          "format": "double"
-        },
-        "Manufacturer": {
+        "SubType": {
           "type": "string"
         },
-        "Model": {
+        "LifecycleStatus": {
+          "$ref": "#/definitions/resourcepbResourceLifecycleStatus"
+        },
+        "Description": {
           "type": "string"
+        },
+        "Path": {
+          "type": "string"
+        },
+        "Depth": {
+          "type": "integer",
+          "format": "int32"
         },
         "Metadata": {
           "type": "object"
-        }
-      }
-    },
-    "resourcepbResourceBatch": {
-      "type": "object",
-      "properties": {
-        "TenantID": {
-          "type": "string"
-        },
-        "SiteID": {
-          "type": "string"
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/resourcepbResourceItem"
-          }
         }
       },
-      "title": "Resource import — scope: tenant + site"
+      "description": "Resource represents the node table entity exposed as \"resource\" in\napplication/business semantics."
     },
-    "resourcepbResourceDeleteBatch": {
+    "resourcepbResourceLifecycleStatus": {
+      "type": "string",
+      "enum": [
+        "RESOURCE_LIFECYCLE_STATUS_UNSPECIFIED",
+        "RESOURCE_LIFECYCLE_STATUS_ACTIVE",
+        "RESOURCE_LIFECYCLE_STATUS_DISABLED",
+        "RESOURCE_LIFECYCLE_STATUS_DECOMMISSIONED"
+      ],
+      "default": "RESOURCE_LIFECYCLE_STATUS_UNSPECIFIED"
+    },
+    "resourcepbRetryPolicy": {
       "type": "object",
       "properties": {
-        "TenantID": {
-          "type": "string"
+        "MaxAttempts": {
+          "type": "integer",
+          "format": "int32"
         },
-        "ids": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "resourcepbResourceItem": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
+        "InitialBackoffMS": {
+          "type": "integer",
+          "format": "int32"
         },
-        "Type": {
-          "type": "string"
+        "MaxBackoffMS": {
+          "type": "integer",
+          "format": "int32"
         },
-        "Capacity": {
+        "BackoffMultiplier": {
           "type": "number",
           "format": "double"
-        },
-        "Manufacturer": {
-          "type": "string"
-        },
-        "Model": {
-          "type": "string"
-        },
-        "Metadata": {
-          "type": "object"
         }
       }
     },
@@ -2041,26 +2433,6 @@
       ],
       "default": "SITE_STATUS_UNKNOWN"
     },
-    "resourcepbSubmitBatchDeleteRequest": {
-      "type": "object",
-      "properties": {
-        "batchSize": {
-          "type": "integer",
-          "format": "int32",
-          "title": "0 = executor default"
-        },
-        "resource": {
-          "$ref": "#/definitions/resourcepbResourceDeleteBatch"
-        },
-        "cu": {
-          "$ref": "#/definitions/resourcepbCUDeleteBatch"
-        },
-        "point": {
-          "$ref": "#/definitions/resourcepbPointDeleteBatch"
-        }
-      },
-      "description": "SubmitBatchDeleteRequest enqueues a soft-delete job (same response shape as import)."
-    },
     "resourcepbSubmitBatchRequest": {
       "type": "object",
       "properties": {
@@ -2069,8 +2441,8 @@
           "format": "int32",
           "title": "0 = executor default"
         },
-        "resource": {
-          "$ref": "#/definitions/resourcepbResourceBatch"
+        "asset": {
+          "$ref": "#/definitions/resourcepbAssetBatch"
         },
         "cu": {
           "$ref": "#/definitions/resourcepbCUBatch"

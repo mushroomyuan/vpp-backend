@@ -1,11 +1,6 @@
--- Roll back 000001_init.up.sql
-
-BEGIN;
-
 DROP TABLE IF EXISTS import_jobs;
 DROP TABLE IF EXISTS points;
 DROP TABLE IF EXISTS cus;
-DROP TABLE IF EXISTS resources;
+DROP TABLE IF EXISTS assets;
 DROP TABLE IF EXISTS sites;
-
-COMMIT;
+DROP TABLE IF EXISTS nodes;

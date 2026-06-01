@@ -20,7 +20,6 @@ message CreateSiteRequest {
   string Name = 2;
   Location Location = 3;
   string Description = 4;
-  SiteStatus Status = 5;
 }
 
 message CreateSiteResponse {
@@ -33,12 +32,6 @@ message UpdateSiteRequest {
   string Name = 3;
   Location Location = 4;
   string Description = 5;
-  SiteStatus Status = 6;
-}
-
-message DeleteSiteRequest {
-  string TenantID = 1;
-  string ID = 2;
 }
 
 message GetSiteRequest {

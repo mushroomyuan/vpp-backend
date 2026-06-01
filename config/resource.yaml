@@ -30,6 +30,17 @@ database:
   conn-max-lifetime-seconds: 1800
   conn-max-idle-time-seconds: 300
 
+redis:
+  addr: 127.0.0.1:6379
+  password: ""
+  db: 0
+  pool-size: 10
+  min-idle-conns: 2
+  dial-timeout-seconds: 5
+  read-timeout-seconds: 3
+  write-timeout-seconds: 3
+  ping-timeout-seconds: 3
+
 
 
 

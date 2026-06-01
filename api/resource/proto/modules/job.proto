@@ -9,6 +9,7 @@ import "modules/common.proto";
 import "modules/resource.proto";
 import "modules/cu.proto";
 import "modules/point.proto";
+import "modules/asset.proto";
 import "modules/error.proto";
 
 
@@ -47,43 +48,26 @@ message RetryJobRequest {
 
 // ── SubmitBatch — batch wrapper messages ────────────────────────────────
 
-// Resource import — scope: tenant + site
-message ResourceBatch {
+// Asset import — scope: tenant + site
+message AssetBatch {
   string TenantID                   = 1;
   string SiteID                     = 2;
-  repeated ResourceItem items = 3;
+  repeated AssetItem items = 3;
 }
 
 // CU import — scope: tenant + resource
 message CUBatch {
   string TenantID               = 1;
-  string ResourceID             = 2;
+  string AssetID             = 2;
   repeated CUItem items   = 3;
 }
 
-// Point import — scope: tenant + resource + CU
+// Point import — scope: tenant + asset + CU
 message PointBatch {
   string TenantID                 = 1;
-  string ResourceID               = 2;
+  string AssetID                  = 2;
   string CUID                     = 3;
   repeated PointItem items  = 4;
-}
-
-// ── Batch delete (async job) — per-target ID lists ───────────────────────
-
-message ResourceDeleteBatch {
-  string          TenantID = 1;
-  repeated string ids      = 2;
-}
-
-message CUDeleteBatch {
-  string          TenantID = 1;
-  repeated string ids      = 2;
-}
-
-message PointDeleteBatch {
-  string          TenantID = 1;
-  repeated string ids      = 2;
 }
 
 // ── SubmitBatch — request / response ────────────────────────────────────
@@ -93,20 +77,9 @@ message SubmitBatchRequest {
 
   // Exactly one batch variant must be set; it also encodes the job type.
   oneof batch {
-    ResourceBatch resource = 2;
-    CUBatch       cu      = 3;
-    PointBatch    point   = 4;
-  }
-}
-
-// SubmitBatchDeleteRequest enqueues a soft-delete job (same response shape as import).
-message SubmitBatchDeleteRequest {
-  int32 batch_size = 1; // 0 = executor default
-
-  oneof batch {
-    ResourceDeleteBatch resource = 2;
-    CUDeleteBatch       cu       = 3;
-    PointDeleteBatch    point    = 4;
+    AssetBatch asset = 2;
+    CUBatch    cu    = 3;
+    PointBatch point = 4;
   }
 }
 

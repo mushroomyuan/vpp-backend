@@ -6,8 +6,7 @@ import (
 )
 
 // Point builds a GORM query for the points table.
-// When TenantID or SiteID is set, a JOIN onto the resources table is added
-// automatically because the points table carries neither of those columns.
+// TenantID filters points.tenant_id. SiteID restricts rows to points under assets whose parent is the given site node.
 type Point struct {
 	tenantID  string
 	siteID    string
@@ -32,16 +31,14 @@ func (p *Point) IsVirtual(v bool) *Point           { p.isVirtual = &v; return p 
 func (p *Point) Paginate(limit, offset int) *Point { p.limit = limit; p.offset = offset; return p }
 
 func (p *Point) Fill(db *gorm.DB) *gorm.DB {
-	db = db.Order("points.created_at DESC")
-
-	if p.tenantID != "" || p.siteID != "" {
-		db = db.Joins("JOIN resources ON resources.id = points.resource_id AND resources.deleted_at IS NULL")
-		if p.tenantID != "" {
-			db = db.Where("resources.tenant_id = ?", p.tenantID)
-		}
-		if p.siteID != "" {
-			db = db.Where("resources.site_id = ?", p.siteID)
-		}
+	db = db.Table("points").Order("points.created_at DESC")
+	if p.tenantID != "" {
+		db = db.Where("points.tenant_id = ?", p.tenantID)
+	}
+	if p.siteID != "" {
+		db = db.Joins(`JOIN nodes AS asset_node ON asset_node.id = points.asset_id AND asset_node.type = 'asset' AND asset_node.deleted_at IS NULL`).
+			Where("asset_node.parent_id = ?", p.siteID).
+			Select("points.*")
 	}
 	if p.cuID != "" {
 		db = db.Where("points.cu_id = ?", p.cuID)

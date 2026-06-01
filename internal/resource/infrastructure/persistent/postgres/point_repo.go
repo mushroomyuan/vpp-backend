@@ -32,20 +32,25 @@ func (r *PointRepository) BatchCreatePoint(ctx context.Context, ms []*PointModel
 func (r *PointRepository) UpdatePoint(ctx context.Context, m *PointModel) (err error) {
 	_, deferLog := logging.WhenDB(ctx, "PointRepository.UpdatePoint", m)
 	defer func() { deferLog(nil, &err) }()
+	updates := map[string]any{
+		"point_key":         m.PointKey,
+		"external_address":  m.ExternalAddress,
+		"data_type":         m.DataType,
+		"ext_config":        m.ExtConfig,
+		"description":       m.Description,
+		"control_flag":      m.ControlFlag,
+		"is_virtual":        m.IsVirtual,
+		"safety_thresholds": m.SafetyThresholds,
+		"cache_key_alias":   m.CacheKeyAlias,
+		"tenant_id":         m.TenantID,
+		"node_id":           m.NodeID,
+		"asset_id":          m.AssetID,
+		"cu_id":             m.CUID,
+	}
 	result := r.pg.DB().WithContext(ctx).
 		Model(&PointModel{}).
 		Where("id = ?", m.ID).
-		Updates(map[string]any{
-			"point_key":         m.PointKey,
-			"external_address":  m.ExternalAddress,
-			"data_type":         m.DataType,
-			"ext_config":        m.ExtConfig,
-			"description":       m.Description,
-			"control_flag":      m.ControlFlag,
-			"is_virtual":        m.IsVirtual,
-			"safety_thresholds": m.SafetyThresholds,
-			"cache_key_alias":   m.CacheKeyAlias,
-		})
+		Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -67,9 +72,18 @@ func (r *PointRepository) FindPointByID(ctx context.Context, query *builder.Poin
 	return
 }
 
-func (r *PointRepository) ListPoints(ctx context.Context, query *builder.Point) (results []*PointModel, err error) {
+func (r *PointRepository) ListPoints(ctx context.Context, query *builder.Point) (results []*PointModel, totalCount int64, err error) {
 	_, deferLog := logging.WhenDB(ctx, "PointRepository.ListPoints", query)
 	defer func() { deferLog(results, &err) }()
+
+	countDB := query.Fill(r.pg.DB().WithContext(ctx)).Session(&gorm.Session{}).Limit(-1).Offset(-1)
+	if err = countDB.Count(&totalCount).Error; err != nil {
+		return
+	}
+	if totalCount == 0 {
+		return nil, 0, nil
+	}
+
 	err = query.Fill(r.pg.DB().WithContext(ctx)).Find(&results).Error
 	return
 }
@@ -87,7 +101,7 @@ func (r *PointRepository) SoftDeletePoint(ctx context.Context, query *builder.Po
 	return nil
 }
 
-// BatchDeletePoint soft-deletes multiple points scoped to a tenant (via resources join).
+// BatchDeletePoint deletes points scoped by tenant.
 func (r *PointRepository) BatchDeletePoint(ctx context.Context, tenantID string, ids []string) (err error) {
 	_, deferLog := logging.WhenDB(ctx, "PointRepository.BatchDeletePoint", ids)
 	defer func() { deferLog(nil, &err) }()

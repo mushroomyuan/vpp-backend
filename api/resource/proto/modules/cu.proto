@@ -5,25 +5,52 @@ package resourcepb;
 option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
 
 import "google/protobuf/struct.proto";
-import "modules/error.proto";
+import "modules/runtime.proto";
+
+message RetryPolicy {
+  int32 MaxAttempts = 1;
+  int32 InitialBackoffMS = 2;
+  int32 MaxBackoffMS = 3;
+  double BackoffMultiplier = 4;
+}
+
+message ConnectionConfig {
+  string Host = 1;
+  int32 Port = 2;
+  int32 Timeout = 3;
+  RetryPolicy RetryPolicy = 4;
+}
 
 message CU {
   string ID = 1;
-  string ResourceID = 2;
-  string ParentCUID = 3;
+  string TenantID = 2;
+  string ParentID = 3;
   string Name = 4;
   string Type = 5;
   repeated string CapabilityTags = 6;
   google.protobuf.Struct Metadata = 7;
+  string Protocol = 8;
+  google.protobuf.Struct ProtocolConfig = 9;
+  string ConnStatus = 10;
+  string Provider = 11;
+  string ExternalID = 12;
+  ConnectionConfig Connection = 13;
+  CURuntime Runtime = 14;
 }
 
 message CreateCURequest {
-  string ResourceID = 1;
-  string ParentCUID = 2;
+  string TenantID = 1;
+  string ParentID = 2;
   string Name = 3;
   string Type = 4;
   repeated string CapabilityTags = 5;
   google.protobuf.Struct Metadata = 6;
+  string Protocol = 7;
+  google.protobuf.Struct ProtocolConfig = 8;
+  string Provider = 9;
+  string ExternalID = 10;
+  ConnectionConfig Connection = 11;
+  string Description = 12;
 }
 
 message CreateCUResponse {
@@ -31,27 +58,30 @@ message CreateCUResponse {
 }
 
 message UpdateCURequest {
-  string ID = 1;
-  string ParentCUID = 2;
+  string TenantID = 1;
+  string ID = 2;
   string Name = 3;
   string Type = 4;
   repeated string CapabilityTags = 5;
   google.protobuf.Struct Metadata = 6;
-}
-
-message DeleteCURequest {
-  string ID = 1;
+  string Protocol = 7;
+  google.protobuf.Struct ProtocolConfig = 8;
+  string Provider = 9;
+  string ExternalID = 10;
+  ConnectionConfig Connection = 11;
+  string ConnStatus = 12;
 }
 
 message GetCURequest {
-  string ID = 1;
+  string TenantID = 1;
+  string ID = 2;
 }
 
 message ListCUsRequest {
   string TenantID = 1;
   string SiteID = 2;
-  string ResourceID = 3;
-  string ParentCUID = 4;
+  string AssetID = 3;
+  string ParentID = 4;
   repeated string Capability = 5;
   repeated string IDs = 6;
   string NameLike = 7;
@@ -64,24 +94,14 @@ message ListCUsResponse {
 }
 
 message CUItem {
-  string ParentCUID = 1;
+  string ParentID = 1;
   string Name = 2;
   string Type = 3;
   repeated string CapabilityTags = 4;
   google.protobuf.Struct Metadata = 5;
-}
-
-
-
-message BatchCreateCUsRequest {
-  string ResourceID = 1;
-  repeated CUItem Items = 2;
-  int32 BatchSize = 3;
-}
-
-message BatchCreateCUsResponse {
-  repeated string CUIDs = 1;
-  repeated BatchItemError FailedItems = 2;
-  int32 TotalCount = 3;
-  int32 SuccessCount = 4;
+  string Protocol = 6;
+  google.protobuf.Struct ProtocolConfig = 7;
+  string Provider = 8;
+  string ExternalID = 9;
+  ConnectionConfig Connection = 10;
 }
