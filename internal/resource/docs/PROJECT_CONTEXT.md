@@ -1,7 +1,7 @@
 # Resource Service — Project Context
 
 > VPP (Virtual Power Plant) · `internal/resource` 微服务
-> 架构: DDD + Hexagonal (Ports & Adapters) + CQRS · 语言: Go 1.26.2
+> 架构: DDD + Hexagonal (Ports & adapter) + CQRS · 语言: Go 1.26.2
 
 ---
 
@@ -44,7 +44,7 @@ internal/resource/
 │   ├── command/                   # 写侧用例 (*Handler)
 │   ├── query/                     # 读侧用例 (*Handler)
 │   └── worker/                    # 异步任务 (导入 Worker)
-├── adapters/                      # Port 实现 + 领域↔DB 映射
+├── adapter/                      # Port 实现 + 领域↔DB 映射
 │   ├── converter.go
 │   └── *_postgres_repository.go
 └── infrastructure/
@@ -60,10 +60,10 @@ internal/resource/
 ## 3. 架构模式
 
 ```
-[application] ──uses──> [domain/port] <──implements── [adapters] ──wraps──> [infrastructure]
+[application] ──uses──> [domain/port] <──implements── [adapter] ──wraps──> [infrastructure]
 ```
 
-- **Hexagonal**: `domain/port` 定义接口；`adapters` 实现并注入。
+- **Hexagonal**: `domain/port` 定义接口；`adapter` 实现并注入。
 - **CQRS**: `application/command`（写）与 `application/query`（读）严格分离。
 - **Decorator**: Handler 通过 `decorator.ApplyCommandDecorators / ApplyQueryDecorators` 加 tracing & metrics。
 - **Worker**: 单 goroutine + DB 行级锁（`FOR UPDATE SKIP LOCKED`）保证多节点安全认领。
@@ -150,11 +150,11 @@ type ScheduleRepository struct { db *gorm.DB }
 ### Step 3 — 适配器层
 
 ```go
-// adapters/schedule_postgres_repository.go
+// adapter/schedule_postgres_repository.go
 type SchedulePostgresRepository struct { repo *postgres.ScheduleRepository }
 var _ port.ScheduleRepository = (*SchedulePostgresRepository)(nil) // 编译期检查
 
-// adapters/convertor.go（追加转换函数）
+// adapter/convertor.go（追加转换函数）
 func scheduleToModel(s *model.Schedule) *postgres.ScheduleModel { ... }
 func scheduleFromModel(m *postgres.ScheduleModel) (*model.Schedule, error) { ... }
 ```

@@ -19,16 +19,16 @@ import (
 	"github.com/mushroomyuan/vpp-backend/platform/metrics"
 	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
-	"github.com/mushroomyuan/vpp-backend/resource/adapters"
+	"github.com/mushroomyuan/vpp-backend/resource/adapter"
+	grpcpkg "github.com/mushroomyuan/vpp-backend/resource/adapter/inbound/grpc"
 	"github.com/mushroomyuan/vpp-backend/resource/application"
 	"github.com/mushroomyuan/vpp-backend/resource/config"
 	infradb "github.com/mushroomyuan/vpp-backend/resource/infrastructure/db"
 	"github.com/mushroomyuan/vpp-backend/resource/infrastructure/persistent/postgres"
 	redisruntime "github.com/mushroomyuan/vpp-backend/resource/infrastructure/runtime/redis"
-	grpcpkg "github.com/mushroomyuan/vpp-backend/resource/ports/grpc"
 
 	// gateway.go declares `package ports` — alias for clarity
-	gatewaypkg "github.com/mushroomyuan/vpp-backend/resource/ports/http"
+	gatewaypkg "github.com/mushroomyuan/vpp-backend/resource/adapter/inbound/http"
 )
 
 // ─── server structs ───────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ type preparedServer struct {
 
 // ─── wiring ───────────────────────────────────────────────────────────────────
 
-// createServer wires every layer (postgres → infra repos → adapters →
+// createServer wires every layer (postgres → infra repos → adapter →
 // application → gRPC/HTTP servers) and returns a fully initialised but not-yet-
 // started server. No goroutines are spawned here except for the metrics HTTP
 // server, which has its own cancel function stored in resourceServer.
@@ -98,13 +98,13 @@ func createServer(appCfg *config.Config, dbCfg infradb.Config, redisCfg platform
 	jobInfra := postgres.NewJobRepository(pg)
 	nodeInfra := postgres.NewNodeRepository(pg)
 
-	// ── adapters (port.XxxRepository implementations) ─────────────────────────
-	siteRepo := adapters.NewSiteRepositoryPostgres(siteInfra, nodeInfra)
-	assetRepo := adapters.NewAssetRepositoryPostgres(assetInfra, nodeInfra)
-	cuRepo := adapters.NewCURepositoryPostgres(cuInfra, nodeInfra)
-	pointRepo := adapters.NewPointRepositoryPostgres(pointInfra, nodeInfra)
-	jobRepo := adapters.NewJobRepositoryPostgres(jobInfra)
-	nodeRepo := adapters.NewNodeRepositoryPostgres(nodeInfra)
+	// ── adapter (port.XxxRepository implementations) ─────────────────────────
+	siteRepo := adapter.NewSiteRepositoryPostgres(siteInfra, nodeInfra)
+	assetRepo := adapter.NewAssetRepositoryPostgres(assetInfra, nodeInfra)
+	cuRepo := adapter.NewCURepositoryPostgres(cuInfra, nodeInfra)
+	pointRepo := adapter.NewPointRepositoryPostgres(pointInfra, nodeInfra)
+	jobRepo := adapter.NewJobRepositoryPostgres(jobInfra)
+	nodeRepo := adapter.NewNodeRepositoryPostgres(nodeInfra)
 
 	assetRuntime := redisruntime.NewAssetRuntimeCache(redisClient, 0)
 	cuRuntime := redisruntime.NewCURuntimeCache(redisClient, 0)

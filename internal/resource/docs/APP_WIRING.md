@@ -49,18 +49,18 @@ postgres.NewPostgres()
   ↓
 postgres.NewXxxRepository(pg)          // infra repos（GORM CRUD）
   ↓
-adapters.NewXxxRepositoryPostgres(...) // ports 实现（domain/port）
+adapter.NewXxxRepositoryPostgres(...) // ports 实现（domain/port）
   ↓
 application.NewApplication(deps)       // CQRS handlers + worker registry
   ↓
-ports/grpc.NewServer(app, repos...)    // gRPC server impl（复用 app handlers）
+adapter/inbound/grpc.NewServer(app, repos...)    // gRPC server impl（复用 app handlers）
   ↓
-ports/http.MountGateway(...)           // gin + grpc-gateway
+adapter/inbound/http.MountGateway(...)           // gin + grpc-gateway
 ```
 
 说明：
 
-- gRPC 的 **batch** API（批量创建）出于性能与控制流需要，仍会直接调用 `resourceRepo/cuRepo/pointRepo` 的 `BatchCreate`；因此这些 repo 仍作为 `ports/grpc.Server` 的字段保留。
+- gRPC 的 **batch** API（批量创建）出于性能与控制流需要，仍会直接调用 `resourceRepo/cuRepo/pointRepo` 的 `BatchCreate`；因此这些 repo 仍作为 `adapter/inbound/grpc.Server` 的字段保留。
 - 其余 API 全部走 `application.Application` 中预先组装好的 `Commands/Queries` handlers，避免重复 wiring。
 
 ---

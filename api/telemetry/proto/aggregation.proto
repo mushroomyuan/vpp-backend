@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package telemetrypb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen;telemetrypb";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// AggregatedPoint holds the result of applying one or more AggFunctions over a
+// single step-sized window. Optional fields are absent when the function was not
+// requested or when the window contained no samples.
+message AggregatedPoint {
+  string CUCode = 1;
+  string MetricName = 2;
+  google.protobuf.Timestamp WindowStart = 3;
+  google.protobuf.Timestamp WindowEnd = 4;
+  optional double Avg = 5;
+  optional double Max = 6;
+  optional double Min = 7;
+  // Sum is useful for energy (kWh) accumulation.
+  optional double Sum = 8;
+  // Count is useful for counting discrete state transitions.
+  optional int64 Count = 9;
+  // Last is the most recent sample value within the window.
+  optional double Last = 10;
+}
+
+message QueryAggregationRequest {
+  string TenantID = 1;
+  string CUCode = 2;
+  string MetricName = 3;
+  google.protobuf.Timestamp StartTime = 4;
+  google.protobuf.Timestamp EndTime = 5;
+  // StepSeconds is the downsampling window size in seconds.
+  // e.g. 60 = 1-minute buckets, 900 = 15-minute buckets.
+  int64 StepSeconds = 6;
+  // Functions lists which aggregation functions to compute (at least one required).
+  repeated AggFunction Functions = 7;
+}
+
+message QueryAggregationResponse {
+  repeated AggregatedPoint Points = 1;
+}

@@ -10,7 +10,7 @@
 
 **背景：** VPP 是多服务分布式系统，resource 服务需要隔离业务逻辑、便于替换基础设施（如未来从 Postgres 迁移到 TimescaleDB）。
 
-**决策：** 采用六边形架构（Ports & Adapters）+ DDD 领域建模。
+**决策：** 采用六边形架构（Ports & adapter）+ DDD 领域建模。
 - `domain` 层不依赖任何框架
 - 通过 `domain/port` 接口隔离基础设施
 - `application` 层只编排领域对象，不含 SQL 逻辑

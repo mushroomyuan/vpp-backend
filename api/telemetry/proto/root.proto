@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package telemetrypb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen;telemetrypb";
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+import "telemetry.proto";
+import "snapshot.proto";
+import "aggregation.proto";
+
+// TelemetryService exposes APIs for ingesting, querying, and aggregating
+// time-series telemetry data from Control Units (CUs).
+//
+// Write path:  IngestTelemetry (saves to TSDB + updates real-time Snapshot + publishes SOE)
+// Read paths:
+//   - QueryTelemetry    — raw historical records (≤ 30-day window)
+//   - GetSnapshot       — current real-time state of a single CU
+//   - GetFleetSnapshot  — current real-time state of all CUs in a tenant
+//   - QueryAggregation  — downsampled/aggregated time-series (≤ 30-day window)
+service TelemetryService {
+
+  // ── Write ──────────────────────────────────────────────────────────────────
+
+  // IngestTelemetry ingests a single CU's metric readings for one timestamp.
+  // Callers should invoke this once per CU per sampling cycle.
+  rpc IngestTelemetry(IngestTelemetryRequest) returns (IngestTelemetryResponse) {
+    option (google.api.http) = {
+      post: "/api/tenants/{TenantID}/cus/{CUCode}/telemetry:ingest"
+      body: "*"
+    };
+  }
+
+  // ── Raw query ──────────────────────────────────────────────────────────────
+
+  // QueryTelemetry returns raw historical records for a single CU metric.
+  // The time range must not exceed 30 days.
+  rpc QueryTelemetry(QueryTelemetryRequest) returns (QueryTelemetryResponse) {
+    option (google.api.http) = {
+      get: "/api/tenants/{TenantID}/cus/{CUCode}/telemetry"
+    };
+  }
+
+  // ── Snapshots ──────────────────────────────────────────────────────────────
+
+  // GetSnapshot returns the latest real-time snapshot for a single CU.
+  // Returns NOT_FOUND if no data has been ingested for the CU yet.
+  rpc GetSnapshot(GetSnapshotRequest) returns (Snapshot) {
+    option (google.api.http) = {
+      get: "/api/tenants/{TenantID}/cus/{CUCode}/snapshot"
+    };
+  }
+
+  // GetFleetSnapshot returns real-time snapshots for every CU in a tenant.
+  // Used by dashboards and fleet-level staleness checks.
+  rpc GetFleetSnapshot(GetFleetSnapshotRequest) returns (GetFleetSnapshotResponse) {
+    option (google.api.http) = {
+      get: "/api/tenants/{TenantID}/snapshots"
+    };
+  }
+
+  // ── Aggregation ────────────────────────────────────────────────────────────
+
+  // QueryAggregation returns downsampled time-series data for a single CU metric.
+  // The storage engine (TimescaleDB / InfluxDB) handles the aggregation natively.
+  // The time range must not exceed 30 days.
+  rpc QueryAggregation(QueryAggregationRequest) returns (QueryAggregationResponse) {
+    option (google.api.http) = {
+      get: "/api/tenants/{TenantID}/cus/{CUCode}/aggregation"
+    };
+  }
+}

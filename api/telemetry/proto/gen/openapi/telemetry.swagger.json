@@ -1,0 +1,537 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "common.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "TelemetryService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/tenants/{TenantID}/cus/{CUCode}/aggregation": {
+      "get": {
+        "summary": "QueryAggregation returns downsampled time-series data for a single CU metric.\nThe storage engine (TimescaleDB / InfluxDB) handles the aggregation natively.\nThe time range must not exceed 30 days.",
+        "operationId": "TelemetryService_QueryAggregation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/telemetrypbQueryAggregationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "CUCode",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "MetricName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "StartTime",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "name": "EndTime",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "name": "StepSeconds",
+            "description": "StepSeconds is the downsampling window size in seconds.\ne.g. 60 = 1-minute buckets, 900 = 15-minute buckets.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "Functions",
+            "description": "Functions lists which aggregation functions to compute (at least one required).\n\n - AGG_FUNCTION_SUM: AGG_FUNCTION_SUM is useful for energy (kWh) accumulation over a window.\n - AGG_FUNCTION_COUNT: AGG_FUNCTION_COUNT is useful for counting discrete state transitions.\n - AGG_FUNCTION_LAST: AGG_FUNCTION_LAST returns the most recent sample within the window.",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "AGG_FUNCTION_UNSPECIFIED",
+                "AGG_FUNCTION_AVG",
+                "AGG_FUNCTION_MAX",
+                "AGG_FUNCTION_MIN",
+                "AGG_FUNCTION_SUM",
+                "AGG_FUNCTION_COUNT",
+                "AGG_FUNCTION_LAST"
+              ]
+            },
+            "collectionFormat": "multi"
+          }
+        ],
+        "tags": [
+          "TelemetryService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/cus/{CUCode}/snapshot": {
+      "get": {
+        "summary": "GetSnapshot returns the latest real-time snapshot for a single CU.\nReturns NOT_FOUND if no data has been ingested for the CU yet.",
+        "operationId": "TelemetryService_GetSnapshot",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/telemetrypbSnapshot"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "CUCode",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "StaleAgeSeconds",
+            "description": "StaleAgeSeconds overrides the server-side default (300 s / 5 min).\nPass 0 to use the default.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "TelemetryService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/cus/{CUCode}/telemetry": {
+      "get": {
+        "summary": "QueryTelemetry returns raw historical records for a single CU metric.\nThe time range must not exceed 30 days.",
+        "operationId": "TelemetryService_QueryTelemetry",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/telemetrypbQueryTelemetryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "CUCode",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "MetricName",
+            "description": "MetricName filters results to a single metric; omit to return all metrics.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "StartTime",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "name": "EndTime",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "date-time"
+          }
+        ],
+        "tags": [
+          "TelemetryService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/cus/{CUCode}/telemetry:ingest": {
+      "post": {
+        "summary": "IngestTelemetry ingests a single CU's metric readings for one timestamp.\nCallers should invoke this once per CU per sampling cycle.",
+        "operationId": "TelemetryService_IngestTelemetry",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/telemetrypbIngestTelemetryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "CUCode",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/TelemetryServiceIngestTelemetryBody"
+            }
+          }
+        ],
+        "tags": [
+          "TelemetryService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/snapshots": {
+      "get": {
+        "summary": "GetFleetSnapshot returns real-time snapshots for every CU in a tenant.\nUsed by dashboards and fleet-level staleness checks.",
+        "operationId": "TelemetryService_GetFleetSnapshot",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/telemetrypbGetFleetSnapshotResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "StaleAgeSeconds",
+            "description": "StaleAgeSeconds overrides the server-side default (300 s / 5 min).\nPass 0 to use the default.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "TelemetryService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "TelemetryServiceIngestTelemetryBody": {
+      "type": "object",
+      "properties": {
+        "Timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "Metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/telemetrypbMetricValue"
+          }
+        }
+      },
+      "description": "IngestTelemetryRequest carries one push from a single CU: one timestamp and\nN metric readings. Callers should invoke this RPC once per CU per sampling cycle."
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "telemetrypbAggFunction": {
+      "type": "string",
+      "enum": [
+        "AGG_FUNCTION_UNSPECIFIED",
+        "AGG_FUNCTION_AVG",
+        "AGG_FUNCTION_MAX",
+        "AGG_FUNCTION_MIN",
+        "AGG_FUNCTION_SUM",
+        "AGG_FUNCTION_COUNT",
+        "AGG_FUNCTION_LAST"
+      ],
+      "default": "AGG_FUNCTION_UNSPECIFIED",
+      "description": "AggFunction specifies which statistical function to compute over a time window.\n\n - AGG_FUNCTION_SUM: AGG_FUNCTION_SUM is useful for energy (kWh) accumulation over a window.\n - AGG_FUNCTION_COUNT: AGG_FUNCTION_COUNT is useful for counting discrete state transitions.\n - AGG_FUNCTION_LAST: AGG_FUNCTION_LAST returns the most recent sample within the window."
+    },
+    "telemetrypbAggregatedPoint": {
+      "type": "object",
+      "properties": {
+        "CUCode": {
+          "type": "string"
+        },
+        "MetricName": {
+          "type": "string"
+        },
+        "WindowStart": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "WindowEnd": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "Avg": {
+          "type": "number",
+          "format": "double"
+        },
+        "Max": {
+          "type": "number",
+          "format": "double"
+        },
+        "Min": {
+          "type": "number",
+          "format": "double"
+        },
+        "Sum": {
+          "type": "number",
+          "format": "double",
+          "description": "Sum is useful for energy (kWh) accumulation."
+        },
+        "Count": {
+          "type": "string",
+          "format": "int64",
+          "description": "Count is useful for counting discrete state transitions."
+        },
+        "Last": {
+          "type": "number",
+          "format": "double",
+          "description": "Last is the most recent sample value within the window."
+        }
+      },
+      "description": "AggregatedPoint holds the result of applying one or more AggFunctions over a\nsingle step-sized window. Optional fields are absent when the function was not\nrequested or when the window contained no samples."
+    },
+    "telemetrypbGetFleetSnapshotResponse": {
+      "type": "object",
+      "properties": {
+        "Snapshots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/telemetrypbSnapshot"
+          }
+        }
+      }
+    },
+    "telemetrypbIngestTelemetryResponse": {
+      "type": "object",
+      "properties": {
+        "SOECount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "SOECount is the number of discrete state-change events produced by this push."
+        }
+      }
+    },
+    "telemetrypbMetricType": {
+      "type": "string",
+      "enum": [
+        "METRIC_TYPE_UNSPECIFIED",
+        "METRIC_TYPE_ANALOG",
+        "METRIC_TYPE_DISCRETE"
+      ],
+      "default": "METRIC_TYPE_UNSPECIFIED",
+      "description": "MetricType distinguishes continuous measurements from discrete state values,\naligned with IEC 60870-5 terminology.\n\n - METRIC_TYPE_ANALOG: METRIC_TYPE_ANALOG: a continuous physical measurement (power, voltage, SOC…)\n - METRIC_TYPE_DISCRETE: METRIC_TYPE_DISCRETE: a finite-state signal (breaker, relay, fault flag…)\nState changes in DISCRETE metrics trigger SOE events."
+    },
+    "telemetrypbMetricValue": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Value": {
+          "type": "number",
+          "format": "double"
+        },
+        "Type": {
+          "$ref": "#/definitions/telemetrypbMetricType"
+        },
+        "Quality": {
+          "$ref": "#/definitions/telemetrypbQualityStatus"
+        }
+      },
+      "description": "MetricValue is a single measured data point within a telemetry push."
+    },
+    "telemetrypbQualityStatus": {
+      "type": "string",
+      "enum": [
+        "QUALITY_STATUS_UNSPECIFIED",
+        "QUALITY_STATUS_GOOD",
+        "QUALITY_STATUS_BAD",
+        "QUALITY_STATUS_UNCERTAIN"
+      ],
+      "default": "QUALITY_STATUS_UNSPECIFIED",
+      "description": "QualityStatus follows the IEC 60870-5 / OPC-UA data quality convention."
+    },
+    "telemetrypbQueryAggregationResponse": {
+      "type": "object",
+      "properties": {
+        "Points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/telemetrypbAggregatedPoint"
+          }
+        }
+      }
+    },
+    "telemetrypbQueryTelemetryResponse": {
+      "type": "object",
+      "properties": {
+        "Records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/telemetrypbTelemetryRecord"
+          }
+        }
+      }
+    },
+    "telemetrypbSnapshot": {
+      "type": "object",
+      "properties": {
+        "TenantID": {
+          "type": "string"
+        },
+        "CUCode": {
+          "type": "string"
+        },
+        "Metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          },
+          "description": "Metrics maps metric name → latest good-quality value."
+        },
+        "UpdatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "Stale": {
+          "type": "boolean",
+          "description": "Stale is true when the snapshot has not been updated within the requested\nStaleAgeSeconds threshold (or the server default of 5 minutes)."
+        }
+      },
+      "description": "Snapshot holds the latest known good-quality metric values for a single CU.\nIt is the real-time \"current state\" view populated on every successful ingest."
+    },
+    "telemetrypbTelemetryRecord": {
+      "type": "object",
+      "properties": {
+        "TenantID": {
+          "type": "string"
+        },
+        "CUCode": {
+          "type": "string"
+        },
+        "Timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "Metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/telemetrypbMetricValue"
+          }
+        }
+      },
+      "description": "TelemetryRecord is the read model for a single raw time-series entry."
+    }
+  }
+}

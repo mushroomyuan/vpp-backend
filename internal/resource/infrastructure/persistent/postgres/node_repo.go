@@ -11,7 +11,7 @@ import (
 
 // NodeRepository wraps low-level GORM operations for the nodes table.
 // It has no knowledge of domain types or domain errors; those concerns belong
-// to the adapters layer.
+// to the adapter layer.
 type NodeRepository struct {
 	pg *Postgres
 }

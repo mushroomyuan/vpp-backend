@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package telemetrypb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen;telemetrypb";
+
+// MetricType distinguishes continuous measurements from discrete state values,
+// aligned with IEC 60870-5 terminology.
+enum MetricType {
+  METRIC_TYPE_UNSPECIFIED = 0;
+  // METRIC_TYPE_ANALOG: a continuous physical measurement (power, voltage, SOC…)
+  METRIC_TYPE_ANALOG = 1;
+  // METRIC_TYPE_DISCRETE: a finite-state signal (breaker, relay, fault flag…)
+  // State changes in DISCRETE metrics trigger SOE events.
+  METRIC_TYPE_DISCRETE = 2;
+}
+
+// QualityStatus follows the IEC 60870-5 / OPC-UA data quality convention.
+enum QualityStatus {
+  QUALITY_STATUS_UNSPECIFIED = 0;
+  QUALITY_STATUS_GOOD = 1;
+  QUALITY_STATUS_BAD = 2;
+  QUALITY_STATUS_UNCERTAIN = 3;
+}
+
+// AggFunction specifies which statistical function to compute over a time window.
+enum AggFunction {
+  AGG_FUNCTION_UNSPECIFIED = 0;
+  AGG_FUNCTION_AVG = 1;
+  AGG_FUNCTION_MAX = 2;
+  AGG_FUNCTION_MIN = 3;
+  // AGG_FUNCTION_SUM is useful for energy (kWh) accumulation over a window.
+  AGG_FUNCTION_SUM = 4;
+  // AGG_FUNCTION_COUNT is useful for counting discrete state transitions.
+  AGG_FUNCTION_COUNT = 5;
+  // AGG_FUNCTION_LAST returns the most recent sample within the window.
+  AGG_FUNCTION_LAST = 6;
+}

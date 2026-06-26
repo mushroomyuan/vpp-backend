@@ -1,0 +1,34 @@
+version: v2
+
+modules:
+  - path: .
+    excludes:
+      - gen
+      # Vendored google/api protos conflict with buf.build/googleapis/googleapis.
+      - third_party
+
+deps:
+  - buf.build/googleapis/googleapis
+
+lint:
+  use:
+    - STANDARD
+  except:
+    # PascalCase field names (e.g. TenantID, CUCode) are used intentionally to
+    # keep generated Go struct fields consistent with the resource service proto.
+    - FIELD_LOWER_SNAKE_CASE
+    # Package versioning (telemetrypb vs telemetrypb.v1) is not required at this stage.
+    - PACKAGE_VERSION_SUFFIX
+    # All files share the same package; directory-to-package strict mapping is relaxed.
+    - PACKAGE_DIRECTORY_MATCH
+    # root.proto and modules/*.proto share the same package across two directories.
+    - PACKAGE_SAME_DIRECTORY
+    # Several RPCs return domain message types directly (e.g. GetSnapshot → Snapshot)
+    # rather than wrapping them, matching the resource service convention.
+    - RPC_RESPONSE_STANDARD_NAME
+  ignore:
+    - third_party
+
+breaking:
+  use:
+    - FILE

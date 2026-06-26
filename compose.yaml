@@ -41,17 +41,20 @@ services:
 
 
   postgres:
-    image: postgres:16-alpine
+    # TimescaleDB is a PostgreSQL superset: resource service works unchanged;
+    # telemetry service requires hypertables (TimescaleDB-specific).
+    image: timescale/timescaledb:latest-pg16
     restart: on-failure
     ports:
       - "5432:5432"
     environment:
-      # Keep in sync with config/resource.yaml → database.*
+      # Keep in sync with config/resource.yaml  → database.*
+      #                  config/telemetry.yaml  → timescaledb.*
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres123
       POSTGRES_DB: resource
     volumes:
-      - ./migrations/resource/initdb:/docker-entrypoint-initdb.d
+      - ./migrations/initdb:/docker-entrypoint-initdb.d
       - ./data/postgres_data:/var/lib/postgresql/data
 
   redis:

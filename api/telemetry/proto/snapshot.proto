@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package telemetrypb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen;telemetrypb";
+
+import "google/protobuf/timestamp.proto";
+
+// Snapshot holds the latest known good-quality metric values for a single CU.
+// It is the real-time "current state" view populated on every successful ingest.
+message Snapshot {
+  string TenantID = 1;
+  string CUCode = 2;
+  // Metrics maps metric name → latest good-quality value.
+  map<string, double> Metrics = 3;
+  google.protobuf.Timestamp UpdatedAt = 4;
+  // Stale is true when the snapshot has not been updated within the requested
+  // StaleAgeSeconds threshold (or the server default of 5 minutes).
+  bool Stale = 5;
+}
+
+// ── Single-CU snapshot ────────────────────────────────────────────────────────
+
+message GetSnapshotRequest {
+  string TenantID = 1;
+  string CUCode = 2;
+  // StaleAgeSeconds overrides the server-side default (300 s / 5 min).
+  // Pass 0 to use the default.
+  int64 StaleAgeSeconds = 3;
+}
+
+// ── Fleet (all CUs in a tenant) snapshot ─────────────────────────────────────
+
+message GetFleetSnapshotRequest {
+  string TenantID = 1;
+  // StaleAgeSeconds overrides the server-side default (300 s / 5 min).
+  // Pass 0 to use the default.
+  int64 StaleAgeSeconds = 2;
+}
+
+message GetFleetSnapshotResponse {
+  repeated Snapshot Snapshots = 1;
+}

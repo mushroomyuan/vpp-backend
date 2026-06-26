@@ -7,15 +7,15 @@
 ## 1. 分层依赖方向（不可违反）
 
 ```
-domain  ←  application  ←  adapters  ←  infrastructure
+domain  ←  application  ←  adapter  ←  infrastructure
 ```
 
 - `domain` **不得** import 任何其他本模块包
 - `application` 只能 import `domain`（model / port / errors）
-- `adapters` 只能 import `domain` + `infrastructure`
+- `adapter` 只能 import `domain` + `infrastructure`
 - `infrastructure` 只能 import 外部库（gorm、logrus 等）
 
-> 违反示例：在 `domain/model` 里 import `adapters` 或 `infrastructure` → 立即拒绝。
+> 违反示例：在 `domain/model` 里 import `adapter` 或 `infrastructure` → 立即拒绝。
 
 ---
 

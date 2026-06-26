@@ -1,0 +1,36 @@
+tracing:
+  endpoint: 127.0.0.1:4318
+  insecure: true
+
+telemetry:
+  service-name: telemetry
+  grpc-addr: 127.0.0.1:5003
+  metrics-addr: 127.0.0.1:9103
+  consul-addr: 127.0.0.1:8500
+
+# TimescaleDB (PostgreSQL + TimescaleDB extension).
+# Keep in sync with compose.yaml → postgres environment.*
+timescaledb:
+  host: 127.0.0.1
+  port: 5432
+  user: postgres
+  password: postgres123
+  dbname: telemetry
+  sslmode: disable
+  max-conns: 20
+  min-conns: 2
+
+redis:
+  addr: 127.0.0.1:6379
+  password: ""
+  db: 1          # db=1 to avoid key collisions with the resource service (db=0)
+  pool-size: 10
+  min-idle-conns: 2
+  dial-timeout-seconds: 5
+  read-timeout-seconds: 3
+  write-timeout-seconds: 3
+  ping-timeout-seconds: 3
+
+kafka:
+  brokers: []    # stub — leave empty until Kafka is provisioned
+  topic: vpp.soe.events

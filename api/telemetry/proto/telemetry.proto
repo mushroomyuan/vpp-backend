@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package telemetrypb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen;telemetrypb";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// MetricValue is a single measured data point within a telemetry push.
+message MetricValue {
+  string Name = 1;
+  double Value = 2;
+  MetricType Type = 3;
+  QualityStatus Quality = 4;
+}
+
+// ── Ingest ────────────────────────────────────────────────────────────────────
+
+// IngestTelemetryRequest carries one push from a single CU: one timestamp and
+// N metric readings. Callers should invoke this RPC once per CU per sampling cycle.
+message IngestTelemetryRequest {
+  string TenantID = 1;
+  string CUCode = 2;
+  google.protobuf.Timestamp Timestamp = 3;
+  repeated MetricValue Metrics = 4;
+}
+
+message IngestTelemetryResponse {
+  // SOECount is the number of discrete state-change events produced by this push.
+  int32 SOECount = 1;
+}
+
+// ── Raw query ─────────────────────────────────────────────────────────────────
+
+message QueryTelemetryRequest {
+  string TenantID = 1;
+  string CUCode = 2;
+  // MetricName filters results to a single metric; omit to return all metrics.
+  string MetricName = 3;
+  google.protobuf.Timestamp StartTime = 4;
+  google.protobuf.Timestamp EndTime = 5;
+}
+
+// TelemetryRecord is the read model for a single raw time-series entry.
+message TelemetryRecord {
+  string TenantID = 1;
+  string CUCode = 2;
+  google.protobuf.Timestamp Timestamp = 3;
+  repeated MetricValue Metrics = 4;
+}
+
+message QueryTelemetryResponse {
+  repeated TelemetryRecord Records = 1;
+}
