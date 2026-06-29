@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platformtelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain"
@@ -43,6 +45,7 @@ type ingestTelemetryHandler struct {
 	telemetryRepo port.TelemetryRepository
 	snapshotRepo  port.SnapshotRepository
 	publisher     port.EventPublisher
+	metrics       decorator.MetricsClient
 }
 
 func NewIngestTelemetryHandler(
@@ -65,6 +68,7 @@ func NewIngestTelemetryHandler(
 			telemetryRepo: telemetryRepo,
 			snapshotRepo:  snapshotRepo,
 			publisher:     publisher,
+			metrics:       metricsClient,
 		},
 		metricsClient,
 	)
@@ -85,23 +89,48 @@ func (h ingestTelemetryHandler) Handle(ctx context.Context, cmd IngestTelemetry)
 	}
 
 	// Step 2: persist to time-series store.
+	// This is the hard gate: if TimescaleDB is unavailable the ingest must fail
+	// so the caller can retry and the data is not silently lost.
 	if err := h.telemetryRepo.SaveBatch(ctx, []*model.TelemetryRecord{record}); err != nil {
 		return nil, fmt.Errorf("save telemetry record: %w", err)
 	}
 
-	// Step 3: load (or create) the snapshot and apply the record.
+	// Step 3: load (or create) the snapshot for this CU.
+	//
+	// Redis failure is treated as "snapshot not found": we fall back to an
+	// empty baseline and continue. SOE detection may miss one transition in
+	// this cycle, but the next successful ingest will restore consistency.
+	// Returning an error here would cause the caller to retry; since the
+	// record is already in TimescaleDB (ON CONFLICT DO NOTHING), the retry
+	// would be a no-op for the DB but would re-run SOE detection against a
+	// stale baseline, potentially generating duplicate events.
 	snapshot, err := h.snapshotRepo.Find(ctx, cmd.TenantID, cmd.CUCode)
 	if err != nil {
 		if !errors.Is(err, domain.ErrSnapshotNotFound) {
-			return nil, fmt.Errorf("load snapshot: %w", err)
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"tenant_id": cmd.TenantID,
+				"cu_code":   cmd.CUCode,
+			}).Error("snapshot read failed — using empty baseline for this cycle")
+			h.countMetric("snapshot", "read", "failure")
 		}
 		snapshot = model.NewSnapshot(cmd.TenantID, cmd.CUCode)
 	}
 	soeEvents := snapshot.Apply(record)
 
 	// Step 4: persist the updated snapshot.
+	//
+	// Redis write failure does NOT abort the handler. The original record is
+	// already durable in TimescaleDB. Returning an error would cause the
+	// caller to retry, which would produce a duplicate SOE publish (the
+	// Apply() above already calculated the events). Instead, we log at Error
+	// level (triggering alert rules on Error-rate dashboards) and continue so
+	// that SOE events are published and the caller receives a success response.
 	if err := h.snapshotRepo.Save(ctx, snapshot); err != nil {
-		return nil, fmt.Errorf("save snapshot: %w", err)
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"tenant_id": cmd.TenantID,
+			"cu_code":   cmd.CUCode,
+		}).Error("snapshot write failed — snapshot stale until next successful ingest")
+		h.countMetric("snapshot", "write", "failure")
 	}
 
 	// Step 5: publish SOE events (best-effort).
@@ -112,4 +141,11 @@ func (h ingestTelemetryHandler) Handle(ctx context.Context, cmd IngestTelemetry)
 	}
 
 	return &IngestTelemetryResult{SOECount: len(soeEvents)}, nil
+}
+
+// countMetric is a nil-safe wrapper around the metrics client.
+func (h ingestTelemetryHandler) countMetric(kind, action, status string) {
+	if h.metrics != nil {
+		h.metrics.Count(kind, action, status)
+	}
 }

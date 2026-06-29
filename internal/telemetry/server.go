@@ -30,12 +30,13 @@ import (
 // ─── server structs ───────────────────────────────────────────────────────────
 
 type telemetryServer struct {
-	grpcSrv       *googlegrpc.Server
-	cfg           *config.Config
-	metricsClient *metrics.Client
-	metricsCancel context.CancelFunc
-	redisClient   *platformredis.Client
-	tsPool        *pgxpool.Pool
+	grpcSrv        *googlegrpc.Server
+	cfg            *config.Config
+	metricsClient  *metrics.Client
+	metricsCancel  context.CancelFunc
+	redisClient    *platformredis.Client
+	tsPool         *pgxpool.Pool
+	kafkaPublisher *kafkapub.EventPublisher
 }
 
 type preparedServer struct {
@@ -121,12 +122,13 @@ func createServer(
 	telemetrypb.RegisterTelemetryServiceServer(grpcSrv, telemetrySvc)
 
 	return &telemetryServer{
-		grpcSrv:       grpcSrv,
-		cfg:           appCfg,
-		metricsClient: metricsClient,
-		metricsCancel: metricsCancel,
-		redisClient:   redisClient,
-		tsPool:        tsPool,
+		grpcSrv:        grpcSrv,
+		cfg:            appCfg,
+		metricsClient:  metricsClient,
+		metricsCancel:  metricsCancel,
+		redisClient:    redisClient,
+		tsPool:         tsPool,
+		kafkaPublisher: eventPublisher,
 	}, nil
 }
 
@@ -208,6 +210,9 @@ func (s *preparedServer) Run() error {
 		// 2. Close infrastructure.
 		if err := s.redisClient.Close(); err != nil {
 			logrus.WithError(err).Warn("redis close error")
+		}
+		if err := s.kafkaPublisher.Close(); err != nil {
+			logrus.WithError(err).Warn("kafka publisher close error")
 		}
 		s.tsPool.Close()
 

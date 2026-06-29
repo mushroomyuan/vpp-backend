@@ -32,5 +32,6 @@ redis:
   ping-timeout-seconds: 3
 
 kafka:
-  brokers: []    # stub — leave empty until Kafka is provisioned
+  brokers:
+    - 127.0.0.1:9092
   topic: vpp.soe.events
