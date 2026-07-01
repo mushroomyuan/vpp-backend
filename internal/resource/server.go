@@ -17,13 +17,13 @@ import (
 
 	resourcepb "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
 	"github.com/mushroomyuan/vpp-backend/platform/metrics"
+	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
 	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 	"github.com/mushroomyuan/vpp-backend/resource/adapter"
 	grpcpkg "github.com/mushroomyuan/vpp-backend/resource/adapter/inbound/grpc"
 	"github.com/mushroomyuan/vpp-backend/resource/application"
 	"github.com/mushroomyuan/vpp-backend/resource/config"
-	infradb "github.com/mushroomyuan/vpp-backend/resource/infrastructure/db"
 	"github.com/mushroomyuan/vpp-backend/resource/infrastructure/persistent/postgres"
 	redisruntime "github.com/mushroomyuan/vpp-backend/resource/infrastructure/runtime/redis"
 
@@ -56,7 +56,7 @@ type preparedServer struct {
 //
 // dbCfg is driver-agnostic and intentionally separate from appCfg so that
 // infrastructure details never leak into the application config type.
-func createServer(appCfg *config.Config, dbCfg infradb.Config, redisCfg platformredis.Config) (*resourceServer, error) {
+func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg platformredis.Config) (*resourceServer, error) {
 	cfg := appCfg
 
 	// ── metrics ───────────────────────────────────────────────────────────────

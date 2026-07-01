@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
 	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/mushroomyuan/vpp-backend/resource/config"
-	infradb "github.com/mushroomyuan/vpp-backend/resource/infrastructure/db"
 	"github.com/mushroomyuan/vpp-backend/resource/options"
 )
 
@@ -79,10 +79,10 @@ func runApp(opts *options.Options) error {
 }
 
 // dbConfigFromOptions maps the external database options (filled by viper) to
-// the infrastructure layer's driver-agnostic Config type. The composition root
-// is the only place allowed to see both the options shape and the infra type.
-func dbConfigFromOptions(o options.DatabaseOptions) infradb.Config {
-	return infradb.Config{
+// the shared platform Config type. The composition root is the only place
+// allowed to see both the options shape and the infra type.
+func dbConfigFromOptions(o options.DatabaseOptions) platformpostgres.Config {
+	return platformpostgres.Config{
 		Driver:                 o.Driver,
 		Host:                   o.Host,
 		Port:                   o.Port,

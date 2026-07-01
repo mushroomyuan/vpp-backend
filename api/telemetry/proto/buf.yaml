@@ -21,7 +21,7 @@ lint:
     - PACKAGE_VERSION_SUFFIX
     # All files share the same package; directory-to-package strict mapping is relaxed.
     - PACKAGE_DIRECTORY_MATCH
-    # root.proto and modules/*.proto share the same package across two directories.
+    # telemetry_service.proto imports sibling message protos in the same package.
     - PACKAGE_SAME_DIRECTORY
     # Several RPCs return domain message types directly (e.g. GetSnapshot → Snapshot)
     # rather than wrapping them, matching the resource service convention.

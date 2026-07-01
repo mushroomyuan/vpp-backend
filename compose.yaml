@@ -1,4 +1,3 @@
-version: '3.9'
 
 services:
   consul:
@@ -64,9 +63,9 @@ services:
       - "6379:6379"
 
   kafka:
-    # Single-node KRaft mode (no Zookeeper). Suitable for local development.
-    # For production use a proper Kafka cluster or managed service.
-    image: bitnami/kafka:latest
+    # bitnami/kafka was removed from Docker Hub free tier (Aug 2025).
+    # bitnamilegacy keeps the same KAFKA_CFG_* env vars and volume layout.
+    image: bitnamilegacy/kafka:4.0.0-debian-12-r10
     restart: on-failure
     ports:
       - "9092:9092"

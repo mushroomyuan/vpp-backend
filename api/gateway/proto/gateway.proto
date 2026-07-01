@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package gatewaypb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/gateway/proto/gen;gatewaypb";
+
+// GatewayService exposes internal APIs for dispatch and other platform services.
+// External EMS/IoT systems use the HTTP adapter instead.
+service GatewayService {
+  // ExecuteCommand translates an internal CUCode to an external device ID and
+  // forwards the control command to the configured EMS adapter.
+  rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
+}
+
+message ExecuteCommandRequest {
+  string TenantID = 1;
+  string CUCode = 2;
+  string Command = 3;
+  double Value = 4;
+}
+
+message ExecuteCommandResponse {
+  string ExternalID = 1;
+  string ExternalSystem = 2;
+}

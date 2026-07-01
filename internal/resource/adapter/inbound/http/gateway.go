@@ -11,7 +11,7 @@ import (
 
 // MountGateway mounts grpc-gateway handlers onto a gin router.
 //
-// The generated gateway routes already include the "/api" prefix (see root.proto annotations),
+// The generated gateway routes already include the "/api" prefix (see resource_service.proto annotations),
 // so callers typically mount at "/" on the gin engine.
 func MountGateway(ctx context.Context, r *gin.Engine, grpcServer resourcepb.ResourceServiceServer) error {
 	mux := runtime.NewServeMux()

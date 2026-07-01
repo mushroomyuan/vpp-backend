@@ -8,6 +8,10 @@ run-resource:
 run-telemetry:
 	cd internal/telemetry && go run ./cmd/main.go -c ../../config/telemetry.yaml
 
+.PHONY: run-gateway
+run-gateway:
+	cd internal/gateway && go run ./cmd/main.go -c ../../config/gateway.yaml
+
 # ── infra ─────────────────────────────────────────────────────────────────────
 
 .PHONY: infra-up
@@ -38,15 +42,6 @@ fmt:
 .PHONY:lint
 lint:
 	@./scripts/lint.sh
-
-# 单独启动某个服务
-.PHONY: run-resource
-run-resource:
-	cd internal/resource && go run ./cmd/main.go -c ../../config/resource.yaml
-
-.PHONY: run-telemetry
-run-telemetry:
-	cd internal/telemetry && go run ./cmd/main.go -c ../../config/telemetry.yaml
 
 # 同时后台启动所有服务（日志写到 /tmp/logs/）
 .PHONY: run-all

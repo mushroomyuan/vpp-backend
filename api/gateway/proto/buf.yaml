@@ -1,0 +1,21 @@
+version: v2
+
+modules:
+  - path: .
+    excludes:
+      - gen
+
+deps:
+  - buf.build/googleapis/googleapis
+
+lint:
+  use:
+    - STANDARD
+  except:
+    - FIELD_LOWER_SNAKE_CASE
+    - PACKAGE_VERSION_SUFFIX
+    - PACKAGE_DIRECTORY_MATCH
+
+breaking:
+  use:
+    - FILE

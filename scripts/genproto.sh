@@ -5,13 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
-PROTO_ROOT="api/resource/proto"
-ENTRY_PROTO="${PROTO_ROOT}/root.proto"
-MODULE_GLOB="${PROTO_ROOT}/modules/*.proto"
-OUT_DIR="${PROTO_ROOT}/gen"
 PROTO_INCLUDE="/usr/local/include"
-THIRD_PARTY_ROOT="${PROTO_ROOT}/third_party"
-BUF_DIR="${PROTO_ROOT}"
 
 log() {
   printf '[genproto] %s\n' "$*"
@@ -32,67 +26,71 @@ require_bin() {
   command -v "${bin}" >/dev/null 2>&1 || die "required command not found: ${bin}"
 }
 
-generate_with_protoc() {
-  mkdir -p "${OUT_DIR}"
-  rm -f "${OUT_DIR}"/*.pb.go "${OUT_DIR}"/*_grpc.pb.go
-  rm -rf "${OUT_DIR}/modules"
-
-  log "generating Go protobuf files to ${OUT_DIR}"
-
-  # Generate service/root definitions (root.proto imports modules/*.proto)
-  protoc \
-    -I="${PROTO_ROOT}" \
-    -I="${THIRD_PARTY_ROOT}" \
-    -I="${PROTO_INCLUDE}" \
-    --go_out="${OUT_DIR}" --go_opt=paths=source_relative \
-    --go-grpc_out="${OUT_DIR}" --go-grpc_opt=paths=source_relative --go-grpc_opt=require_unimplemented_servers=false \
-    "${ENTRY_PROTO}"
-
-  # Generate module messages into OUT_DIR root.
-  protoc \
-    -I="${PROTO_ROOT}" \
-    -I="${THIRD_PARTY_ROOT}" \
-    -I="${PROTO_INCLUDE}" \
-    --go_out="${OUT_DIR}" --go_opt=paths=source_relative \
-    --go-grpc_out="${OUT_DIR}" --go-grpc_opt=paths=source_relative --go-grpc_opt=require_unimplemented_servers=false \
-    ${MODULE_GLOB}
-
-  # protoc-gen-go may write under OUT_DIR/<go_package import path>/...; flatten into OUT_DIR.
-  local nested="${OUT_DIR}/github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
-  if [[ -d "${nested}" ]]; then
-    mv "${nested}/"*.go "${OUT_DIR}/" || true
-    rm -rf "${OUT_DIR}/github.com"
-  fi
-
-  # Move module outputs into OUT_DIR so the generated code is a single Go package.
-  if [[ -d "${OUT_DIR}/modules" ]]; then
-    mv "${OUT_DIR}/modules/"*.pb.go "${OUT_DIR}/" || true
-    rmdir "${OUT_DIR}/modules" 2>/dev/null || true
-  fi
-}
-
-require_file "${ENTRY_PROTO}"
-require_file "${PROTO_INCLUDE}/google/protobuf/empty.proto"
-
-log "using entry proto: ${ENTRY_PROTO}"
-log "writing generated files to: ${OUT_DIR}"
-
-if command -v buf >/dev/null 2>&1; then
-  log "buf detected, generating via buf generate"
+generate_with_buf() {
+  local dir=$1
+  log "buf generate in ${dir}"
   (
-    cd "${BUF_DIR}"
+    cd "${dir}"
     if [[ ! -f buf.lock ]]; then
-      log "buf.lock missing, running buf dep update"
+      log "buf.lock missing in ${dir}, running buf dep update"
       buf dep update
     fi
     buf generate
   )
+}
+
+flatten_resource_gen() {
+  "${ROOT_DIR}/scripts/flatten_resource_gen.sh"
+}
+
+generate_resource_with_protoc() {
+  local proto_root="api/resource/proto"
+  local entry_proto="${proto_root}/resource_service.proto"
+  local module_glob="${proto_root}/modules/*.proto"
+  local out_dir="${proto_root}/gen"
+  local third_party_root="${proto_root}/third_party"
+
+  mkdir -p "${out_dir}"
+  rm -f "${out_dir}"/*.pb.go "${out_dir}"/*_grpc.pb.go "${out_dir}"/*.pb.gw.go
+  rm -rf "${out_dir}/modules"
+
+  log "generating resource Go protobuf files to ${out_dir}"
+
+  protoc \
+    -I="${proto_root}" \
+    -I="${third_party_root}" \
+    -I="${PROTO_INCLUDE}" \
+    --go_out="${out_dir}" --go_opt=paths=source_relative \
+    --go-grpc_out="${out_dir}" --go-grpc_opt=paths=source_relative --go-grpc_opt=require_unimplemented_servers=false \
+    "${entry_proto}" ${module_glob}
+
+  local nested="${out_dir}/github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
+  if [[ -d "${nested}" ]]; then
+    mv "${nested}/"*.go "${out_dir}/" || true
+    rm -rf "${out_dir}/github.com"
+  fi
+
+  if [[ -d "${out_dir}/modules" ]]; then
+    mv "${out_dir}/modules/"*.pb.go "${out_dir}/" || true
+    rmdir "${out_dir}/modules" 2>/dev/null || true
+  fi
+}
+
+require_file "${PROTO_INCLUDE}/google/protobuf/empty.proto"
+
+if command -v buf >/dev/null 2>&1; then
+  generate_with_buf "api/resource/proto"
+  flatten_resource_gen
+  generate_with_buf "api/telemetry/proto"
+  generate_with_buf "api/gateway/proto"
 else
-  log "buf not found, falling back to protoc"
+  log "buf not found, falling back to protoc for resource only"
   require_bin protoc
   require_bin protoc-gen-go
   require_bin protoc-gen-go-grpc
-  generate_with_protoc
+  require_file "api/resource/proto/resource_service.proto"
+  generate_resource_with_protoc
+  die "telemetry and gateway proto generation requires buf; install buf or run buf generate manually"
 fi
 
 log "proto generation succeeded"
