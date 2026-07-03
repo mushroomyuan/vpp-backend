@@ -1,4 +1,4 @@
-package redisruntime
+package redis
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 )
 
 // ErrNotFound is returned when a patch targets a Redis key that does not exist.
-var ErrNotFound = errors.New("redisruntime: runtime record not found")
+var ErrNotFound = errors.New("redis: runtime record not found")
 
 // Lua: merge JSON patch into stored JSON document, atomically replacing the whole value.
 // ARGV[1] = TTL in milliseconds ("0" = no TTL). ARGV[2] = patch JSON object.

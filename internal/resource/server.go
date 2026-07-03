@@ -23,10 +23,10 @@ import (
 	grpcpkg "github.com/mushroomyuan/vpp-backend/resource/adapter/inbound/grpc"
 	kafka "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/kafka"
 	adapter "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/postgres"
+	"github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/redis"
 	"github.com/mushroomyuan/vpp-backend/resource/application"
 	"github.com/mushroomyuan/vpp-backend/resource/config"
 	"github.com/mushroomyuan/vpp-backend/resource/infrastructure/persistent/postgres"
-	redisruntime "github.com/mushroomyuan/vpp-backend/resource/infrastructure/runtime/redis"
 
 	// gateway.go declares `package ports` — alias for clarity
 	gatewaypkg "github.com/mushroomyuan/vpp-backend/resource/adapter/inbound/http"
@@ -108,9 +108,9 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 	jobRepo := adapter.NewJobRepositoryPostgres(jobInfra)
 	nodeRepo := adapter.NewNodeRepositoryPostgres(nodeInfra)
 
-	assetRuntime := redisruntime.NewAssetRuntimeCache(redisClient, 0)
-	cuRuntime := redisruntime.NewCURuntimeCache(redisClient, 0)
-	pointRuntime := redisruntime.NewPointRuntimeCache(redisClient, 0)
+	assetRuntime := redis.NewAssetRuntimeCache(redisClient, 0)
+	cuRuntime := redis.NewCURuntimeCache(redisClient, 0)
+	pointRuntime := redis.NewPointRuntimeCache(redisClient, 0)
 
 	// ── event publisher (Kafka; no-op when brokers empty) ─────────────────────
 	eventPublisher := kafka.NewEventPublisher(kafka.Config{
