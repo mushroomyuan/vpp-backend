@@ -8,7 +8,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/platform/discovery"
 	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	platformtelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
-	kafkapub "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/kafka_pub"
+	kafka "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/kafka"
 	"github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/timescaledb"
 	"github.com/mushroomyuan/vpp-backend/telemetry/config"
 )
@@ -20,7 +20,7 @@ func Run(
 	appCfg *config.Config,
 	tsCfg timescaledb.Config,
 	redisCfg platformredis.Config,
-	kafkaCfg kafkapub.Config,
+	kafkaCfg kafka.Config,
 ) error {
 	if appCfg.TelemetryEndpoint != "" {
 		shutdown, err := platformtelemetry.InitTracing(context.Background(), platformtelemetry.Config{

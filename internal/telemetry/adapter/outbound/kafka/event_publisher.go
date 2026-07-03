@@ -1,4 +1,4 @@
-package kafkapub
+package kafka
 
 import (
 	"context"

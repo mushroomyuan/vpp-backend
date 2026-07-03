@@ -20,7 +20,7 @@ import (
 	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 	grpcpkg "github.com/mushroomyuan/vpp-backend/telemetry/adapter/inbound/grpc"
-	kafkapub "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/kafka_pub"
+	kafka "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/kafka"
 	redisadapter "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/redis"
 	"github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/timescaledb"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application"
@@ -36,7 +36,7 @@ type telemetryServer struct {
 	metricsCancel  context.CancelFunc
 	redisClient    *platformredis.Client
 	tsPool         *pgxpool.Pool
-	kafkaPublisher *kafkapub.EventPublisher
+	kafkaPublisher *kafka.EventPublisher
 }
 
 type preparedServer struct {
@@ -53,7 +53,7 @@ func createServer(
 	appCfg *config.Config,
 	tsCfg timescaledb.Config,
 	redisCfg platformredis.Config,
-	kafkaCfg kafkapub.Config,
+	kafkaCfg kafka.Config,
 ) (*telemetryServer, error) {
 	// ── metrics ───────────────────────────────────────────────────────────────
 	metricsCtx, metricsCancel := context.WithCancel(context.Background())
@@ -103,7 +103,7 @@ func createServer(
 	// SnapshotStore uses the underlying go-redis client directly.
 	snapshotStore := redisadapter.NewSnapshotStore(redisClient.Client(), 0)
 
-	eventPublisher := kafkapub.NewEventPublisher(kafkaCfg)
+	eventPublisher := kafka.NewEventPublisher(kafkaCfg)
 
 	// ── application layer ─────────────────────────────────────────────────────
 	app := application.NewApplication(application.Dependencies{

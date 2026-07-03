@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	kafkapub "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/kafka_pub"
+	kafka "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/kafka_pub"
 	"github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/timescaledb"
 	"github.com/mushroomyuan/vpp-backend/telemetry/config"
 	"github.com/mushroomyuan/vpp-backend/telemetry/options"
@@ -104,8 +104,8 @@ func redisConfigFromOptions(o options.RedisOptions) platformredis.Config {
 	}
 }
 
-func kafkaConfigFromOptions(o options.KafkaOptions) kafkapub.Config {
-	return kafkapub.Config{
+func kafkaConfigFromOptions(o options.KafkaOptions) kafka.Config {
+	return kafka.Config{
 		Brokers: o.Brokers,
 		Topic:   o.Topic,
 	}

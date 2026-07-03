@@ -64,7 +64,7 @@ VPP 平台的时序遥测微服务。负责接收控制单元（CU）上报的�
 │                  adapter/outbound/                           │
 │  timescaledb/  →  TelemetryRepository + AggregationRepo     │
 │  redis/        →  SnapshotRepository                        │
-│  kafka_pub/    →  EventPublisher  (当前为 stub)              │
+│  kafka/    →  EventPublisher  (当前为 stub)              │
 │  influxdb/     →  TelemetryRepository + AggregationRepo     │
 │                   (备用实现，未在 server.go 中激活)           │
 └─────────────────────────────────────────────────────────────┘
@@ -145,7 +145,7 @@ type SOEEvent struct {
 }
 ```
 
-当前 `kafka_pub.EventPublisher` 为 no-op stub，Kafka 基础设施就绪后替换实现即可，接口不变。
+当前 `kafka.EventPublisher` 为 no-op stub，Kafka 基础设施就绪后替换实现即可，接口不变。
 
 ---
 
@@ -218,7 +218,7 @@ internal/telemetry/
     └── outbound/
         ├── timescaledb/            # 时序存储（激活）
         ├── redis/                  # 快照存储（激活）
-        ├── kafka_pub/              # SOE 发布（stub）
+        ├── kafka/              # SOE 发布（stub）
         └── influxdb/               # 时序存储备用实现（未激活）
 ```
 
@@ -440,7 +440,7 @@ curl http://127.0.0.1:9103/metrics | grep app_
 ### 🚧 进行中 / 待完成
 
 - [ ] **功能测试**：使用 grpcurl 逐一验证 5 个 RPC 接口
-- [ ] **Kafka 生产实现**：用 `kafka-go` 或 `sarama` 替换 `kafka_pub` stub
+- [ ] **Kafka 生产实现**：用 `kafka-go` 或 `sarama` 替换 `kafka` stub
 - [ ] **HTTP 网关**：实现 `adapter/inbound/http/gateway.go`（挂载 grpc-gateway）
 - [ ] **数据保留策略**：配置 TimescaleDB `add_retention_policy`（如保留 90 天）
 - [ ] **单元测试**：领域模型 + Application Handler 的 mock 测试
