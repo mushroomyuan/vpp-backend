@@ -5,10 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mushroomyuan/vpp-backend/resource/application/batch"
 	"github.com/mushroomyuan/vpp-backend/resource/application/types"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
+
+	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 )
 
 // AssetImportResult is serialized into import_jobs.result_json when an
@@ -24,15 +28,18 @@ type AssetImportResult struct {
 type AssetImportExecutor struct {
 	assetRepo port.AssetRepository
 	jobRepo   port.JobRepository
+	publisher port.ResourceEventPublisher
 }
 
 func NewAssetImportExecutor(
 	assetRepo port.AssetRepository,
 	jobRepo port.JobRepository,
+	publisher port.ResourceEventPublisher,
 ) *AssetImportExecutor {
 	return &AssetImportExecutor{
 		assetRepo: assetRepo,
 		jobRepo:   jobRepo,
+		publisher: publisher,
 	}
 }
 
@@ -74,5 +81,25 @@ func (e *AssetImportExecutor) Execute(ctx context.Context, job *model.Job) ([]by
 	if err != nil {
 		return nil, fmt.Errorf("marshal result: %w", err)
 	}
+
+	if e.publisher != nil {
+		if pubErr := e.publisher.Publish(ctx, port.ResourceEvent{
+			EventType:  platEvent.TypeImportCompleted,
+			TenantID:   job.TenantID,
+			ResourceID: job.ID,
+			Payload: platEvent.ImportCompletedPayload{
+				JobID:      job.ID,
+				TenantID:   job.TenantID,
+				Operation:  string(job.OperationType),
+				TargetType: string(job.TargetType),
+				Total:      job.Total,
+				Succeeded:  job.Succeeded,
+				Failed:     job.FailedCount,
+			},
+		}); pubErr != nil {
+			logrus.WithError(pubErr).Warn("failed to publish asset import completed event")
+		}
+	}
+
 	return resultJSON, nil
 }

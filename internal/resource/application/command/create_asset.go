@@ -4,7 +4,10 @@ import (
 	"context"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
@@ -34,17 +37,19 @@ type CreateAssetHandler decorator.CommandHandler[CreateAsset, *CreateAssetResult
 
 type createAssetHandler struct {
 	assetRepo port.AssetRepository
+	publisher port.ResourceEventPublisher
 }
 
 func NewCreateAssetHandler(
 	assetRepo port.AssetRepository,
 	metricClient decorator.MetricsClient,
+	publisher port.ResourceEventPublisher,
 ) CreateAssetHandler {
 	if assetRepo == nil {
 		panic("NewCreateAssetHandler parameter assetRepo is nil")
 	}
 	return decorator.ApplyCommandDecorators[CreateAsset, *CreateAssetResult](
-		createAssetHandler{assetRepo: assetRepo},
+		createAssetHandler{assetRepo: assetRepo, publisher: publisher},
 		metricClient,
 	)
 }
@@ -92,6 +97,22 @@ func (h createAssetHandler) Handle(ctx context.Context, cmd CreateAsset) (*Creat
 
 	if _, err := h.assetRepo.Create(ctx, asset); err != nil {
 		return nil, err
+	}
+
+	if h.publisher != nil {
+		if pubErr := h.publisher.Publish(ctx, port.ResourceEvent{
+			EventType:  platEvent.TypeAssetCreated,
+			TenantID:   cmd.TenantID,
+			ResourceID: id,
+			Payload: platEvent.AssetCreatedPayload{
+				AssetID:  id,
+				TenantID: cmd.TenantID,
+				SiteID:   siteID,
+				Name:     strings.TrimSpace(cmd.Name),
+			},
+		}); pubErr != nil {
+			logrus.WithError(pubErr).Warn("failed to publish asset created event")
+		}
 	}
 
 	return &CreateAssetResult{AssetID: id}, nil

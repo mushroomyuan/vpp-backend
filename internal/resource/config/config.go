@@ -20,6 +20,14 @@ type Config struct {
 	ServiceName       string
 	ConsulAddr        string
 	WorkerConfig      worker.ImportWorkerConfig
+	Kafka             KafkaConfig
+}
+
+// KafkaConfig holds connection parameters for the resource event publisher.
+// Brokers empty means Kafka is not configured; events will be dropped (no-op).
+type KafkaConfig struct {
+	Brokers []string
+	Topic   string
 }
 
 func CreateFromOptions(opts *options.Options) *Config {
@@ -33,6 +41,10 @@ func CreateFromOptions(opts *options.Options) *Config {
 		ConsulAddr:        opts.Resource.ConsulAddr,
 		WorkerConfig: worker.ImportWorkerConfig{
 			PollInterval: opts.Resource.PollInterval,
+		},
+		Kafka: KafkaConfig{
+			Brokers: opts.Kafka.Brokers,
+			Topic:   opts.Kafka.Topic,
 		},
 	}
 }

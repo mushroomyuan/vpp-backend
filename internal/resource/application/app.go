@@ -94,6 +94,9 @@ type Dependencies struct {
 
 	// Worker
 	ImportWorkerConfig worker.ImportWorkerConfig
+
+	// Event bus — nil-safe: when not set, all Publish calls are no-ops inside handlers.
+	EventPublisher port.ResourceEventPublisher
 }
 
 func NewApplication(deps Dependencies) Application {
@@ -109,37 +112,40 @@ func NewApplication(deps Dependencies) Application {
 	if deps.PointRuntime == nil {
 		panic("NewApplication: PointRuntime is required")
 	}
+
+	pub := deps.EventPublisher // may be nil; handlers guard with nil check
+
 	workerRegistry := worker.ExecutorRegistry{
-		model.JobKind{Operation: model.JobOperationImport, Target: model.JobTargetAsset}: executors.NewAssetImportExecutor(deps.AssetRepo, deps.JobRepo),
-		model.JobKind{Operation: model.JobOperationImport, Target: model.JobTargetCU}:    executors.NewCUImportExecutor(deps.CURepo, deps.JobRepo),
-		model.JobKind{Operation: model.JobOperationImport, Target: model.JobTargetPoint}: executors.NewPointImportExecutor(deps.PointRepo, deps.JobRepo),
+		model.JobKind{Operation: model.JobOperationImport, Target: model.JobTargetAsset}: executors.NewAssetImportExecutor(deps.AssetRepo, deps.JobRepo, pub),
+		model.JobKind{Operation: model.JobOperationImport, Target: model.JobTargetCU}:    executors.NewCUImportExecutor(deps.CURepo, deps.JobRepo, pub),
+		model.JobKind{Operation: model.JobOperationImport, Target: model.JobTargetPoint}: executors.NewPointImportExecutor(deps.PointRepo, deps.JobRepo, pub),
 		model.JobKind{Operation: model.JobOperationDelete, Target: model.JobTargetPoint}: executors.NewPointDeleteExecutor(deps.PointRepo, deps.JobRepo),
 	}
 
 	return Application{
 		Commands: Commands{
 			// Site
-			CreateSite: command.NewCreateSiteHandler(deps.SiteRepo, deps.Metrics),
-			UpdateSite: command.NewUpdateSiteHandler(deps.SiteRepo, deps.Metrics),
+			CreateSite: command.NewCreateSiteHandler(deps.SiteRepo, deps.Metrics, pub),
+			UpdateSite: command.NewUpdateSiteHandler(deps.SiteRepo, deps.Metrics, pub),
 
 			// Asset
-			CreateAsset: command.NewCreateAssetHandler(deps.AssetRepo, deps.Metrics),
-			UpdateAsset: command.NewUpdateAssetHandler(deps.AssetRepo, deps.Metrics),
+			CreateAsset: command.NewCreateAssetHandler(deps.AssetRepo, deps.Metrics, pub),
+			UpdateAsset: command.NewUpdateAssetHandler(deps.AssetRepo, deps.Metrics, pub),
 			// Node
-			DeleteResource:          command.NewDeleteResourceHandler(deps.NodeRepo, deps.Metrics),
+			DeleteResource:          command.NewDeleteResourceHandler(deps.NodeRepo, deps.Metrics, pub),
 			MoveResource:            command.NewMoveResourceHandler(deps.NodeRepo, deps.Metrics),
 			BatchMoveResources:      command.NewBatchMoveResourcesHandler(deps.NodeRepo, deps.Metrics),
-			RenameResource:          command.NewRenameResourceHandler(deps.NodeRepo, deps.Metrics),
-			ChangeResourceLifecycle: command.NewChangeResourceLifecycleHandler(deps.NodeRepo, deps.Metrics),
+			RenameResource:          command.NewRenameResourceHandler(deps.NodeRepo, deps.Metrics, pub),
+			ChangeResourceLifecycle: command.NewChangeResourceLifecycleHandler(deps.NodeRepo, deps.Metrics, pub),
 
 			// CU
-			CreateCU: command.NewCreateCUHandler(deps.CURepo, deps.NodeRepo, deps.Metrics),
-			UpdateCU: command.NewUpdateCUHandler(deps.CURepo, deps.NodeRepo, deps.Metrics),
+			CreateCU: command.NewCreateCUHandler(deps.CURepo, deps.NodeRepo, deps.Metrics, pub),
+			UpdateCU: command.NewUpdateCUHandler(deps.CURepo, deps.NodeRepo, deps.Metrics, pub),
 
 			// Point
-			CreatePoint: command.NewCreatePointHandler(deps.PointRepo, deps.NodeRepo, deps.Metrics),
-			UpdatePoint: command.NewUpdatePointHandler(deps.PointRepo, deps.Metrics),
-			DeletePoint: command.NewDeletePointHandler(deps.PointRepo, deps.Metrics),
+			CreatePoint: command.NewCreatePointHandler(deps.PointRepo, deps.NodeRepo, deps.Metrics, pub),
+			UpdatePoint: command.NewUpdatePointHandler(deps.PointRepo, deps.Metrics, pub),
+			DeletePoint: command.NewDeletePointHandler(deps.PointRepo, deps.Metrics, pub),
 
 			// Job
 			SubmitBatchImport: command.NewSubmitBatchImportHandler(deps.JobRepo, deps.Metrics),

@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
@@ -34,14 +37,16 @@ type CreateCUResult struct {
 type CreateCUHandler decorator.CommandHandler[CreateCU, *CreateCUResult]
 
 type createCUHandler struct {
-	cuRepo port.CURepository
-	nodes  port.NodeRepository
+	cuRepo    port.CURepository
+	nodes     port.NodeRepository
+	publisher port.ResourceEventPublisher
 }
 
 func NewCreateCUHandler(
 	cuRepo port.CURepository,
 	nodes port.NodeRepository,
 	metricClient decorator.MetricsClient,
+	publisher port.ResourceEventPublisher,
 ) CreateCUHandler {
 	if cuRepo == nil {
 		panic("NewCreateCUHandler parameter cuRepo is nil")
@@ -50,7 +55,7 @@ func NewCreateCUHandler(
 		panic("NewCreateCUHandler parameter nodes is nil")
 	}
 	return decorator.ApplyCommandDecorators[CreateCU, *CreateCUResult](
-		createCUHandler{cuRepo: cuRepo, nodes: nodes},
+		createCUHandler{cuRepo: cuRepo, nodes: nodes, publisher: publisher},
 		metricClient,
 	)
 }
@@ -102,6 +107,25 @@ func (h createCUHandler) Handle(ctx context.Context, cmd CreateCU) (*CreateCURes
 
 	if _, err := h.cuRepo.Create(ctx, cu); err != nil {
 		return nil, err
+	}
+
+	if h.publisher != nil {
+		if pubErr := h.publisher.Publish(ctx, port.ResourceEvent{
+			EventType:  platEvent.TypeCUCreated,
+			TenantID:   tenantID,
+			ResourceID: id,
+			Payload: platEvent.CUCreatedPayload{
+				CUID:       id,
+				TenantID:   tenantID,
+				Name:       strings.TrimSpace(cmd.Name),
+				ParentID:   parentID,
+				Provider:   cmd.Provider,
+				ExternalID: cmd.ExternalID,
+				Protocol:   cmd.Protocol,
+			},
+		}); pubErr != nil {
+			logrus.WithError(pubErr).Warn("failed to publish CU created event")
+		}
 	}
 
 	return &CreateCUResult{CUID: id}, nil

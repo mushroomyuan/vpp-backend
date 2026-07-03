@@ -4,7 +4,10 @@ import (
 	"context"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
@@ -29,17 +32,19 @@ type UpdateAssetHandler decorator.CommandHandler[UpdateAsset, struct{}]
 
 type updateAssetHandler struct {
 	assetRepo port.AssetRepository
+	publisher port.ResourceEventPublisher
 }
 
 func NewUpdateAssetHandler(
 	assetRepo port.AssetRepository,
 	metricClient decorator.MetricsClient,
+	publisher port.ResourceEventPublisher,
 ) UpdateAssetHandler {
 	if assetRepo == nil {
 		panic("NewUpdateAssetHandler parameter assetRepo is nil")
 	}
 	return decorator.ApplyCommandDecorators[UpdateAsset, struct{}](
-		updateAssetHandler{assetRepo: assetRepo},
+		updateAssetHandler{assetRepo: assetRepo, publisher: publisher},
 		metricClient,
 	)
 }
@@ -90,6 +95,22 @@ func (h updateAssetHandler) Handle(ctx context.Context, cmd UpdateAsset) (struct
 	if err = h.assetRepo.Update(ctx, asset); err != nil {
 		return struct{}{}, err
 	}
+
+	if h.publisher != nil {
+		if pubErr := h.publisher.Publish(ctx, port.ResourceEvent{
+			EventType:  platEvent.TypeAssetUpdated,
+			TenantID:   cmd.TenantID,
+			ResourceID: cmd.ID,
+			Payload: platEvent.AssetUpdatedPayload{
+				AssetID:  cmd.ID,
+				TenantID: cmd.TenantID,
+				Name:     cmd.Name,
+			},
+		}); pubErr != nil {
+			logrus.WithError(pubErr).Warn("failed to publish asset updated event")
+		}
+	}
+
 	return struct{}{}, nil
 }
 

@@ -13,6 +13,7 @@ type Options struct {
 	Tracing  TracingOptions  `mapstructure:"tracing"`
 	Database DatabaseOptions `mapstructure:"database"`
 	Redis    RedisOptions    `mapstructure:"redis"`
+	Kafka    KafkaOptions    `mapstructure:"kafka"`
 }
 
 type ResourceOptions struct {
@@ -66,6 +67,12 @@ type RedisOptions struct {
 	PingTimeoutSeconds  int    `mapstructure:"ping-timeout-seconds"`
 }
 
+// KafkaOptions configures the resource event publisher.
+type KafkaOptions struct {
+	Brokers []string `mapstructure:"brokers"`
+	Topic   string   `mapstructure:"topic"`
+}
+
 func NewOptions() *Options {
 	return &Options{
 		Resource: ResourceOptions{
@@ -96,6 +103,9 @@ func NewOptions() *Options {
 			ReadTimeoutSeconds:  3,
 			WriteTimeoutSeconds: 3,
 			PingTimeoutSeconds:  3,
+		},
+		Kafka: KafkaOptions{
+			Topic: "vpp.resource.events",
 		},
 	}
 }

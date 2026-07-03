@@ -20,8 +20,9 @@ import (
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
 	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
-	"github.com/mushroomyuan/vpp-backend/resource/adapter"
 	grpcpkg "github.com/mushroomyuan/vpp-backend/resource/adapter/inbound/grpc"
+	kafka "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/kafka"
+	adapter "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/postgres"
 	"github.com/mushroomyuan/vpp-backend/resource/application"
 	"github.com/mushroomyuan/vpp-backend/resource/config"
 	"github.com/mushroomyuan/vpp-backend/resource/infrastructure/persistent/postgres"
@@ -34,13 +35,14 @@ import (
 // ─── server structs ───────────────────────────────────────────────────────────
 
 type resourceServer struct {
-	grpcSrv       *googlegrpc.Server
-	httpSrv       *http.Server
-	app           application.Application
-	cfg           *config.Config
-	metricsClient *metrics.Client
-	metricsCancel context.CancelFunc
-	redisClient   *platformredis.Client
+	grpcSrv        *googlegrpc.Server
+	httpSrv        *http.Server
+	app            application.Application
+	cfg            *config.Config
+	metricsClient  *metrics.Client
+	metricsCancel  context.CancelFunc
+	redisClient    *platformredis.Client
+	eventPublisher *kafka.EventPublisher
 }
 
 type preparedServer struct {
@@ -110,6 +112,12 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 	cuRuntime := redisruntime.NewCURuntimeCache(redisClient, 0)
 	pointRuntime := redisruntime.NewPointRuntimeCache(redisClient, 0)
 
+	// ── event publisher (Kafka; no-op when brokers empty) ─────────────────────
+	eventPublisher := kafka.NewEventPublisher(kafka.Config{
+		Brokers: cfg.Kafka.Brokers,
+		Topic:   cfg.Kafka.Topic,
+	})
+
 	// ── application layer (all CQRS handlers + background worker) ─────────────
 	app := application.NewApplication(application.Dependencies{
 		SiteRepo:           siteRepo,
@@ -123,6 +131,7 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 		PointRuntime:       pointRuntime,
 		Metrics:            metricsClient,
 		ImportWorkerConfig: cfg.WorkerConfig,
+		EventPublisher:     eventPublisher,
 	})
 
 	// ── gRPC service implementation ───────────────────────────────────────────
@@ -150,13 +159,14 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 	}
 
 	return &resourceServer{
-		grpcSrv:       grpcSrv,
-		httpSrv:       httpSrv,
-		app:           app,
-		cfg:           cfg,
-		metricsClient: metricsClient,
-		metricsCancel: metricsCancel,
-		redisClient:   redisClient,
+		grpcSrv:        grpcSrv,
+		httpSrv:        httpSrv,
+		app:            app,
+		cfg:            cfg,
+		metricsClient:  metricsClient,
+		metricsCancel:  metricsCancel,
+		redisClient:    redisClient,
+		eventPublisher: eventPublisher,
 	}, nil
 }
 
@@ -264,12 +274,17 @@ func (s *preparedServer) Run() error {
 		// 2. Stop background worker after traffic drains.
 		workerCancel()
 
-		// 3. Close redis client.
+		// 3. Flush buffered Kafka messages and close the writer.
+		if err := s.eventPublisher.Close(); err != nil {
+			logrus.WithError(err).Warn("event publisher close error")
+		}
+
+		// 4. Close redis client.
 		if err := s.redisClient.Close(); err != nil {
 			logrus.WithError(err).Warn("redis close error")
 		}
 
-		// 4. Stop metrics last — /metrics remains scrapeable during drain.
+		// 5. Stop metrics last — /metrics remains scrapeable during drain.
 		s.metricsCancel()
 	}()
 

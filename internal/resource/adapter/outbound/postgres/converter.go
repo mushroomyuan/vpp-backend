@@ -1,4 +1,4 @@
-package adapter
+package postgres
 
 import (
 	"encoding/json"
@@ -153,11 +153,6 @@ func AssetToDomain(node *postgres.NodeModel, row *postgres.AssetModel) (*model.A
 // ─── CU extension (+ node) ────────────────────────────────────────────────────
 
 func CUDomainToDB(c *model.CU) (*postgres.CUModel, error) {
-	connStatus := string(c.ConnStatus)
-	if strings.TrimSpace(connStatus) == "" {
-		connStatus = string(model.ConnStatusUnknown)
-	}
-
 	var tags []byte
 	var err error
 	if c.CapabilityTags == nil {
@@ -188,7 +183,6 @@ func CUDomainToDB(c *model.CU) (*postgres.CUModel, error) {
 	return &postgres.CUModel{
 		NodeID:         c.ID,
 		TenantID:       c.TenantID,
-		ConnStatus:     connStatus,
 		Provider:       c.Provider,
 		ExternalID:     c.ExternalID,
 		Protocol:       c.Protocol,
@@ -231,14 +225,8 @@ func CUToDomain(node *postgres.NodeModel, row *postgres.CUModel) (*model.CU, err
 		conn = &cc
 	}
 
-	st := model.ConnStatus(row.ConnStatus)
-	if strings.TrimSpace(string(st)) == "" {
-		st = model.ConnStatusUnknown
-	}
-
 	return &model.CU{
 		Node:           *n,
-		ConnStatus:     st,
 		Provider:       row.Provider,
 		ExternalID:     row.ExternalID,
 		Protocol:       row.Protocol,

@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
@@ -36,12 +39,14 @@ type CreatePointHandler decorator.CommandHandler[CreatePoint, *CreatePointResult
 type createPointHandler struct {
 	pointRepo port.PointRepository
 	nodes     port.NodeRepository
+	publisher port.ResourceEventPublisher
 }
 
 func NewCreatePointHandler(
 	pointRepo port.PointRepository,
 	nodes port.NodeRepository,
 	metricClient decorator.MetricsClient,
+	publisher port.ResourceEventPublisher,
 ) CreatePointHandler {
 	if pointRepo == nil {
 		panic("NewCreatePointHandler parameter pointRepo is nil")
@@ -50,7 +55,7 @@ func NewCreatePointHandler(
 		panic("NewCreatePointHandler parameter nodes is nil")
 	}
 	return decorator.ApplyCommandDecorators[CreatePoint, *CreatePointResult](
-		createPointHandler{pointRepo: pointRepo, nodes: nodes},
+		createPointHandler{pointRepo: pointRepo, nodes: nodes, publisher: publisher},
 		metricClient,
 	)
 }
@@ -96,5 +101,23 @@ func (h createPointHandler) Handle(ctx context.Context, cmd CreatePoint) (*Creat
 	if _, err := h.pointRepo.Create(ctx, point); err != nil {
 		return nil, err
 	}
+
+	if h.publisher != nil {
+		if pubErr := h.publisher.Publish(ctx, port.ResourceEvent{
+			EventType:  platEvent.TypePointCreated,
+			TenantID:   tenantID,
+			ResourceID: id,
+			Payload: platEvent.PointCreatedPayload{
+				PointID:  id,
+				TenantID: tenantID,
+				AssetID:  strings.TrimSpace(cmd.AssetID),
+				CUID:     strings.TrimSpace(cmd.CUID),
+				PointKey: cmd.PointKey,
+			},
+		}); pubErr != nil {
+			logrus.WithError(pubErr).Warn("failed to publish point created event")
+		}
+	}
+
 	return &CreatePointResult{PointID: id}, nil
 }

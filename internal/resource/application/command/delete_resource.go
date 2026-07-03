@@ -4,7 +4,10 @@ import (
 	"context"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -23,18 +26,20 @@ type DeleteResource struct {
 type DeleteResourceHandler decorator.CommandHandler[DeleteResource, struct{}]
 
 type deleteResourceHandler struct {
-	nodes port.NodeRepository
+	nodes     port.NodeRepository
+	publisher port.ResourceEventPublisher
 }
 
 func NewDeleteResourceHandler(
 	nodes port.NodeRepository,
 	metricClient decorator.MetricsClient,
+	publisher port.ResourceEventPublisher,
 ) DeleteResourceHandler {
 	if nodes == nil {
 		panic("NewDeleteResourceHandler parameter nodes is nil")
 	}
 	return decorator.ApplyCommandDecorators[DeleteResource, struct{}](
-		deleteResourceHandler{nodes: nodes},
+		deleteResourceHandler{nodes: nodes, publisher: publisher},
 		metricClient,
 	)
 }
@@ -48,8 +53,31 @@ func (h deleteResourceHandler) Handle(ctx context.Context, cmd DeleteResource) (
 	if resourceID == "" {
 		resourceID = strings.TrimSpace(cmd.ID)
 	}
+
+	var deleteErr error
 	if cmd.Opts.IncludeDescendants {
-		return struct{}{}, h.nodes.SoftDeleteSubtree(ctx, tenantID, resourceID)
+		deleteErr = h.nodes.SoftDeleteSubtree(ctx, tenantID, resourceID)
+	} else {
+		deleteErr = h.nodes.SoftDelete(ctx, tenantID, resourceID)
 	}
-	return struct{}{}, h.nodes.SoftDelete(ctx, tenantID, resourceID)
+	if deleteErr != nil {
+		return struct{}{}, deleteErr
+	}
+
+	if h.publisher != nil {
+		if pubErr := h.publisher.Publish(ctx, port.ResourceEvent{
+			EventType:  platEvent.TypeResourceDeleted,
+			TenantID:   tenantID,
+			ResourceID: resourceID,
+			Payload: platEvent.ResourceDeletedPayload{
+				ResourceID:         resourceID,
+				TenantID:           tenantID,
+				IncludeDescendants: cmd.Opts.IncludeDescendants,
+			},
+		}); pubErr != nil {
+			logrus.WithError(pubErr).Warn("failed to publish resource deleted event")
+		}
+	}
+
+	return struct{}{}, nil
 }

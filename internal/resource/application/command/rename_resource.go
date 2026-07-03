@@ -4,7 +4,10 @@ import (
 	"context"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -18,18 +21,20 @@ type RenameResource struct {
 type RenameResourceHandler decorator.CommandHandler[RenameResource, struct{}]
 
 type renameResourceHandler struct {
-	nodes port.NodeRepository
+	nodes     port.NodeRepository
+	publisher port.ResourceEventPublisher
 }
 
 func NewRenameResourceHandler(
 	nodes port.NodeRepository,
 	metricClient decorator.MetricsClient,
+	publisher port.ResourceEventPublisher,
 ) RenameResourceHandler {
 	if nodes == nil {
 		panic("NewRenameResourceHandler parameter nodes is nil")
 	}
 	return decorator.ApplyCommandDecorators[RenameResource, struct{}](
-		renameResourceHandler{nodes: nodes},
+		renameResourceHandler{nodes: nodes, publisher: publisher},
 		metricClient,
 	)
 }
@@ -38,10 +43,28 @@ func (h renameResourceHandler) Handle(ctx context.Context, cmd RenameResource) (
 	ctx, span := telemetry.Start(ctx, "rename_resource")
 	defer span.End()
 
-	return struct{}{}, h.nodes.UpdateDisplayName(
-		ctx,
-		strings.TrimSpace(cmd.TenantID),
-		strings.TrimSpace(cmd.ResourceID),
-		strings.TrimSpace(cmd.NewName),
-	)
+	tenantID := strings.TrimSpace(cmd.TenantID)
+	resourceID := strings.TrimSpace(cmd.ResourceID)
+	newName := strings.TrimSpace(cmd.NewName)
+
+	if err := h.nodes.UpdateDisplayName(ctx, tenantID, resourceID, newName); err != nil {
+		return struct{}{}, err
+	}
+
+	if h.publisher != nil {
+		if pubErr := h.publisher.Publish(ctx, port.ResourceEvent{
+			EventType:  platEvent.TypeResourceRenamed,
+			TenantID:   tenantID,
+			ResourceID: resourceID,
+			Payload: platEvent.ResourceRenamedPayload{
+				ResourceID: resourceID,
+				TenantID:   tenantID,
+				NewName:    newName,
+			},
+		}); pubErr != nil {
+			logrus.WithError(pubErr).Warn("failed to publish resource renamed event")
+		}
+	}
+
+	return struct{}{}, nil
 }

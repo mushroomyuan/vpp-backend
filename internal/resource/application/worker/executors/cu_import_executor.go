@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
+	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/resource/application/batch"
 	"github.com/mushroomyuan/vpp-backend/resource/application/types"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
@@ -18,17 +21,20 @@ type CUImportResult struct {
 
 // CUImportExecutor executes JobTypeCU jobs.
 type CUImportExecutor struct {
-	cuRepo  port.CURepository
-	jobRepo port.JobRepository
+	cuRepo    port.CURepository
+	jobRepo   port.JobRepository
+	publisher port.ResourceEventPublisher
 }
 
 func NewCUImportExecutor(
 	cuRepo port.CURepository,
 	jobRepo port.JobRepository,
+	publisher port.ResourceEventPublisher,
 ) *CUImportExecutor {
 	return &CUImportExecutor{
-		cuRepo:  cuRepo,
-		jobRepo: jobRepo,
+		cuRepo:    cuRepo,
+		jobRepo:   jobRepo,
+		publisher: publisher,
 	}
 }
 
@@ -62,5 +68,25 @@ func (e *CUImportExecutor) Execute(ctx context.Context, job *model.Job) ([]byte,
 	if err != nil {
 		return nil, fmt.Errorf("marshal result: %w", err)
 	}
+
+	if e.publisher != nil {
+		if pubErr := e.publisher.Publish(ctx, port.ResourceEvent{
+			EventType:  platEvent.TypeImportCompleted,
+			TenantID:   job.TenantID,
+			ResourceID: job.ID,
+			Payload: platEvent.ImportCompletedPayload{
+				JobID:      job.ID,
+				TenantID:   job.TenantID,
+				Operation:  string(job.OperationType),
+				TargetType: string(job.TargetType),
+				Total:      job.Total,
+				Succeeded:  job.Succeeded,
+				Failed:     job.FailedCount,
+			},
+		}); pubErr != nil {
+			logrus.WithError(pubErr).Warn("failed to publish CU import completed event")
+		}
+	}
+
 	return resultJSON, nil
 }
