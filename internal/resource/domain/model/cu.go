@@ -37,13 +37,14 @@ type ConnectionConfig struct {
 }
 
 // CU (Control Unit) is the control / telemetry boundary toward EMS, SCADA, or IoT.
+//
+// ConnStatus is NOT persisted here. Connection state is runtime-only and lives
+// in CURuntime (Redis). Use CURuntimeReader.GetCURuntime to read it.
 type CU struct {
 	Node
 
-	ConnStatus ConnStatus
-
-	Provider   *string // e.g. ems_a | ems_b | scada | iot_platform
-	ExternalID *string
+	Provider   *string // e.g. ems_a | ems_b | scada | iot_platform (informational)
+	ExternalID *string // informational only — authoritative mapping lives in gateway
 	Protocol   *string // e.g. modbus_tcp | mqtt | opcua | rest
 
 	ProtocolConfig map[string]any
@@ -96,7 +97,6 @@ func NewCU(params CreateCUParams) (*CU, error) {
 			CreatedAt:       now,
 			UpdatedAt:       now,
 		},
-		ConnStatus:     ConnStatusDisconnected,
 		Provider:       params.Provider,
 		ExternalID:     params.ExternalID,
 		Protocol:       params.Protocol,
@@ -174,31 +174,11 @@ func (cu *CU) UpdateConnection(conn ConnectionConfig) error {
 	return nil
 }
 
-// UpdateConnStatus 更新连接状态
-func (cu *CU) UpdateConnStatus(status ConnStatus) {
-	cu.ConnStatus = status
-	cu.UpdatedAt = time.Now()
-	cu.Version++
-}
-
-// Connected marks the CU as successfully connected.
-func (cu *CU) Connected() {
-	cu.UpdateConnStatus(ConnStatusConnected)
-}
-
-// Disconnect marks the CU as disconnected.
-func (cu *CU) Disconnect() {
-	cu.UpdateConnStatus(ConnStatusDisconnected)
-}
-
-// IsConnected 检查是否已连接
-func (cu *CU) IsConnected() bool {
-	return cu.ConnStatus == ConnStatusConnected && cu.IsActive()
-}
-
-// CanControl 检查是否可以控制 (业务规则组合)
+// CanControl checks whether the CU is eligible for dispatch.
+// Connection health is runtime-only (stored in Redis CURuntime); this method
+// only checks the persistent lifecycle status.
 func (cu *CU) CanControl() bool {
-	return cu.IsConnected() && cu.LifecycleStatus == NodeLifecycleActive
+	return cu.LifecycleStatus == NodeLifecycleActive
 }
 
 // AddCapability 添加能力标签

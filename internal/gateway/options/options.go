@@ -8,6 +8,7 @@ type Options struct {
 	Tracing       TracingOptions       `mapstructure:"tracing"`
 	Database      DatabaseOptions      `mapstructure:"database"`
 	TelemetryGRPC TelemetryGRPCOptions `mapstructure:"telemetry-grpc"`
+	Kafka         KafkaOptions         `mapstructure:"kafka"`
 }
 
 type GatewayOptions struct {
@@ -43,6 +44,14 @@ type TelemetryGRPCOptions struct {
 	Addr string `mapstructure:"addr"`
 }
 
+// KafkaOptions configures the resource event consumer.
+// Brokers empty → consumer does not start (no-op degradation).
+type KafkaOptions struct {
+	Brokers []string `mapstructure:"brokers"`
+	Topic   string   `mapstructure:"topic"`    // default: vpp.resource.events
+	GroupID string   `mapstructure:"group-id"` // default: vpp-gateway-resource-events
+}
+
 func NewOptions() *Options {
 	return &Options{
 		Gateway: GatewayOptions{
@@ -68,6 +77,10 @@ func NewOptions() *Options {
 		},
 		TelemetryGRPC: TelemetryGRPCOptions{
 			Addr: "127.0.0.1:5003",
+		},
+		Kafka: KafkaOptions{
+			Topic:   "vpp.resource.events",
+			GroupID: "vpp-gateway-resource-events",
 		},
 	}
 }

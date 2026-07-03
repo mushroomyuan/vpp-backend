@@ -302,7 +302,7 @@ Step 1：改造 resource 服务
 Step 2：gateway 新增 Kafka consumer
     订阅 vpp.resource.events
     收到事件后自动 disable / delete 对应 DeviceMapping
-    实现位置：adapter/inbound/kafka_sub/lifecycle_consumer.go
+    实现位置：adapter/inbound/kafka/lifecycle_consumer.go
 ```
 
 > v2 不修改核心领域模型，仅新增一个 inbound adapter。

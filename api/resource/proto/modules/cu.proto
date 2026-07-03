@@ -22,6 +22,9 @@ message ConnectionConfig {
 }
 
 message CU {
+  reserved 10; // was ConnStatus — connection state is runtime-only, lives in CURuntime (Redis)
+  reserved "ConnStatus";
+
   string ID = 1;
   string TenantID = 2;
   string ParentID = 3;
@@ -31,7 +34,6 @@ message CU {
   google.protobuf.Struct Metadata = 7;
   string Protocol = 8;
   google.protobuf.Struct ProtocolConfig = 9;
-  string ConnStatus = 10;
   string Provider = 11;
   string ExternalID = 12;
   ConnectionConfig Connection = 13;
@@ -58,6 +60,9 @@ message CreateCUResponse {
 }
 
 message UpdateCURequest {
+  reserved 12; // was ConnStatus — connection state is managed by gateway, not the management API
+  reserved "ConnStatus";
+
   string TenantID = 1;
   string ID = 2;
   string Name = 3;
@@ -69,7 +74,6 @@ message UpdateCURequest {
   string Provider = 9;
   string ExternalID = 10;
   ConnectionConfig Connection = 11;
-  string ConnStatus = 12;
 }
 
 message GetCURequest {

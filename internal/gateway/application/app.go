@@ -15,11 +15,12 @@ type Application struct {
 }
 
 type Commands struct {
-	ReceiveTelemetry command.ReceiveTelemetryHandler
-	ExecuteCommand   command.ExecuteCommandHandler
-	CreateMapping    command.CreateMappingHandler
-	DeleteMapping    command.DeleteMappingHandler
-	DisableMapping   command.DisableMappingHandler
+	ReceiveTelemetry       command.ReceiveTelemetryHandler
+	ExecuteCommand         command.ExecuteCommandHandler
+	CreateMapping          command.CreateMappingHandler
+	DeleteMapping          command.DeleteMappingHandler
+	DisableMapping         command.DisableMappingHandler
+	DisableMappingByCUCode command.DisableMappingByCUCodeHandler
 }
 
 type Queries struct {
@@ -51,11 +52,12 @@ func NewApplication(deps Dependencies) Application {
 
 	return Application{
 		Commands: Commands{
-			ReceiveTelemetry: command.NewReceiveTelemetryHandler(deps.MappingRepo, deps.TelemetryClient, deps.Metrics),
-			ExecuteCommand:   command.NewExecuteCommandHandler(deps.MappingRepo, deps.EMSClient, deps.Metrics),
-			CreateMapping:    command.NewCreateMappingHandler(deps.MappingRepo, deps.Metrics),
-			DeleteMapping:    command.NewDeleteMappingHandler(deps.MappingRepo, deps.Metrics),
-			DisableMapping:   command.NewDisableMappingHandler(deps.MappingRepo, deps.Metrics),
+			ReceiveTelemetry:       command.NewReceiveTelemetryHandler(deps.MappingRepo, deps.TelemetryClient, deps.Metrics),
+			ExecuteCommand:         command.NewExecuteCommandHandler(deps.MappingRepo, deps.EMSClient, deps.Metrics),
+			CreateMapping:          command.NewCreateMappingHandler(deps.MappingRepo, deps.Metrics),
+			DeleteMapping:          command.NewDeleteMappingHandler(deps.MappingRepo, deps.Metrics),
+			DisableMapping:         command.NewDisableMappingHandler(deps.MappingRepo, deps.Metrics),
+			DisableMappingByCUCode: command.NewDisableMappingByCUCodeHandler(deps.MappingRepo, deps.Metrics),
 		},
 		Queries: Queries{
 			ListMappings: query.NewListMappingsHandler(deps.MappingRepo, deps.Metrics),

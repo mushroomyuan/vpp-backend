@@ -13,6 +13,15 @@ type Config struct {
 	TelemetryInsecure bool
 	ServiceName       string
 	ConsulAddr        string
+	Kafka             KafkaConfig
+}
+
+// KafkaConfig holds connection parameters for the resource event consumer.
+// Brokers empty → consumer does not start.
+type KafkaConfig struct {
+	Brokers []string
+	Topic   string
+	GroupID string
 }
 
 func CreateFromOptions(opts *options.Options) *Config {
@@ -24,5 +33,10 @@ func CreateFromOptions(opts *options.Options) *Config {
 		TelemetryInsecure: opts.Tracing.Insecure,
 		ServiceName:       opts.Gateway.ServiceName,
 		ConsulAddr:        opts.Gateway.ConsulAddr,
+		Kafka: KafkaConfig{
+			Brokers: opts.Kafka.Brokers,
+			Topic:   opts.Kafka.Topic,
+			GroupID: opts.Kafka.GroupID,
+		},
 	}
 }

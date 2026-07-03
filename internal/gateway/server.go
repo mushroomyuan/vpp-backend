@@ -19,6 +19,7 @@ import (
 	gatewaypb "github.com/mushroomyuan/vpp-backend/api/gateway/proto/gen"
 	grpcpkg "github.com/mushroomyuan/vpp-backend/gateway/adapter/inbound/grpc"
 	httppkg "github.com/mushroomyuan/vpp-backend/gateway/adapter/inbound/http"
+	kafkasub "github.com/mushroomyuan/vpp-backend/gateway/adapter/inbound/kafka"
 	emslog "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/ems_log"
 	adapterpostgres "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/postgres"
 	telemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
@@ -31,12 +32,13 @@ import (
 )
 
 type gatewayServer struct {
-	grpcSrv         *googlegrpc.Server
-	httpSrv         *http.Server
-	cfg             *config.Config
-	metricsClient   *metrics.Client
-	metricsCancel   context.CancelFunc
-	telemetryClient *telemetrygrpc.TelemetryGRPCClient
+	grpcSrv           *googlegrpc.Server
+	httpSrv           *http.Server
+	cfg               *config.Config
+	metricsClient     *metrics.Client
+	metricsCancel     context.CancelFunc
+	telemetryClient   *telemetrygrpc.TelemetryGRPCClient
+	lifecycleConsumer *kafkasub.LifecycleConsumer
 }
 
 type preparedServer struct {
@@ -88,6 +90,15 @@ func createServer(
 		Metrics:         metricsClient,
 	})
 
+	lifecycleConsumer := kafkasub.NewLifecycleConsumer(
+		kafkasub.LifecycleConsumerConfig{
+			Brokers: appCfg.Kafka.Brokers,
+			Topic:   appCfg.Kafka.Topic,
+			GroupID: appCfg.Kafka.GroupID,
+		},
+		app.Commands.DisableMappingByCUCode,
+	)
+
 	gatewaySvc := grpcpkg.NewServer(app)
 	grpcSrv := platformserver.NewGRPCServer()
 	reflection.Register(grpcSrv)
@@ -103,12 +114,13 @@ func createServer(
 	}
 
 	return &gatewayServer{
-		grpcSrv:         grpcSrv,
-		httpSrv:         httpSrv,
-		cfg:             cfg,
-		metricsClient:   metricsClient,
-		metricsCancel:   metricsCancel,
-		telemetryClient: telemetryClient,
+		grpcSrv:           grpcSrv,
+		httpSrv:           httpSrv,
+		cfg:               cfg,
+		metricsClient:     metricsClient,
+		metricsCancel:     metricsCancel,
+		telemetryClient:   telemetryClient,
+		lifecycleConsumer: lifecycleConsumer,
 	}, nil
 }
 
@@ -152,6 +164,13 @@ func (s *preparedServer) Run() error {
 	})
 
 	eg.Go(func() error {
+		if err := s.lifecycleConsumer.Run(egCtx); err != nil {
+			return fmt.Errorf("lifecycle consumer: %w", err)
+		}
+		return nil
+	})
+
+	eg.Go(func() error {
 		quit := make(chan os.Signal, 1)
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 		defer signal.Stop(quit)
@@ -179,6 +198,9 @@ func (s *preparedServer) Run() error {
 		}
 		if err := s.telemetryClient.Close(); err != nil {
 			logrus.WithError(err).Warn("telemetry gRPC client close error")
+		}
+		if err := s.lifecycleConsumer.Close(); err != nil {
+			logrus.WithError(err).Warn("lifecycle consumer close error")
 		}
 		s.metricsCancel()
 	}()

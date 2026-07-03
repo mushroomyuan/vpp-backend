@@ -169,7 +169,6 @@ type CU struct {
 	Metadata       *structpb.Struct       `protobuf:"bytes,7,opt,name=Metadata,proto3" json:"Metadata,omitempty"`
 	Protocol       string                 `protobuf:"bytes,8,opt,name=Protocol,proto3" json:"Protocol,omitempty"`
 	ProtocolConfig *structpb.Struct       `protobuf:"bytes,9,opt,name=ProtocolConfig,proto3" json:"ProtocolConfig,omitempty"`
-	ConnStatus     string                 `protobuf:"bytes,10,opt,name=ConnStatus,proto3" json:"ConnStatus,omitempty"`
 	Provider       string                 `protobuf:"bytes,11,opt,name=Provider,proto3" json:"Provider,omitempty"`
 	ExternalID     string                 `protobuf:"bytes,12,opt,name=ExternalID,proto3" json:"ExternalID,omitempty"`
 	Connection     *ConnectionConfig      `protobuf:"bytes,13,opt,name=Connection,proto3" json:"Connection,omitempty"`
@@ -269,13 +268,6 @@ func (x *CU) GetProtocolConfig() *structpb.Struct {
 		return x.ProtocolConfig
 	}
 	return nil
-}
-
-func (x *CU) GetConnStatus() string {
-	if x != nil {
-		return x.ConnStatus
-	}
-	return ""
 }
 
 func (x *CU) GetProvider() string {
@@ -495,7 +487,6 @@ type UpdateCURequest struct {
 	Provider       string                 `protobuf:"bytes,9,opt,name=Provider,proto3" json:"Provider,omitempty"`
 	ExternalID     string                 `protobuf:"bytes,10,opt,name=ExternalID,proto3" json:"ExternalID,omitempty"`
 	Connection     *ConnectionConfig      `protobuf:"bytes,11,opt,name=Connection,proto3" json:"Connection,omitempty"`
-	ConnStatus     string                 `protobuf:"bytes,12,opt,name=ConnStatus,proto3" json:"ConnStatus,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -605,13 +596,6 @@ func (x *UpdateCURequest) GetConnection() *ConnectionConfig {
 		return x.Connection
 	}
 	return nil
-}
-
-func (x *UpdateCURequest) GetConnStatus() string {
-	if x != nil {
-		return x.ConnStatus
-	}
-	return ""
 }
 
 type GetCURequest struct {
@@ -949,7 +933,7 @@ const file_modules_cu_proto_rawDesc = "" +
 	"\x04Host\x18\x01 \x01(\tR\x04Host\x12\x12\n" +
 	"\x04Port\x18\x02 \x01(\x05R\x04Port\x12\x18\n" +
 	"\aTimeout\x18\x03 \x01(\x05R\aTimeout\x129\n" +
-	"\vRetryPolicy\x18\x04 \x01(\v2\x17.resourcepb.RetryPolicyR\vRetryPolicy\"\xf9\x03\n" +
+	"\vRetryPolicy\x18\x04 \x01(\v2\x17.resourcepb.RetryPolicyR\vRetryPolicy\"\xeb\x03\n" +
 	"\x02CU\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x1a\n" +
 	"\bTenantID\x18\x02 \x01(\tR\bTenantID\x12\x1a\n" +
@@ -959,11 +943,7 @@ const file_modules_cu_proto_rawDesc = "" +
 	"\x0eCapabilityTags\x18\x06 \x03(\tR\x0eCapabilityTags\x123\n" +
 	"\bMetadata\x18\a \x01(\v2\x17.google.protobuf.StructR\bMetadata\x12\x1a\n" +
 	"\bProtocol\x18\b \x01(\tR\bProtocol\x12?\n" +
-	"\x0eProtocolConfig\x18\t \x01(\v2\x17.google.protobuf.StructR\x0eProtocolConfig\x12\x1e\n" +
-	"\n" +
-	"ConnStatus\x18\n" +
-	" \x01(\tR\n" +
-	"ConnStatus\x12\x1a\n" +
+	"\x0eProtocolConfig\x18\t \x01(\v2\x17.google.protobuf.StructR\x0eProtocolConfig\x12\x1a\n" +
 	"\bProvider\x18\v \x01(\tR\bProvider\x12\x1e\n" +
 	"\n" +
 	"ExternalID\x18\f \x01(\tR\n" +
@@ -971,7 +951,9 @@ const file_modules_cu_proto_rawDesc = "" +
 	"\n" +
 	"Connection\x18\r \x01(\v2\x1c.resourcepb.ConnectionConfigR\n" +
 	"Connection\x12/\n" +
-	"\aRuntime\x18\x0e \x01(\v2\x15.resourcepb.CURuntimeR\aRuntime\"\xc7\x03\n" +
+	"\aRuntime\x18\x0e \x01(\v2\x15.resourcepb.CURuntimeR\aRuntimeJ\x04\b\n" +
+	"\x10\vR\n" +
+	"ConnStatus\"\xc7\x03\n" +
 	"\x0fCreateCURequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x1a\n" +
 	"\bParentID\x18\x02 \x01(\tR\bParentID\x12\x12\n" +
@@ -991,7 +973,7 @@ const file_modules_cu_proto_rawDesc = "" +
 	"Connection\x12 \n" +
 	"\vDescription\x18\f \x01(\tR\vDescription\"&\n" +
 	"\x10CreateCUResponse\x12\x12\n" +
-	"\x04CUID\x18\x01 \x01(\tR\x04CUID\"\xb9\x03\n" +
+	"\x04CUID\x18\x01 \x01(\tR\x04CUID\"\xab\x03\n" +
 	"\x0fUpdateCURequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x0e\n" +
 	"\x02ID\x18\x02 \x01(\tR\x02ID\x12\x12\n" +
@@ -1008,9 +990,7 @@ const file_modules_cu_proto_rawDesc = "" +
 	"ExternalID\x12<\n" +
 	"\n" +
 	"Connection\x18\v \x01(\v2\x1c.resourcepb.ConnectionConfigR\n" +
-	"Connection\x12\x1e\n" +
-	"\n" +
-	"ConnStatus\x18\f \x01(\tR\n" +
+	"ConnectionJ\x04\b\f\x10\rR\n" +
 	"ConnStatus\":\n" +
 	"\fGetCURequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x0e\n" +

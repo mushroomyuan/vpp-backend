@@ -1573,9 +1573,6 @@
         },
         "Connection": {
           "$ref": "#/definitions/resourcepbConnectionConfig"
-        },
-        "ConnStatus": {
-          "type": "string"
         }
       }
     },
@@ -1840,9 +1837,6 @@
         },
         "ProtocolConfig": {
           "type": "object"
-        },
-        "ConnStatus": {
-          "type": "string"
         },
         "Provider": {
           "type": "string"

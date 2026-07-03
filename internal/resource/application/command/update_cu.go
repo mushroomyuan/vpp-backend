@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
@@ -22,21 +25,22 @@ type UpdateCU struct {
 	Protocol       *string
 	ProtocolConfig map[string]any
 	Connection     *model.ConnectionConfig
-	ConnStatus     *model.ConnStatus
 	Metadata       map[string]any
 }
 
 type UpdateCUHandler decorator.CommandHandler[UpdateCU, struct{}]
 
 type updateCUHandler struct {
-	cuRepo port.CURepository
-	nodes  port.NodeRepository
+	cuRepo    port.CURepository
+	nodes     port.NodeRepository
+	publisher port.ResourceEventPublisher
 }
 
 func NewUpdateCUHandler(
 	cuRepo port.CURepository,
 	nodes port.NodeRepository,
 	metricClient decorator.MetricsClient,
+	publisher port.ResourceEventPublisher,
 ) UpdateCUHandler {
 	if cuRepo == nil {
 		panic("NewUpdateCUHandler parameter cuRepo is nil")
@@ -45,7 +49,7 @@ func NewUpdateCUHandler(
 		panic("NewUpdateCUHandler parameter nodes is nil")
 	}
 	return decorator.ApplyCommandDecorators[UpdateCU, struct{}](
-		updateCUHandler{cuRepo: cuRepo, nodes: nodes},
+		updateCUHandler{cuRepo: cuRepo, nodes: nodes, publisher: publisher},
 		metricClient,
 	)
 }
@@ -117,12 +121,27 @@ func (h updateCUHandler) Handle(ctx context.Context, cmd UpdateCU) (struct{}, er
 		}
 	}
 
-	if cmd.ConnStatus != nil {
-		cu.UpdateConnStatus(*cmd.ConnStatus)
-	}
-
 	if err := h.cuRepo.Update(ctx, cu); err != nil {
 		return struct{}{}, err
 	}
+
+	if h.publisher != nil {
+		if pubErr := h.publisher.Publish(ctx, port.ResourceEvent{
+			EventType:  platEvent.TypeCUUpdated,
+			TenantID:   tenantID,
+			ResourceID: cmd.ID,
+			Payload: platEvent.CUUpdatedPayload{
+				CUID:       cmd.ID,
+				TenantID:   tenantID,
+				Name:       cmd.Name,
+				Provider:   cu.Provider,
+				ExternalID: cu.ExternalID,
+				Protocol:   cu.Protocol,
+			},
+		}); pubErr != nil {
+			logrus.WithError(pubErr).Warn("failed to publish CU updated event")
+		}
+	}
+
 	return struct{}{}, nil
 }

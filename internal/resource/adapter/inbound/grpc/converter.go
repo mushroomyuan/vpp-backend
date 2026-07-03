@@ -380,7 +380,6 @@ func CUToProto(cu *model.CU, runtime *model.CURuntime) (*resourcepb.CU, error) {
 		Metadata:       meta,
 		Protocol:       protocol,
 		ProtocolConfig: protocolConfig,
-		ConnStatus:     string(cu.ConnStatus),
 		Provider:       provider,
 		ExternalID:     externalID,
 		Connection:     ConnectionDomainToProto(cu.Connection),

@@ -6,7 +6,6 @@ import (
 	resourcepb "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
 	"github.com/mushroomyuan/vpp-backend/resource/application/command"
 	"github.com/mushroomyuan/vpp-backend/resource/application/query"
-	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -135,11 +134,6 @@ func (s *Server) UpdateCU(ctx context.Context, req *resourcepb.UpdateCURequest) 
 	if v := req.GetExternalID(); v != "" {
 		externalID = &v
 	}
-	var connStatus *model.ConnStatus
-	if v := req.GetConnStatus(); v != "" {
-		cs := model.ConnStatus(v)
-		connStatus = &cs
-	}
 	conn, err := ConnectionProtoToDomain(req.GetConnection())
 	if err != nil {
 		return nil, toGRPCError(err)
@@ -156,7 +150,6 @@ func (s *Server) UpdateCU(ctx context.Context, req *resourcepb.UpdateCURequest) 
 		Protocol:       protocol,
 		ProtocolConfig: protocolConfig,
 		Connection:     conn,
-		ConnStatus:     connStatus,
 		Metadata:       meta,
 	})
 	if err != nil {

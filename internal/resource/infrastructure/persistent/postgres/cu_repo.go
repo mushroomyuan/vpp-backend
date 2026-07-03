@@ -36,7 +36,6 @@ func (r *CURepository) UpdateCU(ctx context.Context, m *CUModel) (err error) {
 		Model(&CUModel{}).
 		Where("node_id = ? AND tenant_id = ?", m.NodeID, m.TenantID).
 		Updates(map[string]any{
-			"conn_status":     m.ConnStatus,
 			"provider":        m.Provider,
 			"external_id":     m.ExternalID,
 			"protocol":        m.Protocol,
