@@ -44,12 +44,13 @@ type TelemetryGRPCOptions struct {
 	Addr string `mapstructure:"addr"`
 }
 
-// KafkaOptions configures the resource event consumer.
-// Brokers empty → consumer does not start (no-op degradation).
+// KafkaOptions configures the resource event consumer and command event producer.
+// Brokers empty → consumer/publisher degrade to no-op.
 type KafkaOptions struct {
-	Brokers []string `mapstructure:"brokers"`
-	Topic   string   `mapstructure:"topic"`    // default: vpp.resource.events
-	GroupID string   `mapstructure:"group-id"` // default: vpp-gateway-resource-events
+	Brokers      []string `mapstructure:"brokers"`
+	Topic        string   `mapstructure:"topic"`         // resource lifecycle consume; default: vpp.resource.events
+	GroupID      string   `mapstructure:"group-id"`      // default: vpp-gateway-resource-events
+	CommandTopic string   `mapstructure:"command-topic"` // command completed produce; default: vpp.command.events
 }
 
 func NewOptions() *Options {
@@ -79,8 +80,9 @@ func NewOptions() *Options {
 			Addr: "127.0.0.1:5003",
 		},
 		Kafka: KafkaOptions{
-			Topic:   "vpp.resource.events",
-			GroupID: "vpp-gateway-resource-events",
+			Topic:        "vpp.resource.events",
+			GroupID:      "vpp-gateway-resource-events",
+			CommandTopic: "vpp.command.events",
 		},
 	}
 }

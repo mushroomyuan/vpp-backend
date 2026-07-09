@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package dispatchpb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/dispatch/proto/gen;dispatchpb";
+
+service DispatchService {
+  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+}
+
+message SubmitTaskRequest {
+  string TenantID = 1;
+  string Name = 2;
+  string Description = 3;
+  string TaskType = 4;    // "control"
+  string TriggerType = 5; // "manual" / "scheduled" / "automatic"
+  repeated ActionSpec Actions = 6;
+}
+
+message ActionSpec {
+  string Name = 1;
+  string ActionType = 2;
+  int32 Sequence = 3;
+  string ExecutionPolicy = 4; // "sequential" / "parallel"
+  repeated CommandSpec Commands = 5;
+}
+
+message CommandSpec {
+  string CUCode = 1;
+  string PointKey = 2;
+  oneof Value {
+    bool BoolValue = 3;
+    int64 IntValue = 4;
+    double FloatValue = 5;
+    string StringValue = 6;
+  }
+  int32 TimeoutSeconds = 7; // 0 → service default
+  int32 MaxRetries = 8;     // 0 → service default
+}
+
+message SubmitTaskResponse {
+  string TaskID = 1;
+  string Status = 2; // e.g. "running"
+}
+
+message GetTaskRequest {
+  string TenantID = 1;
+  string TaskID = 2;
+}
+
+message GetTaskResponse {
+  string TaskID = 1;
+  string Status = 2;
+  string Name = 3;
+  string FailurePolicy = 4;
+  repeated ActionStatusMsg Actions = 5;
+}
+
+message ActionStatusMsg {
+  string ActionID = 1;
+  string Name = 2;
+  string Status = 3;
+  int32 Sequence = 4;
+  repeated CommandStatusMsg Commands = 5;
+}
+
+message CommandStatusMsg {
+  string CommandID = 1;
+  string CUCode = 2;
+  string PointKey = 3;
+  string Status = 4;
+  string ErrorCode = 5;
+  string ErrorMessage = 6;
+}
+
+message CancelTaskRequest {
+  string TenantID = 1;
+  string TaskID = 2;
+}
+
+message CancelTaskResponse {
+  bool Success = 1;
+}

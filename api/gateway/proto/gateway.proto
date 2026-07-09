@@ -13,13 +13,21 @@ service GatewayService {
 }
 
 message ExecuteCommandRequest {
-  string TenantID = 1;
-  string CUCode = 2;
-  string Command = 3;
-  double Value = 4;
+  string CommandID = 1; // dispatch-assigned; used for idempotency and Kafka correlation
+  string TenantID = 2;
+  string CUCode = 3;
+  string PointKey = 4;
+  oneof Value {
+    bool BoolValue = 5;
+    int64 IntValue = 6;
+    double FloatValue = 7;
+    string StringValue = 8;
+  }
 }
 
 message ExecuteCommandResponse {
   string ExternalID = 1;
   string ExternalSystem = 2;
+  // Synchronous response means accepted/completed at the gateway boundary;
+  // final device outcome is delivered via vpp.command.events (Phase 6).
 }

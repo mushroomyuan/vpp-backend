@@ -34,6 +34,7 @@ type Dependencies struct {
 	MappingRepo     port.MappingRepository
 	TelemetryClient port.TelemetryClient
 	EMSClient       port.EMSClient
+	CommandEvents   port.CommandEventPublisher
 
 	// Metrics is optional; pass nil to disable metrics decoration.
 	Metrics decorator.MetricsClient
@@ -49,11 +50,16 @@ func NewApplication(deps Dependencies) Application {
 	if deps.EMSClient == nil {
 		panic("NewApplication: EMSClient is required")
 	}
+	if deps.CommandEvents == nil {
+		panic("NewApplication: CommandEvents is required")
+	}
 
 	return Application{
 		Commands: Commands{
-			ReceiveTelemetry:       command.NewReceiveTelemetryHandler(deps.MappingRepo, deps.TelemetryClient, deps.Metrics),
-			ExecuteCommand:         command.NewExecuteCommandHandler(deps.MappingRepo, deps.EMSClient, deps.Metrics),
+			ReceiveTelemetry: command.NewReceiveTelemetryHandler(deps.MappingRepo, deps.TelemetryClient, deps.Metrics),
+			ExecuteCommand: command.NewExecuteCommandHandler(
+				deps.MappingRepo, deps.EMSClient, deps.CommandEvents, deps.Metrics,
+			),
 			CreateMapping:          command.NewCreateMappingHandler(deps.MappingRepo, deps.Metrics),
 			DeleteMapping:          command.NewDeleteMappingHandler(deps.MappingRepo, deps.Metrics),
 			DisableMapping:         command.NewDisableMappingHandler(deps.MappingRepo, deps.Metrics),

@@ -12,6 +12,10 @@ run-telemetry:
 run-gateway:
 	cd internal/gateway && go run ./cmd/main.go -c ../../config/gateway.yaml
 
+.PHONY: run-dispatch
+run-dispatch:
+	cd internal/dispatch && go run ./cmd/main.go -c ../../config/dispatch.yaml
+
 # ── infra ─────────────────────────────────────────────────────────────────────
 
 .PHONY: infra-up

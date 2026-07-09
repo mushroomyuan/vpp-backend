@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	kafka "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/kafka_pub"
+	kafka "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/kafka"
 	"github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/timescaledb"
 	"github.com/mushroomyuan/vpp-backend/telemetry/config"
 	"github.com/mushroomyuan/vpp-backend/telemetry/options"

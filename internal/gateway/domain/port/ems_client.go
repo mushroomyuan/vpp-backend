@@ -12,7 +12,7 @@ import "context"
 // is added that implements this interface without modifying the application layer.
 type EMSClient interface {
 	// SendCommand delivers a control command to the external device identified by
-	// (externalSystem, externalID). command is a string token such as "set_power";
-	// value carries the associated setpoint (e.g. 500.0 kW).
-	SendCommand(ctx context.Context, externalSystem, externalID, command string, value float64) error
+	// (externalSystem, externalID). commandID correlates the request with async
+	// acknowledgements; command is a point key / control token; value is the setpoint.
+	SendCommand(ctx context.Context, commandID, externalSystem, externalID, command string, value float64) error
 }

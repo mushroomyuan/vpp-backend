@@ -16,12 +16,14 @@ type Config struct {
 	Kafka             KafkaConfig
 }
 
-// KafkaConfig holds connection parameters for the resource event consumer.
-// Brokers empty → consumer does not start.
+// KafkaConfig holds connection parameters for the resource event consumer
+// and the command-completed event producer.
+// Brokers empty → consumer/publisher do not start (no-op).
 type KafkaConfig struct {
-	Brokers []string
-	Topic   string
-	GroupID string
+	Brokers      []string
+	Topic        string // resource lifecycle consume
+	GroupID      string
+	CommandTopic string // command completed produce
 }
 
 func CreateFromOptions(opts *options.Options) *Config {
@@ -34,9 +36,10 @@ func CreateFromOptions(opts *options.Options) *Config {
 		ServiceName:       opts.Gateway.ServiceName,
 		ConsulAddr:        opts.Gateway.ConsulAddr,
 		Kafka: KafkaConfig{
-			Brokers: opts.Kafka.Brokers,
-			Topic:   opts.Kafka.Topic,
-			GroupID: opts.Kafka.GroupID,
+			Brokers:      opts.Kafka.Brokers,
+			Topic:        opts.Kafka.Topic,
+			GroupID:      opts.Kafka.GroupID,
+			CommandTopic: opts.Kafka.CommandTopic,
 		},
 	}
 }

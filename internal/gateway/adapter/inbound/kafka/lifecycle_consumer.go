@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/sirupsen/logrus"
@@ -82,9 +83,15 @@ func (c *LifecycleConsumer) Run(ctx context.Context) error {
 				// Normal shutdown — context cancelled.
 				return nil
 			}
-			logrus.WithError(err).Error("kafka: fetch message failed")
-			// Return the error so the errgroup can restart / propagate.
-			return fmt.Errorf("kafka fetch: %w", err)
+			// Transient broker/coordinator errors (e.g. offsets topic not ready)
+			// must not tear down the whole process via errgroup.
+			logrus.WithError(err).Warn("kafka: fetch message failed, retrying")
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(2 * time.Second):
+			}
+			continue
 		}
 
 		if handleErr := c.handleMessage(ctx, msg); handleErr != nil {

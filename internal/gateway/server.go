@@ -21,6 +21,7 @@ import (
 	httppkg "github.com/mushroomyuan/vpp-backend/gateway/adapter/inbound/http"
 	kafkasub "github.com/mushroomyuan/vpp-backend/gateway/adapter/inbound/kafka"
 	emslog "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/ems_log"
+	kafkapub "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/kafka"
 	adapterpostgres "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/postgres"
 	telemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
 	"github.com/mushroomyuan/vpp-backend/gateway/application"
@@ -32,13 +33,14 @@ import (
 )
 
 type gatewayServer struct {
-	grpcSrv           *googlegrpc.Server
-	httpSrv           *http.Server
-	cfg               *config.Config
-	metricsClient     *metrics.Client
-	metricsCancel     context.CancelFunc
-	telemetryClient   *telemetrygrpc.TelemetryGRPCClient
-	lifecycleConsumer *kafkasub.LifecycleConsumer
+	grpcSrv               *googlegrpc.Server
+	httpSrv               *http.Server
+	cfg                   *config.Config
+	metricsClient         *metrics.Client
+	metricsCancel         context.CancelFunc
+	telemetryClient       *telemetrygrpc.TelemetryGRPCClient
+	lifecycleConsumer     *kafkasub.LifecycleConsumer
+	commandEventPublisher *kafkapub.CommandEventPublisher
 }
 
 type preparedServer struct {
@@ -83,10 +85,16 @@ func createServer(
 
 	emsClient := emslog.NewEMSLogClient()
 
+	commandEventPublisher := kafkapub.NewCommandEventPublisher(kafkapub.CommandEventPublisherConfig{
+		Brokers: appCfg.Kafka.Brokers,
+		Topic:   appCfg.Kafka.CommandTopic,
+	})
+
 	app := application.NewApplication(application.Dependencies{
 		MappingRepo:     mappingRepo,
 		TelemetryClient: telemetryClient,
 		EMSClient:       emsClient,
+		CommandEvents:   commandEventPublisher,
 		Metrics:         metricsClient,
 	})
 
@@ -114,13 +122,14 @@ func createServer(
 	}
 
 	return &gatewayServer{
-		grpcSrv:           grpcSrv,
-		httpSrv:           httpSrv,
-		cfg:               cfg,
-		metricsClient:     metricsClient,
-		metricsCancel:     metricsCancel,
-		telemetryClient:   telemetryClient,
-		lifecycleConsumer: lifecycleConsumer,
+		grpcSrv:               grpcSrv,
+		httpSrv:               httpSrv,
+		cfg:                   cfg,
+		metricsClient:         metricsClient,
+		metricsCancel:         metricsCancel,
+		telemetryClient:       telemetryClient,
+		lifecycleConsumer:     lifecycleConsumer,
+		commandEventPublisher: commandEventPublisher,
 	}, nil
 }
 
@@ -201,6 +210,9 @@ func (s *preparedServer) Run() error {
 		}
 		if err := s.lifecycleConsumer.Close(); err != nil {
 			logrus.WithError(err).Warn("lifecycle consumer close error")
+		}
+		if err := s.commandEventPublisher.Close(); err != nil {
+			logrus.WithError(err).Warn("command event publisher close error")
 		}
 		s.metricsCancel()
 	}()

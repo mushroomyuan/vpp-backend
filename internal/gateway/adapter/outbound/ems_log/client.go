@@ -25,10 +25,11 @@ func NewEMSLogClient() *EMSLogClient {
 
 func (c *EMSLogClient) SendCommand(
 	ctx context.Context,
-	externalSystem, externalID, command string,
+	commandID, externalSystem, externalID, command string,
 	value float64,
 ) error {
 	logrus.WithFields(logrus.Fields{
+		"command_id":      commandID,
 		"external_system": externalSystem,
 		"external_id":     externalID,
 		"command":         command,

@@ -14,6 +14,7 @@ require (
 	github.com/mushroomyuan/vpp-backend/api/gateway/proto/gen v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/platform v0.0.0-00010101000000-000000000000
+	github.com/segmentio/kafka-go v0.4.51
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
@@ -85,7 +86,6 @@ require (
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
-	github.com/segmentio/kafka-go v0.4.51 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
