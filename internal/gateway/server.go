@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	emslog "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/ems_log"
 	kafkapub "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/kafka"
 	adapterpostgres "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/postgres"
+	"github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/simulator"
 	telemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
 	"github.com/mushroomyuan/vpp-backend/gateway/application"
 	"github.com/mushroomyuan/vpp-backend/gateway/config"
@@ -51,6 +53,7 @@ func createServer(
 	appCfg *config.Config,
 	dbCfg platformpostgres.Config,
 	telemetryCfg telemetrygrpc.Config,
+	simulatorCfg simulator.Config,
 ) (*gatewayServer, error) {
 	cfg := appCfg
 
@@ -83,7 +86,18 @@ func createServer(
 		return nil, fmt.Errorf("init telemetry gRPC client: %w", err)
 	}
 
-	emsClient := emslog.NewEMSLogClient()
+	defaultClient := emslog.NewEMSLogClient()
+	var simClient *simulator.Client
+	if strings.TrimSpace(simulatorCfg.Addr) != "" {
+		c, err := simulator.NewClient(simulatorCfg)
+		if err != nil {
+			metricsCancel()
+			_ = telemetryClient.Close()
+			return nil, fmt.Errorf("init simulator client: %w", err)
+		}
+		simClient = c
+	}
+	emsClient := simulator.NewRouter(simClient, defaultClient)
 
 	commandEventPublisher := kafkapub.NewCommandEventPublisher(kafkapub.CommandEventPublisherConfig{
 		Brokers: appCfg.Kafka.Brokers,

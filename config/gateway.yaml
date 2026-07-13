@@ -27,6 +27,11 @@ database:
 telemetry-grpc:
   addr: 127.0.0.1:5003
 
+# Outbound command delivery to vpp-simulator (ExternalSystem = "simulator").
+# Leave empty to keep log-only default for all external systems.
+simulator:
+  addr: http://127.0.0.1:8084
+
 kafka:
   brokers:
     - "127.0.0.1:9092"

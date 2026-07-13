@@ -104,7 +104,7 @@ RETURNING *
 
 **默认值：**
 - `BatchCreateResource` command 默认 `defaultBatchSize = 100`
-- `ResourceImportExecutor` 默认 `batchSize = 100`（来自 payload 或 fallback）
+- `ResourceImportExecutor` 默认 `batchSize = 100`（来自 payload 或 default）
 - GORM `CreateInBatches` 最大 500
 
 ---

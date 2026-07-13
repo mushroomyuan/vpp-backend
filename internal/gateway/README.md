@@ -5,7 +5,7 @@ VPP 平台的协议集成网关。负责外部 EMS/IoT 系统与内部微服务�
 - **入站 HTTP**：外部系统上报遥测、运维管理设备映射
 - **入站 gRPC**：内部 dispatch 服务下发控制指令
 - **出站 gRPC**：将标准化遥测转发至 `vpp-telemetry`
-- **出站 EMS**：将控制指令翻译为外部设备 ID 后下发（v1 为 log-only）
+- **出站外部系统**：将控制指令翻译为外部设备 ID 后下发（`ExternalSystem=simulator` → Simulator HTTP；其它 → `ems_log`）
 
 ---
 
@@ -65,7 +65,8 @@ VPP 平台的协议集成网关。负责外部 EMS/IoT 系统与内部微服务�
 ┌──────▼──────────────┐    ┌──────────▼───────────────────────┐
 │ adapter/outbound/   │    │ adapter/outbound/                 │
 │ postgres/           │    │ telemetry_grpc/  → vpp-telemetry  │
-│ MappingRepository   │    │ ems_log/         → log-only (v1)  │
+│ MappingRepository   │    │ simulator/       → vpp-simulator HTTP │
+│                     │    │ ems_log/         → log-only default  │
 └─────────────────────┘    └──────────────────────────────────┘
 ```
 
@@ -96,7 +97,8 @@ dispatch gRPC ExecuteCommand
        │
        ▼
 [2] EMSClient.SendCommand(external_system, external_id, ...)
-       │  v1：ems_log 仅打日志，不连真实 EMS
+       │  ExternalSystem=simulator → adapter/outbound/simulator
+       │  其它 → ems_log（仅打日志）
        ▼
 [3] 返回 { ExternalID, ExternalSystem }
 ```
@@ -189,7 +191,8 @@ internal/gateway/
 │   └── outbound/
 │       ├── postgres/                    # MappingRepository 适配
 │       ├── telemetry_grpc/              # → vpp-telemetry
-│       └── ems_log/                     # log-only EMS（v1）
+│       ├── simulator/                   # vpp-simulator HTTP 出站
+│       └── ems_log/                     # log-only default
 └── infrastructure/persistent/postgres/  # GORM 仓储实现
 ```
 

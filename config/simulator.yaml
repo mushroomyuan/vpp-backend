@@ -1,0 +1,27 @@
+tracing:
+  endpoint: 127.0.0.1:4318
+  insecure: true
+
+simulator:
+  service-name: simulator
+  http-addr: 127.0.0.1:8084
+  metrics-addr: 127.0.0.1:9106
+  consul-addr: 127.0.0.1:8500
+  tenant-id: default
+
+resource:
+  grpc-addr: 127.0.0.1:5002
+
+gateway:
+  http-addr: http://127.0.0.1:8083
+
+runtime:
+  # Device Tick + telemetry ingest interval (was 5s; raised to cut local DB growth).
+  tick-interval: 10s
+  # Set false to keep in-memory simulation without writing to Gateway/Telemetry.
+  publish-enabled: true
+  # Optional filters. Empty site-ids / cu-ids → load all matching provider.
+  site-ids: []
+  cu-ids: []
+  # Only load CUs whose Provider equals this value. Empty → no provider filter.
+  require-provider: simulator

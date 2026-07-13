@@ -5,11 +5,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/simulator"
+	telemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
+	"github.com/mushroomyuan/vpp-backend/gateway/config"
 	"github.com/mushroomyuan/vpp-backend/platform/discovery"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
 	platformtelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
-	telemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
-	"github.com/mushroomyuan/vpp-backend/gateway/config"
 )
 
 // Run is the single entry point from configuration to a running server.
@@ -17,6 +18,7 @@ func Run(
 	appCfg *config.Config,
 	dbCfg platformpostgres.Config,
 	telemetryCfg telemetrygrpc.Config,
+	simulatorCfg simulator.Config,
 ) error {
 	if appCfg.TelemetryEndpoint != "" {
 		shutdown, err := platformtelemetry.InitTracing(context.Background(), platformtelemetry.Config{
@@ -53,7 +55,7 @@ func Run(
 		logrus.Warn("gateway.consul-addr not configured, service discovery is disabled")
 	}
 
-	srv, err := createServer(appCfg, dbCfg, telemetryCfg)
+	srv, err := createServer(appCfg, dbCfg, telemetryCfg, simulatorCfg)
 	if err != nil {
 		return err
 	}

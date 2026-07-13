@@ -8,6 +8,7 @@ type Options struct {
 	Tracing       TracingOptions       `mapstructure:"tracing"`
 	Database      DatabaseOptions      `mapstructure:"database"`
 	TelemetryGRPC TelemetryGRPCOptions `mapstructure:"telemetry-grpc"`
+	Simulator     SimulatorOptions     `mapstructure:"simulator"`
 	Kafka         KafkaOptions         `mapstructure:"kafka"`
 }
 
@@ -42,6 +43,12 @@ type DatabaseOptions struct {
 
 type TelemetryGRPCOptions struct {
 	Addr string `mapstructure:"addr"`
+}
+
+// SimulatorOptions configures the outbound HTTP client to vpp-simulator.
+// Addr empty → commands for external_system=simulator fall through to ems_log.
+type SimulatorOptions struct {
+	Addr string `mapstructure:"addr"` // e.g. http://127.0.0.1:8084
 }
 
 // KafkaOptions configures the resource event consumer and command event producer.

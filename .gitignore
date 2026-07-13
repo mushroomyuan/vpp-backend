@@ -46,3 +46,5 @@ log/*
 .env.*      # 其他环境相关的 env 文件
 
 advices/
+bin/
+.bin/

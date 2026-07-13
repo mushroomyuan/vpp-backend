@@ -3,7 +3,7 @@ tracing:
   insecure: true
 
 dispatch:
-  service-name: vpp-dispatch
+  service-name: dispatch
   grpc-addr: 127.0.0.1:5006
   metrics-addr: 127.0.0.1:9105
   consul-addr: 127.0.0.1:8500

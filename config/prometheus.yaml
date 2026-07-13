@@ -1,0 +1,37 @@
+# Prometheus scrape config for VPP services running on the Docker host.
+# Requires `extra_hosts: host.docker.internal:host-gateway` on the prometheus service (see compose.yaml).
+# Mounted into the container as /etc/prometheus/prometheus.yml.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: vpp-resource
+    metrics_path: /metrics
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["host.docker.internal:9102"]
+
+  - job_name: vpp-telemetry
+    metrics_path: /metrics
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["host.docker.internal:9103"]
+
+  - job_name: vpp-gateway
+    metrics_path: /metrics
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["host.docker.internal:9104"]
+
+  - job_name: vpp-dispatch
+    metrics_path: /metrics
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["host.docker.internal:9105"]
+
+  - job_name: vpp-simulator
+    metrics_path: /metrics
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["host.docker.internal:9106"]

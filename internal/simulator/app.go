@@ -1,4 +1,4 @@
-package gateway
+package simulator
 
 import (
 	"fmt"
@@ -8,11 +8,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/simulator"
-	telemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
-	"github.com/mushroomyuan/vpp-backend/gateway/config"
-	"github.com/mushroomyuan/vpp-backend/gateway/options"
-	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
+	"github.com/mushroomyuan/vpp-backend/simulator/config"
+	"github.com/mushroomyuan/vpp-backend/simulator/options"
 )
 
 // App wraps a cobra.Command and provides a single Run() entry point.
@@ -22,7 +19,7 @@ type App struct {
 
 func (a *App) Run() {
 	if err := a.cmd.Execute(); err != nil {
-		logrus.Fatalf("vpp-gateway: %v", err)
+		logrus.Fatalf("vpp-simulator: %v", err)
 	}
 }
 
@@ -31,9 +28,9 @@ func NewApp(basename string) *App {
 
 	cmd := &cobra.Command{
 		Use:   basename,
-		Short: "VPP Gateway Service",
-		Long: `VPP Gateway Service bridges external EMS/IoT systems and internal
-platform services (telemetry, dispatch) over HTTP and gRPC.`,
+		Short: "VPP Simulator Service",
+		Long: `VPP Simulator is a virtual device runtime that loads CUs from Resource,
+emits telemetry via Gateway, and accepts control commands for closed-loop testing.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -62,43 +59,14 @@ func runApp(opts *options.Options) error {
 	}
 
 	appCfg := config.CreateFromOptions(opts)
-	dbCfg := dbConfigFromOptions(opts.Database)
-	telemetryCfg := telemetryConfigFromOptions(opts.TelemetryGRPC)
-	simulatorCfg := simulatorConfigFromOptions(opts.Simulator)
-
-	return Run(appCfg, dbCfg, telemetryCfg, simulatorCfg)
-}
-
-func dbConfigFromOptions(o options.DatabaseOptions) platformpostgres.Config {
-	return platformpostgres.Config{
-		Driver:                 o.Driver,
-		Host:                   o.Host,
-		Port:                   o.Port,
-		User:                   o.User,
-		Password:               o.Password,
-		DBName:                 o.DBName,
-		Params:                 o.Params,
-		DSN:                    o.DSN,
-		MaxOpenConns:           o.MaxOpenConns,
-		MaxIdleConns:           o.MaxIdleConns,
-		ConnMaxLifetimeSeconds: o.ConnMaxLifetimeSeconds,
-		ConnMaxIdleTimeSeconds: o.ConnMaxIdleTimeSeconds,
-	}
-}
-
-func telemetryConfigFromOptions(o options.TelemetryGRPCOptions) telemetrygrpc.Config {
-	return telemetrygrpc.Config{Addr: o.Addr}
-}
-
-func simulatorConfigFromOptions(o options.SimulatorOptions) simulator.Config {
-	return simulator.Config{Addr: o.Addr}
+	return Run(appCfg)
 }
 
 func loadViperConfig() {
 	if cfgFile := viper.GetString("config-file"); cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		viper.SetConfigName("gateway")
+		viper.SetConfigName("simulator")
 		viper.SetConfigType("yaml")
 		viper.AddConfigPath("./config")
 		viper.AddConfigPath("../../config")
