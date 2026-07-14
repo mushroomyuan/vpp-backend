@@ -7,7 +7,6 @@ import (
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/application/types"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
@@ -54,9 +53,6 @@ func (h submitBatchImportHandler) Handle(
 	ctx context.Context,
 	cmd SubmitBatchImport,
 ) (*SubmitBatchImportResult, error) {
-	ctx, span := telemetry.Start(ctx, "submit_batch_import")
-	defer span.End()
-
 	targetType, tenantID, payload, failedItems, err := buildJobPayload(cmd)
 	if err != nil {
 		return nil, err

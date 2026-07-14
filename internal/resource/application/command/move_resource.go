@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -35,9 +34,6 @@ func NewMoveResourceHandler(
 }
 
 func (h moveResourceHandler) Handle(ctx context.Context, cmd MoveResource) (struct{}, error) {
-	ctx, span := telemetry.Start(ctx, "move_resource")
-	defer span.End()
-
 	return struct{}{}, h.nodes.Move(
 		ctx,
 		strings.TrimSpace(cmd.TenantID),

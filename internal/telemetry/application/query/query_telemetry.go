@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	platformtelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application/types"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/model"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/port"
@@ -45,9 +44,6 @@ func NewQueryTelemetryHandler(
 }
 
 func (h queryTelemetryHandler) Handle(ctx context.Context, q QueryTelemetry) ([]*model.TelemetryRecord, error) {
-	ctx, span := platformtelemetry.Start(ctx, "query_telemetry")
-	defer span.End()
-
 	if q.EndTime.Sub(q.StartTime) > maxQueryRange {
 		return nil, fmt.Errorf("%w (requested: %v)", types.ErrQueryRangeExceeded, q.EndTime.Sub(q.StartTime))
 	}

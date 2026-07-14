@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -33,8 +32,5 @@ func NewGetJobHandler(
 }
 
 func (h getJobHandler) Handle(ctx context.Context, q GetJob) (*model.Job, error) {
-	ctx, span := telemetry.Start(ctx, "get_import_job")
-	defer span.End()
-
 	return h.jobRepo.FindByID(ctx, q.JobID)
 }

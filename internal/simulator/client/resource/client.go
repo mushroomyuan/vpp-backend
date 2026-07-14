@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	resourcepb "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
+	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 	"github.com/mushroomyuan/vpp-backend/simulator/domain"
 )
 
@@ -28,9 +28,9 @@ func New(cfg Config) (*Client, error) {
 	if strings.TrimSpace(cfg.Addr) == "" {
 		return nil, fmt.Errorf("resource client: addr is required")
 	}
-	conn, err := grpc.NewClient(cfg.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := platformserver.DialGRPC(cfg.Addr)
 	if err != nil {
-		return nil, fmt.Errorf("resource client: dial %s: %w", cfg.Addr, err)
+		return nil, fmt.Errorf("resource client: %w", err)
 	}
 	return &Client{
 		conn:   conn,

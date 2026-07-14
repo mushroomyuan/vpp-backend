@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	platformtelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application/types"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/model"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/port"
@@ -43,9 +42,6 @@ func NewQueryAggregationHandler(
 }
 
 func (h queryAggregationHandler) Handle(ctx context.Context, q QueryAggregation) ([]*model.AggregatedPoint, error) {
-	ctx, span := platformtelemetry.Start(ctx, "query_aggregation")
-	defer span.End()
-
 	// Apply the same 30-day window policy as raw-record queries.
 	if q.EndTime.Sub(q.StartTime) > maxQueryRange {
 		return nil, fmt.Errorf("%w (requested: %v)", types.ErrQueryRangeExceeded, q.EndTime.Sub(q.StartTime))

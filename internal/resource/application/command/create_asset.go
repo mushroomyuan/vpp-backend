@@ -9,7 +9,6 @@ import (
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -55,9 +54,6 @@ func NewCreateAssetHandler(
 }
 
 func (h createAssetHandler) Handle(ctx context.Context, cmd CreateAsset) (*CreateAssetResult, error) {
-	ctx, span := telemetry.Start(ctx, "create_asset")
-	defer span.End()
-
 	id := idgen.Must()
 
 	siteID := strings.TrimSpace(cmd.SiteID)

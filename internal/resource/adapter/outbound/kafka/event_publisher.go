@@ -15,6 +15,7 @@ import (
 
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
+	plattelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -106,10 +107,29 @@ func (p *EventPublisher) Publish(ctx context.Context, event port.ResourceEvent) 
 		key = fmt.Sprintf("%s:%s", event.TenantID, event.ResourceID)
 	}
 
-	return p.writer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(key),
-		Value: msgBytes,
+	ctx, span := plattelemetry.StartKafkaProducer(ctx, plattelemetry.KafkaPublishInfo{
+		Topic:     p.cfg.Topic,
+		Key:       key,
+		EventType: event.EventType,
 	})
+	writeErr := p.writer.WriteMessages(ctx, kafka.Message{
+		Key:     []byte(key),
+		Value:   msgBytes,
+		Headers: mapToKafkaHeaders(plattelemetry.InjectToMap(ctx)),
+	})
+	plattelemetry.EndSpan(span, writeErr)
+	return writeErr
+}
+
+func mapToKafkaHeaders(c plattelemetry.MapCarrier) []kafka.Header {
+	if len(c) == 0 {
+		return nil
+	}
+	out := make([]kafka.Header, 0, len(c))
+	for k, v := range c {
+		out = append(out, kafka.Header{Key: k, Value: []byte(v)})
+	}
+	return out
 }
 
 // Close flushes any buffered messages and closes the underlying Kafka writer.

@@ -130,14 +130,31 @@ make infra-up   # 等价于 docker compose up -d
 
 | 入口 | 位置 | 机制 |
 |------|------|------|
-| HTTP | `platform/server/http.go` → `otelgin.Middleware(serviceName)` | 每个 HTTP 请求一个 Server Span |
-| gRPC | `platform/server/grpc.go` → `otelgrpc.NewServerHandler()` | 每个 RPC 一个 Server Span |
+| HTTP 入站 | `platform/server/http.go` → `otelgin.Middleware(serviceName)` | 每个 HTTP 请求一个 Server Span |
+| gRPC 入站 | `platform/server/grpc.go` → `otelgrpc.NewServerHandler()` | 每个 RPC 一个 Server Span |
+| gRPC 出站 | `platform/server/grpc_client.go` → `DialGRPC` + `otelgrpc.NewClientHandler()` | 每个出站 RPC 一个 Client Span，并传播 TraceContext |
 
-resource 的 HTTP（grpc-gateway）与 gRPC 都走上述 platform 封装，因此 **请求一进服务就会产生 Span 并批量导出到 Jaeger**。
+出站客户端（gateway→telemetry、dispatch→gateway、simulator→resource）均通过 `DialGRPC` 接入，跨服务链路可在 Jaeger 中串联。
 
 **应用层**
 
-CQRS Handler 经 `decorator.Apply*Decorators` 包装；当前装饰器实现为 **Metrics + Logging**（业务零感知）。链路 Span 主要来自传输层中间件；日志通过 `platform/logging` 的 `traceHook` 自动写入 `trace` 字段，便于用 TraceID 在 Jaeger 反查。
+CQRS Handler 经 `decorator.Apply*Decorators` 包装，外→内为 **Logging → Metrics → Tracing → Handler**（Middleware / `Chain` 组装，见 `platform/decorator`）：
+
+- Metrics：`app_requests_*` 计数/耗时/in-flight
+- Tracing：自动创建 `command.<Type>` / `query.<Type>` 应用层 Span（含 `cqrs.kind` / `cqrs.action`），失败时 `RecordError` + Error status
+- gateway / dispatch / resource / telemetry 凡走 `Apply*Decorators` 的 Handler **无需再手写** `telemetry.Start`
+
+**异步边界**
+
+| 边界 | 位置 | 行为 |
+|------|------|------|
+| Kafka **生产** | resource → `vpp.resource.events`；gateway → `vpp.command.events` | Producer Span（`<topic> publish`），并把 W3C/B3 写入 Kafka **Headers** |
+| Kafka **消费** | gateway `lifecycle_consumer`；dispatch `command.completed` | 从 Headers **Extract** 父上下文（无则新建根），Consumer Span（`<topic> process`），属性含 `messaging.*`（system/destination/operation、partition/offset/group、message.type） |
+| Simulator Tick / Publish | `simulator/tick` | 短 Span：`simulator.tick` →（可选）`simulator.publish`；默认每 N 次 Tick 采样一次（`runtime.trace-sample-every`，默认 6），避免周期任务刷爆 Jaeger |
+
+辅助 API：`platform/telemetry` 的 `Inject` / `Extract` / `StartKafkaProducer` / `StartKafkaConsumer` / `EndSpan`。
+
+链路 Span 还来自传输层中间件（HTTP/gRPC server + 出站 `DialGRPC`）；日志通过 `platform/logging` 的 `traceHook` 自动写入 `trace` 字段，便于用 TraceID 在 Jaeger 反查。
 
 ### 4.2 Metrics：谁打点、谁暴露、谁拉取
 

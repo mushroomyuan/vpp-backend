@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -38,9 +37,6 @@ func NewGetPointHandler(
 }
 
 func (h getPointHandler) Handle(ctx context.Context, q GetPoint) (*PointView, error) {
-	ctx, span := telemetry.Start(ctx, "get_point")
-	defer span.End()
-
 	point, err := h.pointRepo.FindByID(ctx, q.TenantID, q.ID)
 	if err != nil {
 		return nil, err

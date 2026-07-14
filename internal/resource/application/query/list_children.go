@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -49,9 +48,6 @@ func NewListChildrenHandler(
 }
 
 func (h listChildrenHandler) Handle(ctx context.Context, q ListChildren) (*ListChildrenResult, error) {
-	ctx, span := telemetry.Start(ctx, "list_children")
-	defer span.End()
-
 	page, err := h.nodes.ListChildren(
 		ctx,
 		strings.TrimSpace(q.TenantID),

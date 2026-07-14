@@ -96,7 +96,7 @@ func createServer(appCfg *config.Config) (*simulatorServer, error) {
 	} else {
 		logrus.Warn("telemetry publish disabled (runtime.publish-enabled=false); Tick still runs in-memory")
 	}
-	tickEngine := tick.NewEngine(appCfg.TickInterval, manager, publisher)
+	tickEngine := tick.NewEngine(appCfg.TickInterval, manager, publisher, appCfg.TraceSampleEvery)
 
 	logger := logrus.NewEntry(logrus.StandardLogger())
 	ginEngine := platformserver.NewGinEngine(appCfg.ServiceName, logger)

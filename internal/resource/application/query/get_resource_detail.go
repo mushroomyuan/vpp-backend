@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -35,9 +34,6 @@ func NewGetResourceDetailHandler(
 }
 
 func (h getResourceDetailHandler) Handle(ctx context.Context, q GetResourceDetail) (*model.Node, error) {
-	ctx, span := telemetry.Start(ctx, "get_resource_detail")
-	defer span.End()
-
 	return h.nodes.GetByID(
 		ctx,
 		strings.TrimSpace(q.TenantID),

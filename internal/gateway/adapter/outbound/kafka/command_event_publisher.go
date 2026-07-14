@@ -14,6 +14,7 @@ import (
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event"
 	gwEvent "github.com/mushroomyuan/vpp-backend/platform/event/gateway"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
+	plattelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 )
 
 // CommandEventPublisherConfig holds Kafka producer parameters for command events.
@@ -98,10 +99,30 @@ func (p *CommandEventPublisher) PublishCommandCompleted(
 	}
 
 	key := fmt.Sprintf("%s:%s", event.TenantID, event.CommandID)
-	return p.writer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(key),
-		Value: msgBytes,
+
+	ctx, span := plattelemetry.StartKafkaProducer(ctx, plattelemetry.KafkaPublishInfo{
+		Topic:     p.cfg.Topic,
+		Key:       key,
+		EventType: gwEvent.TypeCommandCompleted,
 	})
+	writeErr := p.writer.WriteMessages(ctx, kafka.Message{
+		Key:     []byte(key),
+		Value:   msgBytes,
+		Headers: mapToKafkaHeaders(plattelemetry.InjectToMap(ctx)),
+	})
+	plattelemetry.EndSpan(span, writeErr)
+	return writeErr
+}
+
+func mapToKafkaHeaders(c plattelemetry.MapCarrier) []kafka.Header {
+	if len(c) == 0 {
+		return nil
+	}
+	out := make([]kafka.Header, 0, len(c))
+	for k, v := range c {
+		out = append(out, kafka.Header{Key: k, Value: []byte(v)})
+	}
+	return out
 }
 
 // Close flushes buffered messages and closes the writer.

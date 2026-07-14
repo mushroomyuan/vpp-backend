@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -38,9 +37,6 @@ func NewGetAssetHandler(
 }
 
 func (h getAssetHandler) Handle(ctx context.Context, q GetAsset) (*AssetView, error) {
-	ctx, span := telemetry.Start(ctx, "get_asset")
-	defer span.End()
-
 	asset, err := h.assetRepo.FindByID(ctx, q.TenantID, q.ID)
 	if err != nil {
 		return nil, err

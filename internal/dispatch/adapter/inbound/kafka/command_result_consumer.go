@@ -14,6 +14,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/model"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event"
 	gwEvent "github.com/mushroomyuan/vpp-backend/platform/event/gateway"
+	plattelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 )
 
 // CommandResultConsumerConfig holds Kafka consumer connection parameters.
@@ -113,16 +114,29 @@ func (c *CommandResultConsumer) Close() error {
 	return nil
 }
 
-func (c *CommandResultConsumer) handleMessage(ctx context.Context, msg kafka.Message) error {
+func (c *CommandResultConsumer) handleMessage(ctx context.Context, msg kafka.Message) (err error) {
+	carrier := kafkaHeadersToCarrier(msg.Headers)
+	eventType := peekEventType(msg.Value)
+
+	ctx, span := plattelemetry.StartKafkaConsumer(ctx, carrier, plattelemetry.KafkaConsumeInfo{
+		Topic:     msg.Topic,
+		GroupID:   c.cfg.GroupID,
+		Key:       string(msg.Key),
+		EventType: eventType,
+		Partition: msg.Partition,
+		Offset:    msg.Offset,
+	})
+	defer func() { plattelemetry.EndSpan(span, err) }()
+
 	var env platEvent.Envelope[json.RawMessage]
-	if err := json.Unmarshal(msg.Value, &env); err != nil {
+	if err = json.Unmarshal(msg.Value, &env); err != nil {
 		return fmt.Errorf("unmarshal envelope: %w", err)
 	}
 
 	switch env.EventType {
 	case gwEvent.TypeCommandCompleted:
 		var payload gwEvent.CommandCompletedPayload
-		if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		if err = json.Unmarshal(env.Payload, &payload); err != nil {
 			return fmt.Errorf("unmarshal CommandCompletedPayload: %w", err)
 		}
 		result := &model.CommandResult{
@@ -131,7 +145,7 @@ func (c *CommandResultConsumer) handleMessage(ctx context.Context, msg kafka.Mes
 			ErrorMessage: payload.ErrorMessage,
 			AckAt:        payload.AckAt,
 		}
-		_, err := c.handler.Handle(ctx, command.HandleCommandResult{
+		_, err = c.handler.Handle(ctx, command.HandleCommandResult{
 			CommandID: payload.CommandID,
 			Result:    result,
 		})
@@ -140,4 +154,23 @@ func (c *CommandResultConsumer) handleMessage(ctx context.Context, msg kafka.Mes
 		logrus.WithField("event_type", env.EventType).Debug("kafka: ignoring unknown command event type")
 		return nil
 	}
+}
+
+func kafkaHeadersToCarrier(headers []kafka.Header) plattelemetry.MapCarrier {
+	if len(headers) == 0 {
+		return nil
+	}
+	c := make(plattelemetry.MapCarrier, len(headers))
+	for _, h := range headers {
+		c[h.Key] = string(h.Value)
+	}
+	return c
+}
+
+func peekEventType(value []byte) string {
+	var head struct {
+		EventType string `json:"event_type"`
+	}
+	_ = json.Unmarshal(value, &head)
+	return head.EventType
 }

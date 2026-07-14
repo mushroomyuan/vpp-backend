@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -32,9 +31,6 @@ func NewRetryJobHandler(
 }
 
 func (h retryJobHandler) Handle(ctx context.Context, cmd RetryJob) (struct{}, error) {
-	ctx, span := telemetry.Start(ctx, "retry_import_job")
-	defer span.End()
-
 	job, err := h.jobRepo.FindByID(ctx, cmd.JobID)
 	if err != nil {
 		return struct{}{}, err

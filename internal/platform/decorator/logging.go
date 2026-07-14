@@ -8,46 +8,38 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type QueryLoggingDecorator[C, R any] struct {
-	base QueryHandler[C, R]
-}
+// WithLogging logs success/failure around the next handler.
+// kind should be "command" or "query".
+func WithLogging[C, R any](kind string) Middleware[C, R] {
+	return func(next Handler[C, R]) Handler[C, R] {
+		return handlerFunc[C, R](func(ctx context.Context, in C) (result R, err error) {
+			body, _ := json.Marshal(in)
+			action := generateActionName(in)
+			fields := logrus.Fields{
+				kind:            action,
+				kind + "_body":  string(body),
+			}
 
-func (q QueryLoggingDecorator[C, R]) Handle(ctx context.Context, cmd C) (result R, err error) {
-	body, _ := json.Marshal(cmd)
-	fields := logrus.Fields{
-		"query":      generateActionName(cmd),
-		"query_body": string(body),
+			defer func() {
+				if err == nil {
+					logging.Infof(ctx, fields, "%s execute successfully!", titleKind(kind))
+				} else {
+					logging.Errorf(ctx, fields, "Fail to execute %s: %v", kind, err)
+				}
+			}()
+
+			return next.Handle(ctx, in)
+		})
 	}
-
-	defer func() {
-		if err == nil {
-			logging.Infof(ctx, fields, "%s", "Query execute successfully!")
-		} else {
-			logging.Errorf(ctx, fields, "Fail to execute query: %v", err)
-		}
-	}()
-	result, err = q.base.Handle(ctx, cmd)
-	return
 }
 
-type CommandLoggingDecorator[C, R any] struct {
-	base CommandHandler[C, R]
-}
-
-func (q CommandLoggingDecorator[C, R]) Handle(ctx context.Context, cmd C) (result R, err error) {
-	body, _ := json.Marshal(cmd)
-	fields := logrus.Fields{
-		"command":      generateActionName(cmd),
-		"command_body": string(body),
+func titleKind(kind string) string {
+	switch kind {
+	case "command":
+		return "Command"
+	case "query":
+		return "Query"
+	default:
+		return kind
 	}
-
-	defer func() {
-		if err == nil {
-			logging.Infof(ctx, fields, "%s", "Command execute successfully!")
-		} else {
-			logging.Errorf(ctx, fields, "Fail to execute command: %v", err)
-		}
-	}()
-	result, err = q.base.Handle(ctx, cmd)
-	return
 }

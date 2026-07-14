@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -16,9 +15,9 @@ const (
 )
 
 type ExportResourceTree struct {
-	TenantID   string
-	RootID     string
-	MaxDepth   int
+	TenantID string
+	RootID   string
+	MaxDepth int
 }
 
 type ExportResourceTreeResult struct {
@@ -45,9 +44,6 @@ func NewExportResourceTreeHandler(
 }
 
 func (h exportResourceTreeHandler) Handle(ctx context.Context, q ExportResourceTree) (*ExportResourceTreeResult, error) {
-	ctx, span := telemetry.Start(ctx, "export_resource_tree")
-	defer span.End()
-
 	tenantID := strings.TrimSpace(q.TenantID)
 	rootID := strings.TrimSpace(q.RootID)
 	maxDepth := q.MaxDepth

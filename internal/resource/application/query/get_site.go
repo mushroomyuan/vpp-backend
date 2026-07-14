@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -34,8 +33,5 @@ func NewGetSiteHandler(
 }
 
 func (h getSiteHandler) Handle(ctx context.Context, q GetSite) (*model.Site, error) {
-	ctx, span := telemetry.Start(ctx, "get_site")
-	defer span.End()
-
 	return h.siteRepo.FindByID(ctx, q.TenantID, q.ID)
 }

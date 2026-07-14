@@ -13,52 +13,25 @@ type MetricsClient interface {
 	TrackInFlight(kind, action string) func()
 }
 
-type QueryMetricsDecorator[C, R any] struct {
-	base   QueryHandler[C, R]
-	client MetricsClient
-}
+// WithMetrics records request count, latency, and in-flight gauges.
+// kind should be "command" or "query".
+func WithMetrics[C, R any](kind string, client MetricsClient) Middleware[C, R] {
+	return func(next Handler[C, R]) Handler[C, R] {
+		return handlerFunc[C, R](func(ctx context.Context, in C) (result R, err error) {
+			start := time.Now()
+			action := strings.ToLower(generateActionName(in))
 
-func NewQueryMetricsDecorator[C, R any](base QueryHandler[C, R], client MetricsClient) QueryMetricsDecorator[C, R] {
-	return QueryMetricsDecorator[C, R]{base: base, client: client}
-}
+			defer client.TrackInFlight(kind, action)()
+			defer func() {
+				status := "success"
+				if err != nil {
+					status = "failure"
+				}
+				client.Count(kind, action, status)
+				client.Observe(kind, action, time.Since(start))
+			}()
 
-func (q QueryMetricsDecorator[C, R]) Handle(ctx context.Context, cmd C) (R, error) {
-	return handleWithMetrics(ctx, cmd, "query", q.client, q.base.Handle)
-}
-
-type CommandMetricsDecorator[C, R any] struct {
-	base   CommandHandler[C, R]
-	client MetricsClient
-}
-
-func NewCommandMetricsDecorator[C, R any](base CommandHandler[C, R], client MetricsClient) CommandMetricsDecorator[C, R] {
-	return CommandMetricsDecorator[C, R]{base: base, client: client}
-}
-
-func (q CommandMetricsDecorator[C, R]) Handle(ctx context.Context, cmd C) (R, error) {
-	return handleWithMetrics(ctx, cmd, "command", q.client, q.base.Handle)
-}
-
-func handleWithMetrics[C, R any](
-	ctx context.Context,
-	cmd C,
-	kind string,
-	client MetricsClient,
-	fn func(context.Context, C) (R, error),
-) (result R, err error) {
-	start := time.Now()
-	action := strings.ToLower(generateActionName(cmd))
-
-	defer client.TrackInFlight(kind, action)()
-
-	defer func() {
-		status := "success"
-		if err != nil {
-			status = "failure"
-		}
-		client.Count(kind, action, status)
-		client.Observe(kind, action, time.Since(start))
-	}()
-
-	return fn(ctx, cmd)
+			return next.Handle(ctx, in)
+		})
+	}
 }

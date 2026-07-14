@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -46,9 +45,6 @@ func NewListSitesHandler(
 }
 
 func (h listSitesHandler) Handle(ctx context.Context, q ListSites) (*ListSitesResult, error) {
-	ctx, span := telemetry.Start(ctx, "list_sites")
-	defer span.End()
-
 	filter := port.SiteFilter{
 		BaseFilter: port.BaseFilter{
 			TenantID: q.TenantID,

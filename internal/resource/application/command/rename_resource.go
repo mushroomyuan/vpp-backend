@@ -8,7 +8,6 @@ import (
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -40,9 +39,6 @@ func NewRenameResourceHandler(
 }
 
 func (h renameResourceHandler) Handle(ctx context.Context, cmd RenameResource) (struct{}, error) {
-	ctx, span := telemetry.Start(ctx, "rename_resource")
-	defer span.End()
-
 	tenantID := strings.TrimSpace(cmd.TenantID)
 	resourceID := strings.TrimSpace(cmd.ResourceID)
 	newName := strings.TrimSpace(cmd.NewName)

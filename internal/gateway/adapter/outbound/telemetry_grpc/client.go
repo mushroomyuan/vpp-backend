@@ -6,12 +6,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	telemetrypb "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen"
 	"github.com/mushroomyuan/vpp-backend/gateway/domain/model"
 	"github.com/mushroomyuan/vpp-backend/gateway/domain/port"
+	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 )
 
 // Config holds the connection parameters for the upstream telemetry gRPC service.
@@ -30,15 +30,17 @@ var _ port.TelemetryClient = (*TelemetryGRPCClient)(nil)
 
 // NewTelemetryGRPCClient dials the telemetry gRPC service and returns a client.
 // The caller must close the connection on shutdown by calling Close().
+// The connection is instrumented with otelgrpc so outbound IngestTelemetry
+// creates a client span and propagates trace context.
 func NewTelemetryGRPCClient(cfg Config) (*TelemetryGRPCClient, error) {
 	if cfg.Addr == "" {
 		return nil, fmt.Errorf("telemetry_grpc: addr is required")
 	}
-	conn, err := grpc.NewClient(cfg.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := platformserver.DialGRPC(cfg.Addr)
 	if err != nil {
-		return nil, fmt.Errorf("telemetry_grpc: dial %s: %w", cfg.Addr, err)
+		return nil, fmt.Errorf("telemetry_grpc: %w", err)
 	}
-	logrus.Infof("telemetry_grpc: connected to %s", cfg.Addr)
+	logrus.Infof("telemetry_grpc: connected to %s (otel client enabled)", cfg.Addr)
 	return &TelemetryGRPCClient{
 		client: telemetrypb.NewTelemetryServiceClient(conn),
 		conn:   conn,

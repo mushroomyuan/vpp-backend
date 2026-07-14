@@ -7,12 +7,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
 	gatewaypb "github.com/mushroomyuan/vpp-backend/api/gateway/proto/gen"
 	appport "github.com/mushroomyuan/vpp-backend/dispatch/application/port"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/model"
+	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 )
 
 // Config holds the connection parameters for the upstream gateway gRPC service.
@@ -29,15 +29,17 @@ type Client struct {
 var _ appport.GatewayPort = (*Client)(nil)
 
 // NewClient dials the gateway gRPC service. Caller must Close() on shutdown.
+// The connection is instrumented with otelgrpc so outbound ExecuteCommand
+// creates a client span and propagates trace context.
 func NewClient(cfg Config) (*Client, error) {
 	if cfg.Addr == "" {
 		return nil, fmt.Errorf("gateway_grpc: addr is required")
 	}
-	conn, err := grpc.NewClient(cfg.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := platformserver.DialGRPC(cfg.Addr)
 	if err != nil {
-		return nil, fmt.Errorf("gateway_grpc: dial %s: %w", cfg.Addr, err)
+		return nil, fmt.Errorf("gateway_grpc: %w", err)
 	}
-	logrus.Infof("gateway_grpc: connected to %s", cfg.Addr)
+	logrus.Infof("gateway_grpc: connected to %s (otel client enabled)", cfg.Addr)
 	return &Client{
 		client: gatewaypb.NewGatewayServiceClient(conn),
 		conn:   conn,

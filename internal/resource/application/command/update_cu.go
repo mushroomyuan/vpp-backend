@@ -9,7 +9,6 @@ import (
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -63,9 +62,6 @@ func (h updateCUHandler) resolveTenantID(ctx context.Context, cmd UpdateCU) (str
 }
 
 func (h updateCUHandler) Handle(ctx context.Context, cmd UpdateCU) (struct{}, error) {
-	ctx, span := telemetry.Start(ctx, "update_cu")
-	defer span.End()
-
 	tenantID, err := h.resolveTenantID(ctx, cmd)
 	if err != nil {
 		return struct{}{}, fmt.Errorf("resolve tenant_id: %w", err)

@@ -20,14 +20,19 @@ type Config struct {
 	ResourceGRPCAddr string
 	GatewayHTTPAddr  string
 
-	TickInterval    time.Duration
-	PublishEnabled  bool
-	SiteIDs         []string
-	CUIDs           []string
-	RequireProvider string
+	TickInterval     time.Duration
+	PublishEnabled   bool
+	TraceSampleEvery int
+	SiteIDs          []string
+	CUIDs            []string
+	RequireProvider  string
 }
 
 func CreateFromOptions(opts *options.Options) *Config {
+	sampleEvery := opts.Runtime.TraceSampleEvery
+	if sampleEvery <= 0 {
+		sampleEvery = 1 // 0/negative in YAML → treat as “every tick”
+	}
 	return &Config{
 		HTTPAddr:          opts.Simulator.HTTPAddr,
 		MetricsAddr:       opts.Simulator.MetricsAddr,
@@ -40,6 +45,7 @@ func CreateFromOptions(opts *options.Options) *Config {
 		GatewayHTTPAddr:   opts.Gateway.HTTPAddr,
 		TickInterval:      opts.Runtime.TickInterval,
 		PublishEnabled:    opts.Runtime.PublishEnabled,
+		TraceSampleEvery:  sampleEvery,
 		SiteIDs:           append([]string(nil), opts.Runtime.SiteIDs...),
 		CUIDs:             append([]string(nil), opts.Runtime.CUIDs...),
 		RequireProvider:   opts.Runtime.RequireProvider,

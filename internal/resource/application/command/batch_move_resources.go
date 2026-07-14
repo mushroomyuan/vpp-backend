@@ -5,14 +5,13 @@ import (
 	"strings"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
 type BatchMoveResources struct {
-	TenantID     string
-	ResourceIDs  []string
-	NewParentID  string
+	TenantID    string
+	ResourceIDs []string
+	NewParentID string
 }
 
 type BatchMoveResourcesResult struct {
@@ -39,9 +38,6 @@ func NewBatchMoveResourcesHandler(
 }
 
 func (h batchMoveResourcesHandler) Handle(ctx context.Context, cmd BatchMoveResources) (*BatchMoveResourcesResult, error) {
-	ctx, span := telemetry.Start(ctx, "batch_move_resources")
-	defer span.End()
-
 	tenantID := strings.TrimSpace(cmd.TenantID)
 	newParentID := strings.TrimSpace(cmd.NewParentID)
 

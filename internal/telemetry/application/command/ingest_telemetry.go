@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	platformtelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/model"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/port"
@@ -75,9 +74,6 @@ func NewIngestTelemetryHandler(
 }
 
 func (h ingestTelemetryHandler) Handle(ctx context.Context, cmd IngestTelemetry) (*IngestTelemetryResult, error) {
-	ctx, span := platformtelemetry.Start(ctx, "ingest_telemetry")
-	defer span.End()
-
 	// Step 1: build and validate the domain record.
 	metrics := make([]model.Metric, 0, len(cmd.Metrics))
 	for _, m := range cmd.Metrics {

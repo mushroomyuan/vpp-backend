@@ -7,7 +7,6 @@ import (
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -38,9 +37,6 @@ func NewDeletePointHandler(
 }
 
 func (h deletePointHandler) Handle(ctx context.Context, cmd DeletePoint) (struct{}, error) {
-	ctx, span := telemetry.Start(ctx, "delete_point")
-	defer span.End()
-
 	if err := h.pointRepo.SoftDelete(ctx, cmd.TenantID, cmd.ID); err != nil {
 		return struct{}{}, err
 	}

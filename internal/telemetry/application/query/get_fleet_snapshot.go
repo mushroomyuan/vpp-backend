@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	platformtelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/port"
 )
 
@@ -38,9 +37,6 @@ func NewGetFleetSnapshotHandler(
 }
 
 func (h getFleetSnapshotHandler) Handle(ctx context.Context, q GetFleetSnapshot) ([]*SnapshotView, error) {
-	ctx, span := platformtelemetry.Start(ctx, "get_fleet_snapshot")
-	defer span.End()
-
 	snapshots, err := h.snapshotRepo.FindAll(ctx, q.TenantID)
 	if err != nil {
 		return nil, err

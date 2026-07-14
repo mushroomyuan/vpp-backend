@@ -15,6 +15,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/gateway/application/command"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event"
 	resEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
+	plattelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 )
 
 // LifecycleConsumerConfig holds the Kafka consumer connection parameters.
@@ -123,12 +124,26 @@ func (c *LifecycleConsumer) Close() error {
 
 // handleMessage deserialises the envelope and dispatches to the appropriate
 // domain handler based on EventType.
-func (c *LifecycleConsumer) handleMessage(ctx context.Context, msg kafka.Message) error {
-	// First pass: deserialise the envelope header only (payload as raw JSON).
+func (c *LifecycleConsumer) handleMessage(ctx context.Context, msg kafka.Message) (err error) {
+	carrier := kafkaHeadersToCarrier(msg.Headers)
+
+	// Peek event type for span attrs (best-effort; full parse follows).
+	eventType := peekEventType(msg.Value)
+
+	ctx, span := plattelemetry.StartKafkaConsumer(ctx, carrier, plattelemetry.KafkaConsumeInfo{
+		Topic:     msg.Topic,
+		GroupID:   c.cfg.GroupID,
+		Key:       string(msg.Key),
+		EventType: eventType,
+		Partition: msg.Partition,
+		Offset:    msg.Offset,
+	})
+	defer func() { plattelemetry.EndSpan(span, err) }()
+
 	var env platEvent.Envelope[json.RawMessage]
-	if err := json.Unmarshal(msg.Value, &env); err != nil {
+	if unmarshalErr := json.Unmarshal(msg.Value, &env); unmarshalErr != nil {
 		// Unparseable message — log and skip (commit will happen after return nil).
-		logrus.WithError(err).WithField("offset", msg.Offset).
+		logrus.WithError(unmarshalErr).WithField("offset", msg.Offset).
 			Warn("kafka: failed to deserialise envelope, skipping message")
 		return nil
 	}
@@ -144,6 +159,25 @@ func (c *LifecycleConsumer) handleMessage(ctx context.Context, msg kafka.Message
 		// We only care about the two event types above; all others are silently ignored.
 		return nil
 	}
+}
+
+func kafkaHeadersToCarrier(headers []kafka.Header) plattelemetry.MapCarrier {
+	if len(headers) == 0 {
+		return nil
+	}
+	c := make(plattelemetry.MapCarrier, len(headers))
+	for _, h := range headers {
+		c[h.Key] = string(h.Value)
+	}
+	return c
+}
+
+func peekEventType(value []byte) string {
+	var head struct {
+		EventType string `json:"event_type"`
+	}
+	_ = json.Unmarshal(value, &head)
+	return head.EventType
 }
 
 func (c *LifecycleConsumer) handleResourceDeleted(

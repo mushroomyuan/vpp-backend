@@ -10,7 +10,6 @@ import (
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -61,9 +60,6 @@ func NewCreatePointHandler(
 }
 
 func (h createPointHandler) Handle(ctx context.Context, cmd CreatePoint) (*CreatePointResult, error) {
-	ctx, span := telemetry.Start(ctx, "create_point")
-	defer span.End()
-
 	id := idgen.Must()
 
 	tenantID := strings.TrimSpace(cmd.TenantID)

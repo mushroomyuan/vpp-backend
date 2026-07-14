@@ -7,9 +7,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/idgen"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
+	"github.com/mushroomyuan/vpp-backend/platform/idgen"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -50,9 +49,6 @@ func NewCreateSiteHandler(
 }
 
 func (c createSiteHandler) Handle(ctx context.Context, cmd CreateSite) (*CreateSiteResult, error) {
-	ctx, span := telemetry.Start(ctx, "create_site")
-	defer span.End()
-
 	id := idgen.Must()
 
 	var desc *string

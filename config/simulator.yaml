@@ -20,6 +20,9 @@ runtime:
   tick-interval: 10s
   # Set false to keep in-memory simulation without writing to Gateway/Telemetry.
   publish-enabled: true
+  # Emit simulator.tick / simulator.publish spans every N ticks (6 × 10s ≈ 1/min).
+  # Set to 1 to trace every tick during debugging.
+  trace-sample-every: 6
   # Optional filters. Empty site-ids / cu-ids → load all matching provider.
   site-ids: []
   cu-ids: []

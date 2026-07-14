@@ -7,7 +7,6 @@ import (
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -42,9 +41,6 @@ func NewUpdateSiteHandler(
 }
 
 func (h updateSiteHandler) Handle(ctx context.Context, cmd UpdateSite) (struct{}, error) {
-	ctx, span := telemetry.Start(ctx, "update_site")
-	defer span.End()
-
 	site, err := h.siteRepo.FindByID(ctx, cmd.TenantID, cmd.ID)
 	if err != nil {
 		return struct{}{}, err

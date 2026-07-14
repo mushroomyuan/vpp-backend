@@ -8,7 +8,6 @@ import (
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -41,9 +40,6 @@ func NewChangeResourceLifecycleHandler(
 }
 
 func (h changeResourceLifecycleHandler) Handle(ctx context.Context, cmd ChangeResourceLifecycle) (struct{}, error) {
-	ctx, span := telemetry.Start(ctx, "change_resource_lifecycle")
-	defer span.End()
-
 	tenantID := strings.TrimSpace(cmd.TenantID)
 	resourceID := strings.TrimSpace(cmd.ResourceID)
 

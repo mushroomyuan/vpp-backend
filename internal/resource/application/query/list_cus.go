@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
-	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -51,9 +50,6 @@ func NewListCUsHandler(
 }
 
 func (h listCUsHandler) Handle(ctx context.Context, q ListCUs) (*ListCUsResult, error) {
-	ctx, span := telemetry.Start(ctx, "list_cus")
-	defer span.End()
-
 	filter := port.CUFilter{
 		BaseFilter: port.BaseFilter{
 			TenantID: q.TenantID,
