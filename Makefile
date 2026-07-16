@@ -10,7 +10,8 @@
 SHELL := /bin/bash
 
 BIN_DIR := ./bin
-LOG_DIR := ./data/vpp-logs
+# Absolute path: run-all cds into internal/<svc>; relative LOG_DIR would break redirection.
+LOG_DIR := $(abspath data/vpp-logs)
 SERVICES := resource telemetry gateway dispatch simulator
 
 # Primary listen port used by `status` (gRPC where available; HTTP for simulator).
@@ -70,7 +71,7 @@ run-simulator:
 
 .PHONY: infra-up infra-down
 infra-up:
-	@mkdir -p $(LOG_DIR)
+	@mkdir -p $(LOG_DIR) ./data/grafana
 	docker compose up -d
 
 infra-down:

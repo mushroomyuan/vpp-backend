@@ -1,0 +1,133 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "icon": "external link",
+      "targetBlank": true,
+      "title": "Jaeger UI",
+      "type": "link",
+      "url": "http://localhost:16686"
+    }
+  ],
+  "panels": [
+    {
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "code": { "language": "markdown" },
+        "content": "## VPP Distributed Tracing\n\n- **Jaeger UI**: [http://localhost:16686](http://localhost:16686) — search by Service / Operation / Trace ID\n- **Logs ↔ Traces**: In **VPP Logs Overview**, click **TraceID** on a log line to jump to Jaeger (derived field)\n- **Traces → Logs**: In Jaeger span details, use **Logs for this span** (Loki `tracesToLogs` link)\n\nSelect a service below to list recent traces ingested via OTLP (`tracing.endpoint: 127.0.0.1:4318`)."
+      },
+      "title": "How to use",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "jaeger", "uid": "jaeger" },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 3 },
+      "id": 2,
+      "options": { "showTime": true, "sortOrder": "Descending" },
+      "targets": [
+        {
+          "datasource": { "type": "jaeger", "uid": "jaeger" },
+          "limit": 30,
+          "query": "$service",
+          "queryType": "search",
+          "refId": "A",
+          "service": "$service"
+        }
+      ],
+      "title": "Recent Traces",
+      "type": "traces"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 12, "lineWidth": 1 },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum by (service) (count_over_time({job=\"vpp\"} | json | trace_id != \"\" [$__interval]))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Trace-correlated Log Volume",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 12, "lineWidth": 1 },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum by (job) (rate(app_requests_total{status=\"failure\"}[5m]))",
+          "legendFormat": "{{job}} failures/s",
+          "refId": "A"
+        }
+      ],
+      "title": "Request Failures (correlate with traces)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 25 },
+      "id": 5,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{job=\"vpp\", service=~\"$service\"} | json | level=\"error\" | trace_id != \"\"",
+          "refId": "A"
+        }
+      ],
+      "title": "Error Logs with Trace ID",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["vpp", "jaeger", "traces"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": true, "text": "gateway", "value": "gateway" },
+        "label": "Service",
+        "name": "service",
+        "options": [
+          { "selected": false, "text": "resource", "value": "resource" },
+          { "selected": false, "text": "telemetry", "value": "telemetry" },
+          { "selected": true, "text": "gateway", "value": "gateway" },
+          { "selected": false, "text": "dispatch", "value": "dispatch" },
+          { "selected": false, "text": "simulator", "value": "simulator" }
+        ],
+        "query": "resource,telemetry,gateway,dispatch,simulator",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "title": "VPP Traces Overview",
+  "uid": "vpp-traces",
+  "version": 1
+}

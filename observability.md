@@ -86,7 +86,22 @@ make run-all             # 业务日志落到 ./data/vpp-logs/<service>.log
 | 名称 | URL（compose 网络内） |
 |------|------------------------|
 | Prometheus | `http://prometheus:9090` |
+| Jaeger | `http://jaeger:16686` |
 | Loki | `http://loki:3100` |
+
+### Grafana 看板（已预置，可版本管理）
+
+[`config/grafana/provisioning/dashboards/`](config/grafana/provisioning/dashboards/) 会在启动时自动加载到 **VPP** 文件夹；UI 里改的看板也会写入 `./data/grafana`（容器重建后保留）。
+
+| 看板 | 数据源 | 内容 |
+|------|--------|------|
+| **VPP Metrics Overview** | Prometheus | QPS / 错误率 / P95 延迟 / In-Flight（按 `job` 分服务），Targets 健康，Handler 维度 QPS |
+| **VPP Logs Overview** | Loki | 日志量、error/warn 速率、带 `trace_id` 的日志流（可点 TraceID 跳 Jaeger） |
+| **VPP Traces Overview** | Jaeger + Loki + Prometheus | 最近 Trace 列表、错误日志带 TraceID、与指标对照 |
+
+打开 http://localhost:3000 → **Dashboards** → 文件夹 **VPP**。
+
+改完 provisioning 后重建 Grafana：`docker compose up -d --force-recreate grafana`。
 
 打开 http://localhost:3000 → **Explore**：
 
@@ -336,6 +351,7 @@ curl -s http://127.0.0.1:9102/metrics | grep app_
 | Loki 配置 | `config/loki.yaml` |
 | Alloy 采集配置 | `config/alloy/config.alloy` |
 | Grafana 数据源预置 | `config/grafana/provisioning/datasources/datasources.yaml` |
+| Grafana 看板预置 | `config/grafana/provisioning/dashboards/` |
 
 ---
 
