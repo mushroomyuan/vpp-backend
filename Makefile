@@ -69,10 +69,14 @@ run-simulator:
 
 # ── infra ─────────────────────────────────────────────────────────────────────
 
-.PHONY: infra-up infra-down
-infra-up:
-	@mkdir -p $(LOG_DIR) ./data/grafana
+.PHONY: infra-up infra-down grafana-fix-perms
+infra-up: grafana-fix-perms
 	docker compose up -d
+
+# Grafana image runs as UID 472; host bind-mount must be writable by that user.
+grafana-fix-perms:
+	@mkdir -p $(LOG_DIR) ./data/grafana
+	@docker run --rm -v "$(CURDIR)/data/grafana:/data" alpine:3.20 chown -R 472:472 /data
 
 infra-down:
 	docker compose down

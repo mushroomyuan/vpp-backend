@@ -103,6 +103,8 @@ make run-all             # 业务日志落到 ./data/vpp-logs/<service>.log
 
 改完 provisioning 后重建 Grafana：`docker compose up -d --force-recreate grafana`。
 
+> **权限**：Grafana 容器以 UID **472** 运行；`./data/grafana` 若被 root 创建会导致无法写入。`make infra-up` 会自动执行 `make grafana-fix-perms`（用 Alpine 容器 `chown 472:472`）。手动修复：`make grafana-fix-perms`。
+
 打开 http://localhost:3000 → **Explore**：
 
 - 选 **Prometheus**：`sum by (job) (rate(app_requests_total[1m]))`
