@@ -9,6 +9,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -107,7 +108,11 @@ func (h createAssetHandler) Handle(ctx context.Context, cmd CreateAsset) (*Creat
 				Name:     strings.TrimSpace(cmd.Name),
 			},
 		}); pubErr != nil {
-			logrus.WithError(pubErr).Warn("failed to publish asset created event")
+			logging.Warnf(ctx, logrus.Fields{
+				"tenant_id":   cmd.TenantID,
+				"resource_id": id,
+				"error":       pubErr.Error(),
+			}, "failed to publish asset created event")
 		}
 	}
 

@@ -72,7 +72,8 @@ func (p *CommandEventPublisher) PublishCommandCompleted(
 	}
 
 	if p.writer == nil {
-		logrus.WithFields(logrus.Fields{
+		logrus.WithContext(ctx).WithFields(logrus.Fields{
+			"component":  "CommandEventPublisher",
 			"command_id": event.CommandID,
 			"tenant_id":  event.TenantID,
 			"success":    event.Success,

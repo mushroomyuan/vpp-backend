@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/model"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/port"
@@ -103,10 +104,12 @@ func (h ingestTelemetryHandler) Handle(ctx context.Context, cmd IngestTelemetry)
 	snapshot, err := h.snapshotRepo.Find(ctx, cmd.TenantID, cmd.CUCode)
 	if err != nil {
 		if !errors.Is(err, domain.ErrSnapshotNotFound) {
-			logrus.WithError(err).WithFields(logrus.Fields{
+			logging.Errorf(ctx, logrus.Fields{
+				"component": "IngestTelemetry",
 				"tenant_id": cmd.TenantID,
 				"cu_code":   cmd.CUCode,
-			}).Error("snapshot read failed — using empty baseline for this cycle")
+				"error":     err.Error(),
+			}, "snapshot read failed — using empty baseline for this cycle")
 			h.countMetric("snapshot", "read", "failure")
 		}
 		snapshot = model.NewSnapshot(cmd.TenantID, cmd.CUCode)
@@ -122,10 +125,12 @@ func (h ingestTelemetryHandler) Handle(ctx context.Context, cmd IngestTelemetry)
 	// level (triggering alert rules on Error-rate dashboards) and continue so
 	// that SOE events are published and the caller receives a success response.
 	if err := h.snapshotRepo.Save(ctx, snapshot); err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
+		logging.Errorf(ctx, logrus.Fields{
+			"component": "IngestTelemetry",
 			"tenant_id": cmd.TenantID,
 			"cu_code":   cmd.CUCode,
-		}).Error("snapshot write failed — snapshot stale until next successful ingest")
+			"error":     err.Error(),
+		}, "snapshot write failed — snapshot stale until next successful ingest")
 		h.countMetric("snapshot", "write", "failure")
 	}
 

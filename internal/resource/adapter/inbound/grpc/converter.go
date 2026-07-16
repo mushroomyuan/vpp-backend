@@ -1,11 +1,13 @@
 package grpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 
 	resourcepb "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/mushroomyuan/vpp-backend/resource/application/types"
 	"github.com/mushroomyuan/vpp-backend/resource/domain"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
@@ -684,6 +686,9 @@ func MapToStructPB(m map[string]any) (*structpb.Struct, error) {
 	return structpb.NewStruct(m)
 }
 
-func logIn(method string, request any) {
-	logrus.Infof("resource_grpc||%s||request_in||request=%v", method, request)
+func logIn(ctx context.Context, method string) {
+	logging.Infof(ctx, logrus.Fields{
+		"component": "resource_grpc",
+		"method":    method,
+	}, "request_in")
 }

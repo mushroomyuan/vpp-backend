@@ -6,6 +6,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	gatewayclient "github.com/mushroomyuan/vpp-backend/simulator/client/gateway"
 	"github.com/mushroomyuan/vpp-backend/simulator/domain"
 	"github.com/mushroomyuan/vpp-backend/simulator/fault"
@@ -57,10 +58,13 @@ func (p *Publisher) PublishAll(ctx context.Context) {
 			}
 		}
 		if err := p.gateway.IngestTelemetry(ctx, p.tenantID, d.ExternalID(), points, now); err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{
+			logging.Warnf(ctx, logrus.Fields{
+				"component":   "TelemetryPublisher",
+				"tenant_id":   p.tenantID,
 				"cu_code":     d.CUCode(),
 				"external_id": d.ExternalID(),
-			}).Warn("telemetry publish failed")
+				"error":       err.Error(),
+			}, "telemetry publish failed")
 		}
 	}
 }

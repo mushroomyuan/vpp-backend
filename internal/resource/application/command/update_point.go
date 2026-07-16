@@ -7,6 +7,7 @@ import (
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -77,7 +78,11 @@ func (h updatePointHandler) Handle(ctx context.Context, cmd UpdatePoint) (struct
 				PointKey: cmd.PointKey,
 			},
 		}); pubErr != nil {
-			logrus.WithError(pubErr).Warn("failed to publish point updated event")
+			logging.Warnf(ctx, logrus.Fields{
+				"tenant_id":   cmd.TenantID,
+				"resource_id": cmd.ID,
+				"error":       pubErr.Error(),
+			}, "failed to publish point updated event")
 		}
 	}
 

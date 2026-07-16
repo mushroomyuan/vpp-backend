@@ -8,6 +8,7 @@ import (
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -58,7 +59,11 @@ func (h renameResourceHandler) Handle(ctx context.Context, cmd RenameResource) (
 				NewName:    newName,
 			},
 		}); pubErr != nil {
-			logrus.WithError(pubErr).Warn("failed to publish resource renamed event")
+			logging.Warnf(ctx, logrus.Fields{
+				"tenant_id":   tenantID,
+				"resource_id": resourceID,
+				"error":       pubErr.Error(),
+			}, "failed to publish resource renamed event")
 		}
 	}
 

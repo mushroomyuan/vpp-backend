@@ -4,73 +4,80 @@ import (
 	"context"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
-	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
-	"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-func Init() {
-	SetFormatter(logrus.StandardLogger())
-	logrus.SetLevel(logrus.DebugLevel)
-	//setOutput(logrus.StandardLogger())
-	logrus.AddHook(&traceHook{})
+// Config holds process-wide logging settings.
+// Application processes should call Init once at startup (e.g. in Run).
+type Config struct {
+	// ServiceName is written on every log line as field "service".
+	ServiceName string
+
+	// Level is a logrus level name (debug/info/warn/error…).
+	// Empty → LOG_LEVEL env → default "info".
+	Level string
+
+	// Environment is an optional global field (e.g. local/dev/prod).
+	// Empty → APP_ENV → ENVIRONMENT → omitted.
+	Environment string
 }
 
-func setOutput(logger *logrus.Logger) {
-	var (
-		folder   = "./log/"
-		filePath = "app.log"
-		errPath  = "error.log"
-	)
-	if err := os.MkdirAll(folder, 0750); err != nil && !os.IsExist(err) {
-		panic(err)
-	}
+// Init configures the standard logrus logger: JSON (or colored text when
+// LOCAL_ENV=true), level, and hooks for service / trace_id / span_id.
+// Logs go to stdout only — do not enable in-process file rotation; use the
+// host redirect (./data/vpp-logs) + collector for persistence.
+func Init(cfg Config) {
+	logger := logrus.StandardLogger()
+	setFormatter(logger)
+	logger.SetLevel(parseLevel(cfg.Level))
+	logger.SetOutput(os.Stdout)
 
-	file, err := os.OpenFile(folder+filePath, os.O_CREATE|os.O_RDWR, 0755)
-	if err != nil {
-		panic(err)
-	}
+	// Replace hooks so Init is safe if called again in tests.
+	logger.ReplaceHooks(map[logrus.Level][]logrus.Hook{})
 
-	logrus.SetOutput(file)
-	rotateInfo, err := rotatelogs.New(
-		folder+filePath+".%Y%m%d%H%M%S",
-		rotatelogs.WithLinkName(folder+filePath),
-		rotatelogs.WithMaxAge(7*24*time.Hour),
-		rotatelogs.WithRotationTime(1*time.Hour),
-	)
-	rotateError, err := rotatelogs.New(
-		folder+errPath+".%Y%m%d%H%M%S",
-		rotatelogs.WithLinkName(folder+errPath),
-		rotatelogs.WithMaxAge(7*24*time.Hour),
-		rotatelogs.WithRotationTime(1*time.Hour),
-	)
-	if err != nil {
-		panic(err)
-	}
-	rotationMap := lfshook.WriterMap{
-		logrus.DebugLevel: rotateInfo,
-		logrus.InfoLevel:  rotateInfo,
-		logrus.WarnLevel:  rotateError,
-		logrus.ErrorLevel: rotateError,
-		logrus.FatalLevel: rotateError,
-		logrus.PanicLevel: rotateError,
-	}
-	logrus.AddHook(lfshook.NewHook(rotationMap, &logrus.JSONFormatter{
-		TimestampFormat: time.DateTime,
-	}))
+	env := firstNonEmpty(cfg.Environment, os.Getenv("APP_ENV"), os.Getenv("ENVIRONMENT"))
+	logger.AddHook(&serviceHook{
+		service:     cfg.ServiceName,
+		environment: env,
+	})
+	logger.AddHook(&traceHook{})
 }
 
-func SetFormatter(logger *logrus.Logger) {
+func parseLevel(level string) logrus.Level {
+	if level == "" {
+		level = os.Getenv("LOG_LEVEL")
+	}
+	if level == "" {
+		level = "info"
+	}
+	parsed, err := logrus.ParseLevel(strings.TrimSpace(level))
+	if err != nil {
+		return logrus.InfoLevel
+	}
+	return parsed
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+func setFormatter(logger *logrus.Logger) {
 	logger.SetFormatter(&logrus.JSONFormatter{
-
 		TimestampFormat: time.RFC3339,
 		FieldMap: logrus.FieldMap{
 			logrus.FieldKeyTime:  "time",
-			logrus.FieldKeyLevel: "severity",
+			logrus.FieldKeyLevel: "level",
 			logrus.FieldKeyMsg:   "message",
 		},
 	})
@@ -83,10 +90,15 @@ func SetFormatter(logger *logrus.Logger) {
 	}
 }
 
+// SetFormatter keeps the previous public helper for callers that only need
+// formatter setup (prefer Init for new code).
+func SetFormatter(logger *logrus.Logger) {
+	setFormatter(logger)
+}
+
 func InfoWithCost(ctx context.Context, fields logrus.Fields, start time.Time, format string, args ...any) {
 	fields["Cost"] = time.Since(start).Milliseconds()
 	Infof(ctx, fields, format, args...)
-
 }
 
 func Infof(ctx context.Context, fields logrus.Fields, format string, args ...any) {
@@ -101,6 +113,10 @@ func Panicf(ctx context.Context, fields logrus.Fields, format string, args ...an
 	logrus.WithContext(ctx).WithTime(time.Now()).WithFields(fields).Panicf(format, args...)
 }
 
+func Debugf(ctx context.Context, fields logrus.Fields, format string, args ...any) {
+	logrus.WithContext(ctx).WithTime(time.Now()).WithFields(fields).Debugf(format, args...)
+}
+
 func Warnf(ctx context.Context, fields logrus.Fields, format string, args ...any) {
 	logrus.WithContext(ctx).WithTime(time.Now()).WithFields(fields).Warnf(format, args...)
 }
@@ -109,17 +125,36 @@ func logf(ctx context.Context, level logrus.Level, fields logrus.Fields, format 
 	logrus.WithContext(ctx).WithFields(fields).Logf(level, format, args...)
 }
 
-type traceHook struct {
+type serviceHook struct {
+	service     string
+	environment string
 }
 
-func (t traceHook) Levels() []logrus.Level {
-	return logrus.AllLevels
-}
+func (h *serviceHook) Levels() []logrus.Level { return logrus.AllLevels }
 
-func (t traceHook) Fire(entry *logrus.Entry) error {
-	if entry.Context != nil {
-		entry.Data["trace"] = telemetry.TraceID(entry.Context)
-		entry = entry.WithTime(time.Now())
+func (h *serviceHook) Fire(entry *logrus.Entry) error {
+	if h.service != "" {
+		entry.Data["service"] = h.service
 	}
+	if h.environment != "" {
+		entry.Data["environment"] = h.environment
+	}
+	return nil
+}
+
+type traceHook struct{}
+
+func (t *traceHook) Levels() []logrus.Level { return logrus.AllLevels }
+
+func (t *traceHook) Fire(entry *logrus.Entry) error {
+	if entry.Context == nil {
+		return nil
+	}
+	sc := oteltrace.SpanContextFromContext(entry.Context)
+	if !sc.IsValid() {
+		return nil
+	}
+	entry.Data["trace_id"] = telemetry.TraceID(entry.Context)
+	entry.Data["span_id"] = telemetry.SpanID(entry.Context)
 	return nil
 }

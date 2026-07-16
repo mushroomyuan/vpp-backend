@@ -14,6 +14,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/model"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event"
 	gwEvent "github.com/mushroomyuan/vpp-backend/platform/event/gateway"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	plattelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 )
 
@@ -79,7 +80,10 @@ func (c *CommandResultConsumer) Run(ctx context.Context) error {
 				return nil
 			}
 			// Transient broker/coordinator errors must not tear down the process.
-			logrus.WithError(err).Warn("kafka: fetch message failed, retrying")
+			logging.Warnf(ctx, logrus.Fields{
+				"component": "CommandResultConsumer",
+				"error":     err.Error(),
+			}, "kafka: fetch message failed, retrying")
 			select {
 			case <-ctx.Done():
 				return nil
@@ -89,16 +93,15 @@ func (c *CommandResultConsumer) Run(ctx context.Context) error {
 		}
 
 		if handleErr := c.handleMessage(ctx, msg); handleErr != nil {
-			logrus.WithError(handleErr).WithFields(logrus.Fields{
-				"topic":     msg.Topic,
-				"partition": msg.Partition,
-				"offset":    msg.Offset,
-			}).Error("kafka: message handling failed, skipping commit for retry")
+			// Error already logged inside handleMessage with consumer span context.
 			continue
 		}
 
 		if err := c.reader.CommitMessages(ctx, msg); err != nil {
-			logrus.WithError(err).Warn("kafka: commit failed — message may be reprocessed")
+			logging.Warnf(ctx, logrus.Fields{
+				"component": "CommandResultConsumer",
+				"error":     err.Error(),
+			}, "kafka: commit failed — message may be reprocessed")
 		}
 	}
 }
@@ -126,7 +129,18 @@ func (c *CommandResultConsumer) handleMessage(ctx context.Context, msg kafka.Mes
 		Partition: msg.Partition,
 		Offset:    msg.Offset,
 	})
-	defer func() { plattelemetry.EndSpan(span, err) }()
+	defer func() {
+		if err != nil {
+			logging.Errorf(ctx, logrus.Fields{
+				"component": "CommandResultConsumer",
+				"topic":     msg.Topic,
+				"partition": msg.Partition,
+				"offset":    msg.Offset,
+				"error":     err.Error(),
+			}, "kafka: message handling failed, skipping commit for retry")
+		}
+		plattelemetry.EndSpan(span, err)
+	}()
 
 	var env platEvent.Envelope[json.RawMessage]
 	if err = json.Unmarshal(msg.Value, &env); err != nil {
@@ -151,7 +165,10 @@ func (c *CommandResultConsumer) handleMessage(ctx context.Context, msg kafka.Mes
 		})
 		return err
 	default:
-		logrus.WithField("event_type", env.EventType).Debug("kafka: ignoring unknown command event type")
+		logging.Debugf(ctx, logrus.Fields{
+			"component":  "CommandResultConsumer",
+			"event_type": env.EventType,
+		}, "kafka: ignoring unknown command event type")
 		return nil
 	}
 }

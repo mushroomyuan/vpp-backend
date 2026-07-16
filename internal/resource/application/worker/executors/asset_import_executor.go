@@ -13,6 +13,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 )
 
 // AssetImportResult is serialized into import_jobs.result_json when an
@@ -97,7 +98,11 @@ func (e *AssetImportExecutor) Execute(ctx context.Context, job *model.Job) ([]by
 				Failed:     job.FailedCount,
 			},
 		}); pubErr != nil {
-			logrus.WithError(pubErr).Warn("failed to publish asset import completed event")
+			logging.Warnf(ctx, logrus.Fields{
+				"tenant_id":   job.TenantID,
+				"resource_id": job.ID,
+				"error":       pubErr.Error(),
+			}, "failed to publish asset import completed event")
 		}
 	}
 

@@ -1,0 +1,74 @@
+// Grafana Alloy: ship host VPP service logs (./data/vpp-logs → /var/log/vpp) to Loki.
+// Application contract: JSON lines on stdout; make run-all redirects to <service>.log.
+// Promtail is EOL — Alloy is the supported collector. Swapping to Vector later only
+// requires replacing this file + the compose service; app code stays unchanged.
+
+livedebugging {
+  enabled = true
+}
+
+local.file_match "vpp_logs" {
+  path_targets = [
+    {
+      __path__      = "/var/log/vpp/resource.log",
+      service       = "resource",
+      job           = "vpp",
+      environment   = "local",
+    },
+    {
+      __path__      = "/var/log/vpp/telemetry.log",
+      service       = "telemetry",
+      job           = "vpp",
+      environment   = "local",
+    },
+    {
+      __path__      = "/var/log/vpp/gateway.log",
+      service       = "gateway",
+      job           = "vpp",
+      environment   = "local",
+    },
+    {
+      __path__      = "/var/log/vpp/dispatch.log",
+      service       = "dispatch",
+      job           = "vpp",
+      environment   = "local",
+    },
+    {
+      __path__      = "/var/log/vpp/simulator.log",
+      service       = "simulator",
+      job           = "vpp",
+      environment   = "local",
+    },
+  ]
+  sync_period = "5s"
+}
+
+loki.source.file "vpp" {
+  targets       = local.file_match.vpp_logs.targets
+  forward_to    = [loki.process.vpp.receiver]
+  tail_from_end = true
+}
+
+// Parse JSON body; promote only low-cardinality "level" to a Loki label.
+// Do NOT label trace_id / tenant / device_id / command_id (cardinality bomb).
+loki.process "vpp" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.json {
+    expressions = {
+      level = "level",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

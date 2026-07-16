@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/mushroomyuan/vpp-backend/platform/discovery"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	platformtelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	kafka "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/kafka"
@@ -22,6 +23,8 @@ func Run(
 	redisCfg platformredis.Config,
 	kafkaCfg kafka.Config,
 ) error {
+	logging.Init(logging.Config{ServiceName: appCfg.ServiceName})
+
 	if appCfg.TelemetryEndpoint != "" {
 		shutdown, err := platformtelemetry.InitTracing(context.Background(), platformtelemetry.Config{
 			Endpoint:    appCfg.TelemetryEndpoint,

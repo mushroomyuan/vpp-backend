@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
 
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	plattelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/simulator/runtime"
 	"github.com/mushroomyuan/vpp-backend/simulator/telemetry"
@@ -39,14 +40,18 @@ func (e *Engine) Run(ctx context.Context) error {
 	ticker := time.NewTicker(e.interval)
 	defer ticker.Stop()
 
-	logrus.Infof("tick engine started interval=%s devices=%d trace_sample_every=%d",
-		e.interval, e.manager.Count(), e.sampleEvery)
+	logging.Infof(ctx, logrus.Fields{
+		"component":          "tick",
+		"interval":           e.interval.String(),
+		"devices":            e.manager.Count(),
+		"trace_sample_every": e.sampleEvery,
+	}, "tick engine started")
 	e.step(ctx, e.interval)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logrus.Info("tick engine stopped")
+			logging.Infof(ctx, logrus.Fields{"component": "tick"}, "tick engine stopped")
 			return nil
 		case <-ticker.C:
 			e.step(ctx, e.interval)

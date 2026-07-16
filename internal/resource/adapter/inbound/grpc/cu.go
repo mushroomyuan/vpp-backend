@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) CreateCU(ctx context.Context, req *resourcepb.CreateCURequest) (*resourcepb.CreateCUResponse, error) {
-	logIn("create_cu", req)
+	logIn(ctx, "create_cu")
 
 	meta := map[string]any(nil)
 	if req.GetMetadata() != nil {
@@ -66,7 +66,7 @@ func (s *Server) CreateCU(ctx context.Context, req *resourcepb.CreateCURequest) 
 }
 
 func (s *Server) GetCU(ctx context.Context, req *resourcepb.GetCURequest) (*resourcepb.CU, error) {
-	logIn("get_cu", req)
+	logIn(ctx, "get_cu")
 
 	cu, err := s.getCU.Handle(ctx, query.GetCU{
 		TenantID: req.GetTenantID(),
@@ -84,7 +84,7 @@ func (s *Server) GetCU(ctx context.Context, req *resourcepb.GetCURequest) (*reso
 }
 
 func (s *Server) ListCUs(ctx context.Context, req *resourcepb.ListCUsRequest) (*resourcepb.ListCUsResponse, error) {
-	logIn("list_cus", req)
+	logIn(ctx, "list_cus")
 
 	result, err := s.listCUs.Handle(ctx, query.ListCUs{
 		TenantID:       req.GetTenantID(),
@@ -112,7 +112,7 @@ func (s *Server) ListCUs(ctx context.Context, req *resourcepb.ListCUsRequest) (*
 }
 
 func (s *Server) UpdateCU(ctx context.Context, req *resourcepb.UpdateCURequest) (*emptypb.Empty, error) {
-	logIn("update_cu", req)
+	logIn(ctx, "update_cu")
 
 	meta := map[string]any(nil)
 	if req.GetMetadata() != nil {

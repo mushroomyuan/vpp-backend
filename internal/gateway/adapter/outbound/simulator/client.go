@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/mushroomyuan/vpp-backend/gateway/domain/port"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 )
 
 const ExternalSystem = "simulator"
@@ -107,12 +108,13 @@ func (c *Client) SendCommand(
 		}
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logging.Infof(ctx, logrus.Fields{
+		"component":       "SimulatorClient",
 		"command_id":      commandID,
 		"external_system": externalSystem,
 		"external_id":     externalID,
 		"point_key":       command,
 		"value":           value,
-	}).Info("simulator: command delivered")
+	}, "simulator: command delivered")
 	return nil
 }

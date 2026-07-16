@@ -10,7 +10,7 @@
 SHELL := /bin/bash
 
 BIN_DIR := ./bin
-LOG_DIR := /tmp/vpp-logs
+LOG_DIR := ./data/vpp-logs
 SERVICES := resource telemetry gateway dispatch simulator
 
 # Primary listen port used by `status` (gRPC where available; HTTP for simulator).
@@ -70,6 +70,7 @@ run-simulator:
 
 .PHONY: infra-up infra-down
 infra-up:
+	@mkdir -p $(LOG_DIR)
 	docker compose up -d
 
 infra-down:
@@ -217,7 +218,8 @@ logs:
 
 clean-logs:
 	@rm -rf $(LOG_DIR)
-	@echo "Logs cleaned: $(LOG_DIR)"
+	@mkdir -p $(LOG_DIR)
+	@echo "Logs cleaned: $(LOG_DIR) (empty dir recreated for Alloy mount)"
 
 # Truncate telemetry hypertable + Redis snapshot db. Does NOT touch other DBs.
 clean-telemetry:

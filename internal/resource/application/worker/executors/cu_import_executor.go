@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/mushroomyuan/vpp-backend/resource/application/batch"
 	"github.com/mushroomyuan/vpp-backend/resource/application/types"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
@@ -84,7 +85,11 @@ func (e *CUImportExecutor) Execute(ctx context.Context, job *model.Job) ([]byte,
 				Failed:     job.FailedCount,
 			},
 		}); pubErr != nil {
-			logrus.WithError(pubErr).Warn("failed to publish CU import completed event")
+			logging.Warnf(ctx, logrus.Fields{
+				"tenant_id":   job.TenantID,
+				"resource_id": job.ID,
+				"error":       pubErr.Error(),
+			}, "failed to publish CU import completed event")
 		}
 	}
 

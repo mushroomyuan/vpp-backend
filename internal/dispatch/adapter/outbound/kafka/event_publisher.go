@@ -16,6 +16,7 @@ import (
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event"
 	dispEvent "github.com/mushroomyuan/vpp-backend/platform/event/dispatch"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 )
 
 // Config holds Kafka producer connection parameters for dispatch task events.
@@ -79,11 +80,12 @@ func (p *EventPublisher) publish(ctx context.Context, eventType string, task *mo
 	}
 
 	if p.writer == nil {
-		logrus.WithFields(logrus.Fields{
+		logging.Debugf(ctx, logrus.Fields{
+			"component":  "DispatchEventPublisher",
 			"event_type": eventType,
 			"tenant_id":  task.TenantID,
 			"task_id":    task.ID,
-		}).Debug("kafka not configured — dispatch event dropped")
+		}, "kafka not configured — dispatch event dropped")
 		return nil
 	}
 

@@ -33,10 +33,43 @@ services:
     ports:
       - "9090:9090"
 
+  loki:
+    image: grafana/loki:3.4.2
+    command: ["-config.file=/etc/loki/config.yaml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./config/loki.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+
+  # Promtail is EOL (2026-03-02). Alloy tails host logs written by `make run-all`
+  # (./data/vpp-logs/<service>.log) and pushes JSON lines to Loki.
+  # Use a project-local path (not /tmp): Docker Desktop + WSL bind mounts under
+  # /tmp often break after docker restart.
+  alloy:
+    image: grafana/alloy:v1.8.3
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./config/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./data/vpp-logs:/var/log/vpp:ro
+    depends_on:
+      - loki
+
   grafana:
     image: grafana/grafana
     ports:
       - "3000:3000"
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
 
 
   postgres:
@@ -86,4 +119,6 @@ services:
     volumes:
       - ./data/kafka_data:/bitnami/kafka
 
+volumes:
+  loki_data:
 

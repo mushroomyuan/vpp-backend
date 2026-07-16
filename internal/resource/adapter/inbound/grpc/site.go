@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) CreateSite(ctx context.Context, req *resourcepb.CreateSiteRequest) (*resourcepb.CreateSiteResponse, error) {
-	logIn("create_site", req)
+	logIn(ctx, "create_site")
 
 	res, err := s.createSite.Handle(ctx, command.CreateSite{
 		TenantID:    req.GetTenantID(),
@@ -25,7 +25,7 @@ func (s *Server) CreateSite(ctx context.Context, req *resourcepb.CreateSiteReque
 }
 
 func (s *Server) GetSite(ctx context.Context, req *resourcepb.GetSiteRequest) (*resourcepb.Site, error) {
-	logIn("get_site", req)
+	logIn(ctx, "get_site")
 
 	site, err := s.getSite.Handle(ctx, query.GetSite{
 		TenantID: req.GetTenantID(),
@@ -38,7 +38,7 @@ func (s *Server) GetSite(ctx context.Context, req *resourcepb.GetSiteRequest) (*
 }
 
 func (s *Server) ListSites(ctx context.Context, req *resourcepb.ListSitesRequest) (*resourcepb.ListSitesResponse, error) {
-	logIn("list_sites", req)
+	logIn(ctx, "list_sites")
 
 	result, err := s.listSites.Handle(ctx, query.ListSites{
 		TenantID: req.GetTenantID(),
@@ -60,7 +60,7 @@ func (s *Server) ListSites(ctx context.Context, req *resourcepb.ListSitesRequest
 }
 
 func (s *Server) UpdateSite(ctx context.Context, req *resourcepb.UpdateSiteRequest) (*emptypb.Empty, error) {
-	logIn("update_site", req)
+	logIn(ctx, "update_site")
 
 	_, err := s.updateSite.Handle(ctx, command.UpdateSite{
 		TenantID:    req.GetTenantID(),

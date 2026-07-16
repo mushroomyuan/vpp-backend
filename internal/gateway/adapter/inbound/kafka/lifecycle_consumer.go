@@ -15,6 +15,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/gateway/application/command"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event"
 	resEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	plattelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 )
 
@@ -86,7 +87,10 @@ func (c *LifecycleConsumer) Run(ctx context.Context) error {
 			}
 			// Transient broker/coordinator errors (e.g. offsets topic not ready)
 			// must not tear down the whole process via errgroup.
-			logrus.WithError(err).Warn("kafka: fetch message failed, retrying")
+			logging.Warnf(ctx, logrus.Fields{
+				"component": "LifecycleConsumer",
+				"error":     err.Error(),
+			}, "kafka: fetch message failed, retrying")
 			select {
 			case <-ctx.Done():
 				return nil
@@ -96,17 +100,15 @@ func (c *LifecycleConsumer) Run(ctx context.Context) error {
 		}
 
 		if handleErr := c.handleMessage(ctx, msg); handleErr != nil {
-			// Log and do NOT commit — consumer group will retry.
-			logrus.WithError(handleErr).WithFields(logrus.Fields{
-				"topic":     msg.Topic,
-				"partition": msg.Partition,
-				"offset":    msg.Offset,
-			}).Error("kafka: message handling failed, skipping commit for retry")
+			// Error already logged inside handleMessage with consumer span context.
 			continue
 		}
 
 		if err := c.reader.CommitMessages(ctx, msg); err != nil {
-			logrus.WithError(err).Warn("kafka: commit failed — message may be reprocessed")
+			logging.Warnf(ctx, logrus.Fields{
+				"component": "LifecycleConsumer",
+				"error":     err.Error(),
+			}, "kafka: commit failed — message may be reprocessed")
 		}
 	}
 }
@@ -138,13 +140,27 @@ func (c *LifecycleConsumer) handleMessage(ctx context.Context, msg kafka.Message
 		Partition: msg.Partition,
 		Offset:    msg.Offset,
 	})
-	defer func() { plattelemetry.EndSpan(span, err) }()
+	defer func() {
+		if err != nil {
+			logging.Errorf(ctx, logrus.Fields{
+				"component": "LifecycleConsumer",
+				"topic":     msg.Topic,
+				"partition": msg.Partition,
+				"offset":    msg.Offset,
+				"error":     err.Error(),
+			}, "kafka: message handling failed, skipping commit for retry")
+		}
+		plattelemetry.EndSpan(span, err)
+	}()
 
 	var env platEvent.Envelope[json.RawMessage]
 	if unmarshalErr := json.Unmarshal(msg.Value, &env); unmarshalErr != nil {
 		// Unparseable message — log and skip (commit will happen after return nil).
-		logrus.WithError(unmarshalErr).WithField("offset", msg.Offset).
-			Warn("kafka: failed to deserialise envelope, skipping message")
+		logging.Warnf(ctx, logrus.Fields{
+			"component": "LifecycleConsumer",
+			"offset":    msg.Offset,
+			"error":     unmarshalErr.Error(),
+		}, "kafka: failed to deserialise envelope, skipping message")
 		return nil
 	}
 
@@ -186,8 +202,11 @@ func (c *LifecycleConsumer) handleResourceDeleted(
 ) error {
 	var payload resEvent.ResourceDeletedPayload
 	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		logrus.WithError(err).WithField("event_id", env.EventID).
-			Warn("kafka: failed to deserialise ResourceDeletedPayload, skipping")
+		logging.Warnf(ctx, logrus.Fields{
+			"component": "LifecycleConsumer",
+			"event_id":  env.EventID,
+			"error":     err.Error(),
+		}, "kafka: failed to deserialise ResourceDeletedPayload, skipping")
 		return nil
 	}
 
@@ -212,8 +231,11 @@ func (c *LifecycleConsumer) handleLifecycleChanged(
 ) error {
 	var payload resEvent.LifecycleChangedPayload
 	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		logrus.WithError(err).WithField("event_id", env.EventID).
-			Warn("kafka: failed to deserialise LifecycleChangedPayload, skipping")
+		logging.Warnf(ctx, logrus.Fields{
+			"component": "LifecycleConsumer",
+			"event_id":  env.EventID,
+			"error":     err.Error(),
+		}, "kafka: failed to deserialise LifecycleChangedPayload, skipping")
 		return nil
 	}
 

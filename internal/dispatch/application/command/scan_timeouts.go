@@ -9,6 +9,7 @@ import (
 	appport "github.com/mushroomyuan/vpp-backend/dispatch/application/port"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/port"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/service"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 )
 
 // TimeoutScanner periodically finds Sending commands past their deadline and
@@ -19,7 +20,6 @@ import (
 type TimeoutScanner struct {
 	helper   *dispatchHelper
 	interval time.Duration
-	log      *logrus.Entry
 }
 
 func NewTimeoutScanner(
@@ -57,7 +57,6 @@ func NewTimeoutScanner(
 			taskRepo, actionRepo, commandRepo, gateway, publisher, dispatcher,
 		),
 		interval: interval,
-		log:      logrus.WithField("component", "TimeoutScanner"),
 	}
 }
 
@@ -78,13 +77,19 @@ func (s *TimeoutScanner) Run(ctx context.Context) error {
 func (s *TimeoutScanner) scanOnce(ctx context.Context) {
 	expired, err := s.helper.commandRepo.FindExpiredSending(ctx, time.Now())
 	if err != nil {
-		s.log.WithError(err).Error("FindExpiredSending failed")
+		logging.Errorf(ctx, logrus.Fields{
+			"component": "TimeoutScanner",
+			"error":     err.Error(),
+		}, "FindExpiredSending failed")
 		return
 	}
 	for _, light := range expired {
 		if err := s.handleExpired(ctx, light.ID); err != nil {
-			s.log.WithError(err).WithField("command_id", light.ID).
-				Error("timeout handling failed")
+			logging.Errorf(ctx, logrus.Fields{
+				"component":  "TimeoutScanner",
+				"command_id": light.ID,
+				"error":      err.Error(),
+			}, "timeout handling failed")
 		}
 	}
 }

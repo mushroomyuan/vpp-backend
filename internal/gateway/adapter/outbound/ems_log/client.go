@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/mushroomyuan/vpp-backend/gateway/domain/port"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 )
 
 // EMSLogClient is the v1 implementation of port.EMSClient.
@@ -28,12 +29,13 @@ func (c *EMSLogClient) SendCommand(
 	commandID, externalSystem, externalID, command string,
 	value float64,
 ) error {
-	logrus.WithFields(logrus.Fields{
+	logging.Infof(ctx, logrus.Fields{
+		"component":       "EMSLogClient",
 		"command_id":      commandID,
 		"external_system": externalSystem,
 		"external_id":     externalID,
-		"command":         command,
+		"point_key":       command,
 		"value":           value,
-	}).Info("ems_log: command dispatched (log-only, no real EMS connection)")
+	}, "ems_log: command dispatched (log-only, no real EMS connection)")
 	return nil
 }

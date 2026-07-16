@@ -8,6 +8,7 @@ import (
 	gatewaygrpc "github.com/mushroomyuan/vpp-backend/dispatch/adapter/outbound/gateway_grpc"
 	"github.com/mushroomyuan/vpp-backend/dispatch/config"
 	"github.com/mushroomyuan/vpp-backend/platform/discovery"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
 	platformtelemetry "github.com/mushroomyuan/vpp-backend/platform/telemetry"
 )
@@ -18,6 +19,8 @@ func Run(
 	dbCfg platformpostgres.Config,
 	gatewayCfg gatewaygrpc.Config,
 ) error {
+	logging.Init(logging.Config{ServiceName: appCfg.ServiceName})
+
 	if appCfg.TelemetryEndpoint != "" {
 		shutdown, err := platformtelemetry.InitTracing(context.Background(), platformtelemetry.Config{
 			Endpoint:    appCfg.TelemetryEndpoint,

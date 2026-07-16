@@ -10,6 +10,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	platEvent "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
@@ -120,7 +121,11 @@ func (h createCUHandler) Handle(ctx context.Context, cmd CreateCU) (*CreateCURes
 				Protocol:   cmd.Protocol,
 			},
 		}); pubErr != nil {
-			logrus.WithError(pubErr).Warn("failed to publish CU created event")
+			logging.Warnf(ctx, logrus.Fields{
+				"tenant_id":   tenantID,
+				"resource_id": id,
+				"error":       pubErr.Error(),
+			}, "failed to publish CU created event")
 		}
 	}
 

@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) BatchMoveResources(ctx context.Context, req *resourcepb.BatchMoveResourcesRequest) (*resourcepb.BatchMoveResourcesResponse, error) {
-	logIn("batch_move_resources", req)
+	logIn(ctx, "batch_move_resources")
 
 	res, err := s.batchMoveResource.Handle(ctx, command.BatchMoveResources{
 		TenantID:    req.GetTenantID(),
@@ -24,7 +24,7 @@ func (s *Server) BatchMoveResources(ctx context.Context, req *resourcepb.BatchMo
 }
 
 func (s *Server) RenameResource(ctx context.Context, req *resourcepb.RenameResourceRequest) (*emptypb.Empty, error) {
-	logIn("rename_resource", req)
+	logIn(ctx, "rename_resource")
 
 	_, err := s.renameResource.Handle(ctx, command.RenameResource{
 		TenantID:   req.GetTenantID(),
@@ -38,7 +38,7 @@ func (s *Server) RenameResource(ctx context.Context, req *resourcepb.RenameResou
 }
 
 func (s *Server) ChangeResourceLifecycle(ctx context.Context, req *resourcepb.ChangeResourceLifecycleRequest) (*emptypb.Empty, error) {
-	logIn("change_resource_lifecycle", req)
+	logIn(ctx, "change_resource_lifecycle")
 
 	_, err := s.changeLifecycle.Handle(ctx, command.ChangeResourceLifecycle{
 		TenantID:   req.GetTenantID(),
@@ -52,7 +52,7 @@ func (s *Server) ChangeResourceLifecycle(ctx context.Context, req *resourcepb.Ch
 }
 
 func (s *Server) GetResourceDetail(ctx context.Context, req *resourcepb.GetResourceDetailRequest) (*resourcepb.Resource, error) {
-	logIn("get_resource_detail", req)
+	logIn(ctx, "get_resource_detail")
 
 	node, err := s.getResourceDetail.Handle(ctx, query.GetResourceDetail{
 		TenantID:   req.GetTenantID(),
@@ -69,7 +69,7 @@ func (s *Server) GetResourceDetail(ctx context.Context, req *resourcepb.GetResou
 }
 
 func (s *Server) ListChildren(ctx context.Context, req *resourcepb.ListChildrenRequest) (*resourcepb.ListChildrenResponse, error) {
-	logIn("list_children", req)
+	logIn(ctx, "list_children")
 
 	result, err := s.listChildren.Handle(ctx, query.ListChildren{
 		TenantID: req.GetTenantID(),
@@ -97,7 +97,7 @@ func (s *Server) ListChildren(ctx context.Context, req *resourcepb.ListChildrenR
 }
 
 func (s *Server) GetBreadcrumb(ctx context.Context, req *resourcepb.GetBreadcrumbRequest) (*resourcepb.GetBreadcrumbResponse, error) {
-	logIn("get_breadcrumb", req)
+	logIn(ctx, "get_breadcrumb")
 
 	result, err := s.getBreadcrumb.Handle(ctx, query.GetBreadcrumb{
 		TenantID:   req.GetTenantID(),
@@ -118,7 +118,7 @@ func (s *Server) GetBreadcrumb(ctx context.Context, req *resourcepb.GetBreadcrum
 }
 
 func (s *Server) ExportResourceTree(ctx context.Context, req *resourcepb.ExportResourceTreeRequest) (*resourcepb.ExportResourceTreeResponse, error) {
-	logIn("export_resource_tree", req)
+	logIn(ctx, "export_resource_tree")
 
 	result, err := s.exportTree.Handle(ctx, query.ExportResourceTree{
 		TenantID: req.GetTenantID(),

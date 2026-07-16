@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/segmentio/kafka-go"
 	"github.com/sirupsen/logrus"
 
@@ -72,11 +73,12 @@ func NewEventPublisher(cfg Config) *EventPublisher {
 // Async write errors are reported by the ErrorLogger on the kafka.Writer.
 func (p *EventPublisher) Publish(ctx context.Context, event port.ResourceEvent) error {
 	if p.writer == nil {
-		logrus.WithFields(logrus.Fields{
+		logging.Debugf(ctx, logrus.Fields{
+			"component":   "ResourceEventPublisher",
 			"event_type":  event.EventType,
 			"tenant_id":   event.TenantID,
 			"resource_id": event.ResourceID,
-		}).Debug("kafka not configured — resource event dropped")
+		}, "kafka not configured — resource event dropped")
 		return nil
 	}
 

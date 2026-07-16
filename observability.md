@@ -1,19 +1,19 @@
 # VPP Backend 可观测链路架构
 
-本文说明项目中 **OpenTelemetry → Jaeger**（链路）与 **Prometheus → Grafana**（指标）的采集、汇聚与查看方式，并以 **resource 服务** 为完整示例。
+本文说明项目中 **OpenTelemetry → Jaeger**（链路）、**Prometheus → Grafana**（指标）与 **stdout → Alloy → Loki → Grafana**（日志）的采集、汇聚与查看方式。
 
 ---
 
 ## 一、总览
 
-可观测性分两条独立链路，共享同一套 `docker compose` 基础设施：
+可观测性分三条链路，共享同一套 `docker compose` 基础设施：
 
 | 信号 | 采集位置 | 传输协议 | 后端 | 查看入口 |
 |------|----------|----------|------|----------|
 | **Traces（链路）** | 进程内 OTel SDK + HTTP/gRPC 中间件 | OTLP/HTTP → `:4318` | Jaeger all-in-one | **http://localhost:16686** |
-| **Metrics（指标）** | 进程内 Prometheus Client，暴露 `/metrics` | Prometheus Pull | Prometheus | **http://localhost:9090** |
-| **可视化（可选）** | Grafana 查询 Prometheus | — | Grafana | **http://localhost:3000** |
-| **Logs（日志）** | logrus + TraceID Hook | 标准输出 | 本地 / 日志系统 | 日志中的 `trace` 字段可回查 Jaeger |
+| **Metrics（指标）** | 进程内 Prometheus Client，暴露 `/metrics` | Prometheus Pull | Prometheus | **http://localhost:9090** / Grafana |
+| **Logs（日志）** | logrus JSON → stdout → `./data/vpp-logs` | Alloy `loki.source.file` Push | Loki | **Grafana Explore（Loki）** |
+| **可视化** | Grafana 查询 Prometheus / Loki | — | Grafana | **http://localhost:3000** |
 
 ```mermaid
 flowchart LR
@@ -21,29 +21,44 @@ flowchart LR
     HTTP["HTTP otelgin"]
     GRPC["gRPC otelgrpc"]
     Dec["Decorator Metrics"]
+    Log["JSON stdout"]
     Exp["/metrics :910x"]
+  end
+
+  subgraph Host["Host"]
+    Files["./data/vpp-logs/*.log"]
   end
 
   subgraph Compose["docker compose 基础设施"]
     Jaeger["Jaeger<br/>OTLP :4318<br/>UI :16686"]
     Prom["Prometheus :9090"]
+    Alloy["Grafana Alloy"]
+    Loki["Loki :3100"]
     Graf["Grafana :3000"]
   end
 
   HTTP -->|OTLP/HTTP| Jaeger
   GRPC -->|OTLP/HTTP| Jaeger
   Dec --> Exp
+  Log -->|make run-all redirect| Files
+  Files -->|volume mount| Alloy
+  Alloy -->|push| Loki
   Prom -->|scrape host.docker.internal:910x| Exp
   Graf -->|datasource| Prom
+  Graf -->|datasource| Loki
 ```
 
 启动基础设施：
 
 ```bash
 make infra-up   # 等价于 docker compose up -d
+mkdir -p ./data/vpp-logs   # Alloy 只读挂载该目录；run-all 也会创建
+make run-all             # 业务日志落到 ./data/vpp-logs/<service>.log
 ```
 
-会拉起 Consul、Jaeger、Prometheus、Grafana、Postgres、Redis、Kafka 等。
+会拉起 Consul、Jaeger、Prometheus、**Loki**、**Alloy**、Grafana、Postgres、Redis、Kafka 等。
+
+> **采集器说明**：Promtail 已于 2026-03-02 EOL，本仓库使用 **Grafana Alloy**。应用只保证「JSON 行写 stdout」；换 Vector 等采集器时只需改 compose/配置，不必改业务代码。
 
 ---
 
@@ -53,7 +68,9 @@ make infra-up   # 等价于 docker compose up -d
 |------|-----|----------|------|
 | **Jaeger UI** | http://localhost:16686 | 无 | 按 Service / Operation 查 Trace，看跨服务调用链 |
 | **Prometheus UI** | http://localhost:9090 | 无 | 即席 PromQL、Targets 健康检查、原始时序 |
-| **Grafana** | http://localhost:3000 | `admin` / `admin`（首次登录会要求改密） | 仪表盘可视化（需手动加 Prometheus 数据源） |
+| **Loki** | http://localhost:3100 | 无 | 日志存储 API（一般用 Grafana Explore） |
+| **Alloy UI** | http://localhost:12345 | 无 | 采集组件调试 / livedebugging |
+| **Grafana** | http://localhost:3000 | `admin` / `admin`（首次登录会要求改密） | 指标看板 + 日志 Explore |
 | **Consul UI** | http://localhost:8500 | 无 | 服务注册（非观测核心，但同属 infra） |
 
 ### Jaeger 快速用法
@@ -62,25 +79,26 @@ make infra-up   # 等价于 docker compose up -d
 2. Service 下拉选 `resource`（或其它服务名，来自配置 `service-name`）
 3. Find Traces → 点开某条 Trace 看 Span 树
 
-### Grafana 首次配置
+### Grafana 数据源（已预置）
 
-仓库 **未预置** Grafana datasource / dashboard（`compose.yaml` 只挂了空 Grafana）。首次使用：
+[`config/grafana/provisioning/datasources/datasources.yaml`](config/grafana/provisioning/datasources/datasources.yaml) 会自动注册：
 
-1. 打开 http://localhost:3000，登录
-2. **Connections → Data sources → Add → Prometheus**
-3. URL 填 `http://prometheus:9090`（Grafana 与 Prometheus 同属 compose 网络）或 `http://host.docker.internal:9090`
-4. Save & Test → 再建 Dashboard，查询如 `app_requests_total`、`app_request_duration_seconds`
+| 名称 | URL（compose 网络内） |
+|------|------------------------|
+| Prometheus | `http://prometheus:9090` |
+| Loki | `http://loki:3100` |
+
+打开 http://localhost:3000 → **Explore**：
+
+- 选 **Prometheus**：`sum by (job) (rate(app_requests_total[1m]))`
+- 选 **Loki**：
+  - `{service="gateway"}`
+  - `{service="resource"} |= "error"`
+  - `{job="vpp"} | json | trace_id != ""`
 
 ### Prometheus Targets
 
-打开 http://localhost:9090/targets ，确认 scrape 目标为 `UP`。当前 [`config/prometheus.yaml`](config/prometheus.yaml) 已配置：
-
-| Job | Target | 对应服务 |
-|-----|--------|----------|
-| `vpp-resource` | `host.docker.internal:9102` | resource |
-| `vpp-simulator` | `host.docker.internal:9106` | simulator |
-
-> 五个服务的 metrics 端口均已写入 `config/prometheus.yaml`。
+打开 http://localhost:9090/targets ，确认 scrape 目标为 `UP`。当前 [`config/prometheus.yaml`](config/prometheus.yaml) 已配置五个服务的 metrics job。
 
 ---
 
@@ -95,6 +113,8 @@ make infra-up   # 等价于 docker compose up -d
 | Jaeger UI | **16686** | 链路查询前端 |
 | Jaeger thrift（兼容） | 6831 / 14268 | 旧协议，当前 Go 服务走 OTLP |
 | Prometheus | **9090** | 指标存储 + UI |
+| Loki | **3100** | 日志存储 |
+| Alloy UI | **12345** | 采集调试 |
 | Grafana | **3000** | 可视化前端 |
 
 ### 各业务服务 metrics 端口
@@ -107,7 +127,7 @@ make infra-up   # 等价于 docker compose up -d
 | dispatch | `127.0.0.1:9105` | `127.0.0.1:4318` | `config/dispatch.yaml` |
 | simulator | `127.0.0.1:9106` | `127.0.0.1:4318` | `config/simulator.yaml` |
 
-服务跑在 **宿主机**，观测组件跑在 **Docker**；Prometheus 通过 `host.docker.internal` 回刮宿主机 `/metrics`。
+服务跑在 **宿主机**，观测组件跑在 **Docker**；Prometheus 通过 `host.docker.internal` 回刮宿主机 `/metrics`；Alloy 通过挂载 `./data/vpp-logs` 采日志。
 
 ---
 
@@ -119,6 +139,7 @@ make infra-up   # 等价于 docker compose up -d
 
 以 resource 为例，`internal/resource/run.go`：
 
+- 先调用 `platform/logging.Init`（JSON stdout + `service` / `trace_id` hooks）
 - 若配置了 `tracing.endpoint` → 调用 `platform/telemetry.InitTracing`
 - 创建 OTLP/HTTP Exporter，指向 Jaeger `:4318`
 - 注册全局 `TracerProvider` + W3C TraceContext / Baggage / B3 传播器
@@ -154,7 +175,7 @@ CQRS Handler 经 `decorator.Apply*Decorators` 包装，外→内为 **Logging �
 
 辅助 API：`platform/telemetry` 的 `Inject` / `Extract` / `StartKafkaProducer` / `StartKafkaConsumer` / `EndSpan`。
 
-链路 Span 还来自传输层中间件（HTTP/gRPC server + 出站 `DialGRPC`）；日志通过 `platform/logging` 的 `traceHook` 自动写入 `trace` 字段，便于用 TraceID 在 Jaeger 反查。
+链路 Span 还来自传输层中间件（HTTP/gRPC server + 出站 `DialGRPC`）；日志通过 `platform/logging` 的 `traceHook` 在有效 Span 时写入 **`trace_id` / `span_id`**，便于用 TraceID 在 Jaeger 反查。
 
 ### 4.2 Metrics：谁打点、谁暴露、谁拉取
 
@@ -193,17 +214,69 @@ sequenceDiagram
 - Prometheus 按 `config/prometheus.yaml` 定时 scrape
 - **不是** 服务主动推指标；服务只负责暴露，Prometheus 负责采集与存储
 
-### 4.3 以 resource 为例的完整请求路径
+### 4.3 Logs：谁写日志、谁采集、谁查询
+
+```mermaid
+sequenceDiagram
+  participant App as 业务服务
+  participant File as ./data/vpp-logs
+  participant Alloy as Grafana Alloy
+  participant Loki as Loki
+  participant Graf as Grafana Explore
+
+  App->>App: logging.Init + JSON stdout
+  Note over App,File: make run-all 重定向 stdout
+  App->>File: append service.log
+  Alloy->>File: loki.source.file tail
+  Alloy->>Loki: push
+  Graf->>Loki: LogQL
+```
+
+**应用契约（可替换采集器的边界）**
+
+| 约定 | 说明 |
+|------|------|
+| 输出 | **stdout only**（禁止应用内 rolling `app.log`） |
+| 格式 | 默认 **JSON**（`LOCAL_ENV=true` 时为彩色文本，仅适合前台 `make run-<svc>`） |
+| 必有字段 | `time` / `level` / `message` / `service` |
+| 有 Span 时 | `trace_id` / `span_id` |
+| 级别 | `LOG_LEVEL` 或 `logging.Init` 的 `Level`，默认 `info` |
+| 落盘 | `make run-all` → `./data/vpp-logs/<service>.log`（`Makefile` 的 `LOG_DIR`） |
+
+**采集**
+
+- [`config/alloy/config.alloy`](config/alloy/config.alloy)：按服务文件打 `service` / `job=vpp` / `environment=local` label
+- `loki.process` 解析 JSON，仅把低基数 `level` 提升为 label
+- **禁止**把 `trace_id`、`tenant`、`device_id` 等做成 Loki label
+
+**存储 / 查看**
+
+- Loki：[`config/loki.yaml`](config/loki.yaml)，本地保留约 7 天
+- Grafana Explore → Loki 数据源
+
+本地验证：
+
+```bash
+# 确认落盘为 JSON
+tail -n 3 ./data/vpp-logs/resource.log
+
+# Alloy / Loki 起来后，在 Grafana Explore 执行：
+# {service="resource"}
+# {job="vpp"} | json | level="error"
+```
+
+### 4.4 以 resource 为例的完整请求路径
 
 ```
 客户端
   → HTTP :8082（grpc-gateway）或 gRPC :5002
       ├─ otelgin / otelgrpc  → 创建 Span
-      ├─ 结构化日志（带 trace id）
+      ├─ 结构化日志（带 service / trace_id）→ stdout → ./data/vpp-logs
       └─ Application Handler
             └─ Decorator：metrics 计数/耗时 + logging
   → OTLP 批量导出 → Jaeger :4318 → UI :16686
   → /metrics :9102 ← Prometheus scrape → :9090 → Grafana :3000
+  → ./data/vpp-logs ← Alloy → Loki :3100 → Grafana Explore
 ```
 
 对应配置片段（`config/resource.yaml`）：
@@ -228,24 +301,25 @@ curl -s http://127.0.0.1:9102/metrics | grep app_
 
 # 发几个请求后，到 Jaeger UI 选 Service=resource 查 Trace
 # Prometheus UI 执行：rate(app_requests_total[1m])
+# Grafana Explore (Loki)：{service="resource"}
 ```
 
 ---
 
-## 五、两条链路对比（记忆用）
+## 五、三条链路对比（记忆用）
 
-| | Tracing | Metrics |
-|--|---------|---------|
-| **标准** | OpenTelemetry | Prometheus exposition |
-| **采集方式** | 进程内 SDK **Push**（OTLP） | Prometheus **Pull** scrape |
-| **采集点** | HTTP/gRPC 中间件（入口） | CQRS Decorator + `/metrics` 端点 |
-| **后端** | Jaeger | Prometheus |
-| **看哪里** | :16686 | :9090（原始）/ :3000（Grafana 看板） |
-| **回答的问题** | 这次请求慢在哪一跳？ | QPS、延迟分布、错误率、连接池是否打满？ |
+| | Tracing | Metrics | Logs |
+|--|---------|---------|------|
+| **标准** | OpenTelemetry | Prometheus exposition | JSON + Loki |
+| **采集方式** | 进程内 SDK **Push**（OTLP） | Prometheus **Pull** scrape | Alloy **tail file** → Push |
+| **采集点** | HTTP/gRPC 中间件（入口） | CQRS Decorator + `/metrics` | stdout / `./data/vpp-logs` |
+| **后端** | Jaeger | Prometheus | Loki |
+| **看哪里** | :16686 | :9090 / Grafana | Grafana Explore |
+| **回答的问题** | 这次请求慢在哪一跳？ | QPS、延迟、错误率、连接池？ | 发生了什么？哪条错误？关联哪个 Trace？ |
 
 ---
 
-## 六、代码索引
+## 六、代码与配置索引
 
 | 职责 | 路径 |
 |------|------|
@@ -255,16 +329,79 @@ curl -s http://127.0.0.1:9102/metrics | grep app_
 | 应用层 Metrics 装饰器 | `internal/platform/decorator/metrics.go` |
 | `/metrics` HTTP Server | `internal/platform/metrics/prometheus.go` |
 | DB 连接池指标 | `internal/platform/metrics/db.go` |
-| 日志关联 TraceID | `internal/platform/logging/logrus.go`（`traceHook`） |
+| 日志 Init / Hook（service、trace_id） | `internal/platform/logging/logrus.go` |
 | resource 启动 wiring | `internal/resource/run.go`、`server.go` |
 | Compose 定义 | `compose.yaml` |
 | Prometheus scrape 配置 | `config/prometheus.yaml` |
+| Loki 配置 | `config/loki.yaml` |
+| Alloy 采集配置 | `config/alloy/config.alloy` |
+| Grafana 数据源预置 | `config/grafana/provisioning/datasources/datasources.yaml` |
+
+---
+
+## 八、日志业务字段约定与迁移样例
+
+### 8.1 推荐字段名（写入 JSON，勿做 Loki label）
+
+| 字段 | 用途 |
+|------|------|
+| `tenant` / `tenant_id` | 租户 |
+| `cu_id` / `cu_code` | 可控单元 |
+| `command_id` | 控制指令 |
+| `task_id` | 调度任务 |
+| `topic` / `partition` / `offset` | Kafka 消息定位 |
+| `component` | 模块名（如 `TimeoutScanner`、`tick`） |
+| `error` | 错误字符串（失败日志） |
+| `duration_ms` | 耗时（Decorator 已打） |
+| `kind` / `action` | CQRS 类型（Decorator 已打） |
+
+Loki **label** 仅保留低基数：`service` / `job` / `environment` / `level`。
+
+### 8.2 替换 `logrus` 样例（按此模式手改即可）
+
+**Before**
+
+```go
+logrus.WithError(err).WithFields(logrus.Fields{
+    "command_id": id,
+}).Error("timeout handling failed")
+```
+
+**After**
+
+```go
+logging.Errorf(ctx, logrus.Fields{
+    "component":  "TimeoutScanner",
+    "command_id": id,
+    "error":      err.Error(),
+}, "timeout handling failed")
+```
+
+要点：传入 `ctx`（才能挂 `trace_id`）；业务字段放 `logrus.Fields`；不要打完整 Body / Secret。
+
+仓库内已改的样例文件：
+
+- [`gateway/.../execute_command.go`](internal/gateway/application/command/execute_command.go) — Kafka publish 失败
+- [`dispatch/.../scan_timeouts.go`](internal/dispatch/application/command/scan_timeouts.go) — 超时扫描错误
+- [`simulator/tick/engine.go`](internal/simulator/tick/engine.go) — tick 启停
+
+启动期无业务 ctx 的日志可继续用裸 `logrus.Infof`（如 listen 地址）。
+
+### 8.3 Logs ↔ Traces
+
+Grafana 已预置：
+
+- **Loki → Jaeger**：日志详情里点 `TraceID`（解析 JSON `trace_id`）
+- **Jaeger → Loki**：Trace 视图 → Logs（LogQL：`{job="vpp"} \| json \| trace_id="<id>"`）
+
+改完 provisioning 后需重建 Grafana：`docker compose up -d --force-recreate grafana`。
 
 ---
 
 ## 七、已知缺口 / 注意点
 
-1. **Grafana 无开箱看板**：需手动配置 Prometheus 数据源与 Dashboard。
-2. **Prometheus scrape 未覆盖全服务**：目前仅 resource、simulator；telemetry/gateway/dispatch 可按同模式补 job。
-3. **README 中 “Decorator 含 tracing”**：传输层已有 OTel；应用层 Decorator 当前实现是 metrics + logging，业务 Handler 内如需细粒度 Span 可再调 `telemetry.Start`。
+1. **前台 `make run-<svc>`**：日志只打终端，Alloy 采不到；要用 Loki 请 `make run-all`（或自行 tee 到 `./data/vpp-logs`）。
+2. **`LOCAL_ENV=true`**：输出为彩色文本而非 JSON，不适合进 Loki；`run-all` 不要设该变量。
+3. **Prometheus scrape**：五个服务 metrics job 已在 `config/prometheus.yaml`；以 Targets 页面为准。
 4. **resource README 默认 metrics `:9091`** 与仓库实际配置 `:9102` 不一致，以 `config/resource.yaml` / `architecture.md` 端口表为准。
+5. **全仓 `logrus` 迁移**：未强制完成；按 §8.2 样例渐进替换即可。

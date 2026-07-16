@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) CreatePoint(ctx context.Context, req *resourcepb.CreatePointRequest) (*resourcepb.CreatePointResponse, error) {
-	logIn("create_point", req)
+	logIn(ctx, "create_point")
 
 	dataType, err := PointDataTypeProtoToDomain(req.GetDataType())
 	if err != nil {
@@ -47,7 +47,7 @@ func (s *Server) CreatePoint(ctx context.Context, req *resourcepb.CreatePointReq
 }
 
 func (s *Server) GetPoint(ctx context.Context, req *resourcepb.GetPointRequest) (*resourcepb.Point, error) {
-	logIn("get_point", req)
+	logIn(ctx, "get_point")
 
 	p, err := s.getPoint.Handle(ctx, query.GetPoint{
 		TenantID: req.GetTenantID(),
@@ -64,7 +64,7 @@ func (s *Server) GetPoint(ctx context.Context, req *resourcepb.GetPointRequest) 
 }
 
 func (s *Server) ListPoints(ctx context.Context, req *resourcepb.ListPointsRequest) (*resourcepb.ListPointsResponse, error) {
-	logIn("list_points", req)
+	logIn(ctx, "list_points")
 
 	var isVirtual *bool
 	if v := req.GetIsVirtual(); v != nil {
@@ -99,7 +99,7 @@ func (s *Server) ListPoints(ctx context.Context, req *resourcepb.ListPointsReque
 }
 
 func (s *Server) UpdatePoint(ctx context.Context, req *resourcepb.UpdatePointRequest) (*emptypb.Empty, error) {
-	logIn("update_point", req)
+	logIn(ctx, "update_point")
 
 	dataType, err := PointDataTypeProtoToDomain(req.GetDataType())
 	if err != nil {
@@ -135,7 +135,7 @@ func (s *Server) UpdatePoint(ctx context.Context, req *resourcepb.UpdatePointReq
 }
 
 func (s *Server) DeletePoint(ctx context.Context, req *resourcepb.DeletePointRequest) (*emptypb.Empty, error) {
-	logIn("delete_point", req)
+	logIn(ctx, "delete_point")
 
 	_, err := s.deletePoint.Handle(ctx, command.DeletePoint{
 		TenantID: req.GetTenantID(),

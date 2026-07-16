@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Server) GetJob(ctx context.Context, req *resourcepb.GetJobRequest) (*resourcepb.Job, error) {
-	logIn("get_import_job", req)
+	logIn(ctx, "get_import_job")
 
 	job, err := s.getJob.Handle(ctx, query.GetJob{JobID: req.GetID()})
 	if err != nil {
@@ -22,7 +22,7 @@ func (s *Server) GetJob(ctx context.Context, req *resourcepb.GetJobRequest) (*re
 }
 
 func (s *Server) SubmitBatchImport(ctx context.Context, req *resourcepb.SubmitBatchRequest) (*resourcepb.SubmitBatchResponse, error) {
-	logIn("submit_batch_import", req)
+	logIn(ctx, "submit_batch_import")
 
 	cmd, convErr := submitBatchImportProtoToCmd(req)
 	if convErr != nil {
@@ -101,7 +101,7 @@ func submitBatchImportProtoToCmd(req *resourcepb.SubmitBatchRequest) (command.Su
 }
 
 func (s *Server) RetryJob(ctx context.Context, req *resourcepb.RetryJobRequest) (*emptypb.Empty, error) {
-	logIn("retry_import_job", req)
+	logIn(ctx, "retry_import_job")
 
 	if _, err := s.retryJob.Handle(ctx, command.RetryJob{JobID: req.GetID()}); err != nil {
 		return nil, toGRPCError(err)

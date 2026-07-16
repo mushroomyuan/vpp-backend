@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Server) CreateAsset(ctx context.Context, req *resourcepb.CreateAssetRequest) (*resourcepb.CreateAssetResponse, error) {
-	logIn("create_asset", req)
+	logIn(ctx, "create_asset")
 
 	meta := map[string]any(nil)
 	if req.GetMetadata() != nil {
@@ -43,7 +43,7 @@ func (s *Server) CreateAsset(ctx context.Context, req *resourcepb.CreateAssetReq
 }
 
 func (s *Server) GetAsset(ctx context.Context, req *resourcepb.GetAssetRequest) (*resourcepb.Asset, error) {
-	logIn("get_asset", req)
+	logIn(ctx, "get_asset")
 
 	a, err := s.getAsset.Handle(ctx, query.GetAsset{
 		TenantID: req.GetTenantID(),
@@ -61,7 +61,7 @@ func (s *Server) GetAsset(ctx context.Context, req *resourcepb.GetAssetRequest) 
 }
 
 func (s *Server) ListAssets(ctx context.Context, req *resourcepb.ListAssetsRequest) (*resourcepb.ListAssetsResponse, error) {
-	logIn("list_assets", req)
+	logIn(ctx, "list_assets")
 
 	result, err := s.listAssets.Handle(ctx, query.ListAssets{
 		TenantID: req.GetTenantID(),
@@ -88,7 +88,7 @@ func (s *Server) ListAssets(ctx context.Context, req *resourcepb.ListAssetsReque
 }
 
 func (s *Server) UpdateAsset(ctx context.Context, req *resourcepb.UpdateAssetRequest) (*emptypb.Empty, error) {
-	logIn("update_asset", req)
+	logIn(ctx, "update_asset")
 
 	meta := map[string]any(nil)
 	if req.GetMetadata() != nil {
@@ -122,7 +122,7 @@ func (s *Server) UpdateAsset(ctx context.Context, req *resourcepb.UpdateAssetReq
 }
 
 func (s *Server) DeleteResource(ctx context.Context, req *resourcepb.DeleteResourceRequest) (*emptypb.Empty, error) {
-	logIn("delete_resource", req)
+	logIn(ctx, "delete_resource")
 
 	_, err := s.deleteResource.Handle(ctx, command.DeleteResource{
 		TenantID: req.GetTenantID(),
@@ -138,7 +138,7 @@ func (s *Server) DeleteResource(ctx context.Context, req *resourcepb.DeleteResou
 }
 
 func (s *Server) MoveResource(ctx context.Context, req *resourcepb.MoveResourceRequest) (*emptypb.Empty, error) {
-	logIn("move_resource", req)
+	logIn(ctx, "move_resource")
 
 	_, err := s.moveResource.Handle(ctx, command.MoveResource{
 		TenantID:    req.GetTenantID(),

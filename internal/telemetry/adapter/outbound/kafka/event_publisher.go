@@ -9,6 +9,7 @@ import (
 	"github.com/segmentio/kafka-go"
 	"github.com/sirupsen/logrus"
 
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/model"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/port"
 )
@@ -79,13 +80,14 @@ type soePayload struct {
 // Debug level and returns nil. Async write errors are logged by ErrorLogger.
 func (p *EventPublisher) PublishSOE(ctx context.Context, event *model.SOEEvent) error {
 	if p.writer == nil {
-		logrus.WithFields(logrus.Fields{
+		logging.Debugf(ctx, logrus.Fields{
+			"component":   "SOEEventPublisher",
 			"tenant_id":   event.TenantID,
 			"cu_code":     event.CUCode,
 			"metric_name": event.MetricName,
 			"old_value":   event.OldValue,
 			"new_value":   event.NewValue,
-		}).Debug("kafka not configured — SOE event dropped")
+		}, "kafka not configured — SOE event dropped")
 		return nil
 	}
 

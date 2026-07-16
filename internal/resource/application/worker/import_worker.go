@@ -4,8 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 	"github.com/sirupsen/logrus"
+
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
+	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
 const defaultPollInterval = 5 * time.Second
@@ -47,14 +49,14 @@ func NewImportWorker(
 // Start begins the poll loop. It blocks until ctx is cancelled, making it
 // suitable for launching as a goroutine: go worker.Start(ctx).
 func (w *ImportWorker) Start(ctx context.Context) {
-	logrus.Info("import worker started")
+	logging.Infof(ctx, logrus.Fields{"component": "ImportWorker"}, "import worker started")
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			logrus.Info("import worker stopped")
+			logging.Infof(ctx, logrus.Fields{"component": "ImportWorker"}, "import worker stopped")
 			return
 		case <-ticker.C:
 			w.processNext(ctx)
@@ -67,7 +69,10 @@ func (w *ImportWorker) Start(ctx context.Context) {
 func (w *ImportWorker) processNext(ctx context.Context) {
 	job, err := w.jobRepo.ClaimPending(ctx)
 	if err != nil {
-		logrus.WithError(err).Error("import worker: claim pending job failed")
+		logging.Errorf(ctx, logrus.Fields{
+			"component": "ImportWorker",
+			"error":     err.Error(),
+		}, "import worker: claim pending job failed")
 		return
 	}
 	if job == nil {
@@ -75,16 +80,18 @@ func (w *ImportWorker) processNext(ctx context.Context) {
 	}
 
 	fields := logrus.Fields{
+		"component": "ImportWorker",
 		"job_id":    job.ID,
 		"operation": job.OperationType,
 		"target":    job.TargetType,
 		"attempt":   job.Attempts,
 	}
-	logrus.WithFields(fields).Info("import worker: executing job")
+	logging.Infof(ctx, fields, "import worker: executing job")
 
 	executor, err := w.executors.Get(job.Kind())
 	if err != nil {
-		logrus.WithFields(fields).WithError(err).Error("import worker: no executor for job type")
+		fields["error"] = err.Error()
+		logging.Errorf(ctx, fields, "import worker: no executor for job type")
 		job.Fail(err.Error())
 		_ = w.jobRepo.Save(ctx, job)
 		return
@@ -92,7 +99,8 @@ func (w *ImportWorker) processNext(ctx context.Context) {
 
 	resultJSON, execErr := executor.Execute(ctx, job)
 	if execErr != nil {
-		logrus.WithFields(fields).WithError(execErr).Error("import worker: job execution failed")
+		fields["error"] = execErr.Error()
+		logging.Errorf(ctx, fields, "import worker: job execution failed")
 		job.Fail(execErr.Error())
 		_ = w.jobRepo.Save(ctx, job)
 		return
@@ -100,9 +108,11 @@ func (w *ImportWorker) processNext(ctx context.Context) {
 
 	job.Complete(job.Total, job.Succeeded, job.FailedCount, resultJSON)
 	if err := w.jobRepo.Save(ctx, job); err != nil {
-		logrus.WithFields(fields).WithError(err).Error("import worker: failed to mark job complete")
+		fields["error"] = err.Error()
+		logging.Errorf(ctx, fields, "import worker: failed to mark job complete")
 		return
 	}
 
-	logrus.WithFields(fields).Info("import worker: job completed")
+	delete(fields, "error")
+	logging.Infof(ctx, fields, "import worker: job completed")
 }

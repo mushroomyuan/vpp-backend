@@ -10,6 +10,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/gateway/domain"
 	"github.com/mushroomyuan/vpp-backend/gateway/domain/port"
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/sirupsen/logrus"
 )
 
@@ -111,10 +112,11 @@ func (h executeCommandHandler) Handle(ctx context.Context, cmd ExecuteCommand) (
 	}); pubErr != nil {
 		// Best-effort: do not fail the gRPC acceptance path if Kafka publish fails.
 		// Dispatch TimeoutScanner / retry covers missing callbacks.
-		logrus.WithError(pubErr).WithFields(logrus.Fields{
+		logging.Errorf(ctx, logrus.Fields{
 			"command_id": cmd.CommandID,
 			"tenant_id":  cmd.TenantID,
-		}).Error("publish CommandCompleted failed")
+			"error":      pubErr.Error(),
+		}, "publish CommandCompleted failed")
 	}
 
 	return &ExecuteCommandResult{
