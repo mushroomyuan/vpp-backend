@@ -111,6 +111,24 @@ func (r *CURepositoryPostgres) Update(ctx context.Context, cu *model.CU) error {
 	return nil
 }
 
+// BatchDelete soft-deletes CU nodes and hard-deletes cus extension rows in one
+// transaction. Used by import compensation when a later chunk fails.
+func (r *CURepositoryPostgres) BatchDelete(ctx context.Context, tenantID string, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.nodeRepo.RunInTx(func(tx *gorm.DB) error {
+		if err := tx.WithContext(ctx).
+			Where("tenant_id = ? AND id IN ?", tenantID, ids).
+			Delete(&postgres.NodeModel{}).Error; err != nil {
+			return err
+		}
+		return tx.WithContext(ctx).
+			Where("tenant_id = ? AND node_id IN ?", tenantID, ids).
+			Delete(&postgres.CUModel{}).Error
+	})
+}
+
 func (r *CURepositoryPostgres) FindByID(ctx context.Context, tenantID, id string) (*model.CU, error) {
 	crow, err := r.repo.FindCUByID(ctx,
 		builder.NewCU().TenantID(tenantID).IDs(id),

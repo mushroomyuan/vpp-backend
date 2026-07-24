@@ -14,6 +14,7 @@ type CURepository interface {
 	FindByID(ctx context.Context, tenantID, id string) (*model.CU, error)
 	List(ctx context.Context, filter CUFilter) (*PageResult[*model.CU], error)
 
-	// SoftDelete(ctx context.Context,tenantID, id string) error
-	// BatchDelete(ctx context.Context, tenantID string, ids []string) error
+	// BatchDelete soft-deletes CU nodes and removes matching extension rows.
+	// Used to compensate partial imports when a later chunk fails.
+	BatchDelete(ctx context.Context, tenantID string, ids []string) error
 }

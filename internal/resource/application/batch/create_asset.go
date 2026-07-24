@@ -20,6 +20,10 @@ const defaultBatchSize = 100
 //
 // Peak memory stays proportional to batchSize rather than len(items) because
 // each chunk slice is released before the next is allocated.
+//
+// Chunks commit independently. If a later chunk (or onChunk) fails after earlier
+// chunks succeeded, already-written IDs are compensated via BatchDelete before
+// the error is returned, so RetryJob can safely re-run.
 func BatchCreateAssets(
 	ctx context.Context,
 	assetRepo port.AssetRepository,
@@ -99,7 +103,8 @@ func BatchCreateAssets(
 				MarketEnabled:   item.MarketEnabled,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("build asset at index %d: %w", globalIdx, err)
+				return nil, compensateCreated(ctx, tenantID, allIDs, assetRepo.BatchDelete,
+					fmt.Errorf("build asset at index %d: %w", globalIdx, err))
 			}
 			if item.Metadata != nil {
 				for k, v := range item.Metadata {
@@ -111,7 +116,8 @@ func BatchCreateAssets(
 		}
 
 		if err := assetRepo.BatchCreate(ctx, batch); err != nil {
-			return nil, fmt.Errorf("batch insert [%d:%d]: %w", start, end, err)
+			return nil, compensateCreated(ctx, tenantID, allIDs, assetRepo.BatchDelete,
+				fmt.Errorf("batch insert [%d:%d]: %w", start, end, err))
 		}
 
 		succeeded += len(chunk)
@@ -119,7 +125,7 @@ func BatchCreateAssets(
 
 		if onChunk != nil {
 			if err := onChunk(succeeded); err != nil {
-				return allIDs, err
+				return nil, compensateCreated(ctx, tenantID, allIDs, assetRepo.BatchDelete, err)
 			}
 		}
 	}

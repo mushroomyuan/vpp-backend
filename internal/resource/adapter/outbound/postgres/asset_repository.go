@@ -112,6 +112,24 @@ func (r *AssetRepositoryPostgres) Update(ctx context.Context, a *model.Asset) er
 	return nil
 }
 
+// BatchDelete soft-deletes asset nodes and hard-deletes assets extension rows
+// in one transaction. Used by import compensation when a later chunk fails.
+func (r *AssetRepositoryPostgres) BatchDelete(ctx context.Context, tenantID string, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.nodeRepo.RunInTx(func(tx *gorm.DB) error {
+		if err := tx.WithContext(ctx).
+			Where("tenant_id = ? AND id IN ?", tenantID, ids).
+			Delete(&postgres.NodeModel{}).Error; err != nil {
+			return err
+		}
+		return tx.WithContext(ctx).
+			Where("tenant_id = ? AND node_id IN ?", tenantID, ids).
+			Delete(&postgres.AssetModel{}).Error
+	})
+}
+
 func (r *AssetRepositoryPostgres) FindByID(ctx context.Context, tenantID, id string) (*model.Asset, error) {
 	arow, err := r.repo.FindAssetByID(ctx,
 		builder.NewAsset().TenantID(tenantID).IDs(id),

@@ -16,6 +16,10 @@ import (
 // them in fixed-size chunks. After each chunk, onChunk is called with the
 // running count of successfully inserted items; a non-nil return aborts the
 // loop. Pass nil for onChunk if no progress callback is needed.
+//
+// Chunks commit independently. If a later chunk (or onChunk) fails after earlier
+// chunks succeeded, already-written IDs are compensated via BatchDelete before
+// the error is returned, so RetryJob can safely re-run.
 func BatchCreatePoints(
 	ctx context.Context,
 	tenantID string,
@@ -87,14 +91,16 @@ func BatchCreatePoints(
 				CacheKeyAlias:    item.CacheKeyAlias,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("build point at index %d: %w", start+len(chunkIDs), err)
+				return nil, compensateCreated(ctx, tenantID, allIDs, pointRepo.BatchDelete,
+					fmt.Errorf("build point at index %d: %w", start+len(chunkIDs), err))
 			}
 			batch = append(batch, point)
 			chunkIDs = append(chunkIDs, id)
 		}
 
 		if err := pointRepo.BatchCreate(ctx, batch); err != nil {
-			return nil, fmt.Errorf("batch insert [%d:%d]: %w", start, end, err)
+			return nil, compensateCreated(ctx, tenantID, allIDs, pointRepo.BatchDelete,
+				fmt.Errorf("batch insert [%d:%d]: %w", start, end, err))
 		}
 
 		succeeded += len(chunk)
@@ -102,7 +108,7 @@ func BatchCreatePoints(
 
 		if onChunk != nil {
 			if err := onChunk(succeeded); err != nil {
-				return allIDs, err
+				return nil, compensateCreated(ctx, tenantID, allIDs, pointRepo.BatchDelete, err)
 			}
 		}
 	}

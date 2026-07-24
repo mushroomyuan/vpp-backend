@@ -12,6 +12,8 @@ type AssetRepository interface {
 	Update(ctx context.Context, Asset *model.Asset) error
 	FindByID(ctx context.Context, tenantID, id string) (*model.Asset, error)
 	List(ctx context.Context, f AssetFilter) (*PageResult[*model.Asset], error)
-	// SoftDelete(ctx context.Context, tenantID, id string) error
-	// BatchDelete(ctx context.Context, tenantID string, ids []string) error
+
+	// BatchDelete soft-deletes asset nodes and removes matching extension rows.
+	// Used to compensate partial imports when a later chunk fails.
+	BatchDelete(ctx context.Context, tenantID string, ids []string) error
 }

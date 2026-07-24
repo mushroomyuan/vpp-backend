@@ -107,6 +107,8 @@ RETURNING *
 - `ResourceImportExecutor` 默认 `batchSize = 100`（来自 payload 或 default）
 - GORM `CreateInBatches` 最大 500
 
+**部分写入补偿：** 不用整 Job 大事务。后序 chunk / `onChunk` 失败时，`BatchCreate*` 对已成功 ID 调用 `BatchDelete` 补偿删除；现有 `RetryJob` 即可重试，不新增 Retry API。进程崩溃导致的脏数据不在此路径覆盖（需后续卡住 Job / 人工处理）。
+
 ---
 
 ## ADR-006 · SoftDelete 不级联（待最终决策）

@@ -7,12 +7,14 @@ Phase 1 已具备闭环能力：Resource 加载 → Tick 遥测 → Gateway 入�
 
 ## 0. 当前状态说明
 
-| 项 | 状态 |
-|----|------|
-| Simulator 核心（Runtime / Device / Tick / Telemetry / Command / Fault / Debug） | ✅ Phase 1 完成 |
-| Gateway `adapter/outbound/simulator` 路由 | ✅ 完成 |
-| Scenario Engine / Kafka 动态增删设备 | ❌ Phase 2，未做 |
-| 单元测试套件 | ❌ 本指南以手工 / curl / grpcurl 联调为主 |
+
+| 项                                                                           | 状态                             |
+| --------------------------------------------------------------------------- | ------------------------------ |
+| Simulator 核心（Runtime / Device / Tick / Telemetry / Command / Fault / Debug） | ✅ Phase 1 完成                   |
+| Gateway `adapter/outbound/simulator` 路由                                     | ✅ 完成                           |
+| Scenario Engine / Kafka 动态增删设备                                              | ❌ Phase 2，未做                   |
+| 单元测试套件                                                                      | ❌ 本指南以手工 / curl / grpcurl 联调为主 |
+
 
 ---
 
@@ -56,13 +58,17 @@ curl -s http://127.0.0.1:8083/api/v1/tenants/default/mappings | head -c 200; ech
 curl -s http://127.0.0.1:8084/healthz; echo
 ```
 
-| 服务 | 端口 |
-|------|------|
-| resource | HTTP `:8082` / gRPC `:5002` |
-| telemetry | gRPC `:5003` |
-| gateway | HTTP `:8083` / gRPC `:5005` |
-| dispatch | gRPC `:5006` |
+
+| 服务        | 端口                             |
+| --------- | ------------------------------ |
+| resource  | HTTP `:8082` / gRPC `:5002`    |
+| telemetry | gRPC `:5003`                   |
+| gateway   | HTTP `:8083` / gRPC `:5005`    |
+| dispatch  | gRPC `:5006`                   |
 | simulator | HTTP `:8084` / metrics `:9106` |
+
+
+
 
 ### 1.3 工具
 
@@ -74,6 +80,8 @@ go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
 ```
 
 ---
+
+
 
 ## 2. 注入假数据（Onboarding）
 
@@ -93,16 +101,20 @@ source /tmp/vpp-simulator-seed.env
 - 4 CU：`Battery` / `PCS` / `PV` / `Meter`（`Provider=simulator`）
 - 对应 Point + Gateway mapping（`external_system=simulator`）
 
+
+
 ### 2.2 本次环境已注入的 ID（可直接用）
 
 若你刚跑过注入且未清库，当前 demo 数据为：
 
-| 角色 | CU UUID (`CUCode`) | ExternalID |
-|------|-------------------|------------|
+
+| 角色      | CU UUID (`CUCode`)                     | ExternalID        |
+| ------- | -------------------------------------- | ----------------- |
 | Battery | `019f4b66-f221-78f4-90f1-7ece00068084` | `sim-battery-001` |
-| PCS | `019f4b66-f28b-7451-967c-830aed0ac444` | `sim-pcs-001` |
-| PV | `019f4b66-f2cf-7d61-a159-8c2cc3c24ffc` | `sim-pv-001` |
-| Meter | `019f4b66-f301-769a-a823-f7aa9a3dce13` | `sim-meter-001` |
+| PCS     | `019f4b66-f28b-7451-967c-830aed0ac444` | `sim-pcs-001`     |
+| PV      | `019f4b66-f2cf-7d61-a159-8c2cc3c24ffc` | `sim-pv-001`      |
+| Meter   | `019f4b66-f301-769a-a823-f7aa9a3dce13` | `sim-meter-001`   |
+
 
 Tenant：`default`  
 Site：`019f4b66-b548-7c64-8b3f-e3e5089096ca`  
@@ -114,6 +126,8 @@ Asset：`019f4b66-f205-701b-98bd-51868b8453dc`
 curl -s 'http://127.0.0.1:8082/api/tenants/default/cus' | jq '.CUs[] | {ID,Name,Type,Provider,ExternalID}'
 curl -s 'http://127.0.0.1:8083/api/v1/tenants/default/mappings' | jq .
 ```
+
+
 
 ### 2.3 启动 / 重载 Simulator
 
@@ -129,6 +143,8 @@ curl -s http://127.0.0.1:8084/api/v1/runtime | jq '{device_count, devices: [.dev
 
 ---
 
+
+
 ## 3. 测试用例
 
 下面用环境变量简化命令（按你的实际 ID 改）：
@@ -142,6 +158,8 @@ export GW=http://127.0.0.1:8083
 ```
 
 ---
+
+
 
 ### T1. Simulator 健康与 Runtime 可见
 
@@ -161,6 +179,8 @@ curl -s $SIM/api/v1/devices/$BAT_EXT | jq .
 
 ---
 
+
+
 ### T2. Tick 自然演化（遥测变化）
 
 **目的：** Tick 会改内存状态。
@@ -175,6 +195,8 @@ curl -s $SIM/api/v1/devices/$BAT_EXT | jq '.points'
 **通过标准：** PV 白天应有功率；Battery 在 setpoint≠0 时 SOC 会缓慢（可先做 T3 再观察）。
 
 ---
+
+
 
 ### T3. 本地命令注入（不经 Dispatch）
 
@@ -201,6 +223,8 @@ curl -s -X POST $SIM/api/v1/devices/$BAT_EXT/command \
 ```
 
 ---
+
+
 
 ### T4. 遥测上报链路（Simulator → Gateway → Telemetry）
 
@@ -242,6 +266,8 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST \
 
 ---
 
+
+
 ### T5. Gateway → Simulator 命令（绕过 Dispatch）
 
 **目的：** Gateway 出站 `simulator` 适配器可用。
@@ -270,6 +296,8 @@ grpcurl -plaintext -d "{
 **通过标准：** 返回 `ExternalSystem=simulator`、`ExternalID=sim-battery-001`；设备 setpoint 更新。
 
 ---
+
+
 
 ### T6. 全链路 Dispatch 闭环（核心）
 
@@ -311,13 +339,15 @@ grpcurl -plaintext -d "{
 
 **通过标准：**
 
-| 检查点 | 期望 |
-|--------|------|
-| SubmitTask | `Status=running`（或很快 completed） |
-| GetTask | `Status=completed`，Command `succeeded` |
-| Simulator | `write_power_setpoint≈30` |
+
+| 检查点        | 期望                                          |
+| ---------- | ------------------------------------------- |
+| SubmitTask | `Status=running`（或很快 completed）             |
+| GetTask    | `Status=completed`，Command `succeeded`      |
+| Simulator  | `write_power_setpoint≈30`                   |
 | Gateway 日志 | `simulator: command delivered`（不是仅 ems_log） |
-| Kafka | `vpp.command.events` 有成功事件（可选消费验证） |
+| Kafka      | `vpp.command.events` 有成功事件（可选消费验证）          |
+
 
 旁路 SQL：
 
@@ -327,6 +357,8 @@ docker exec vpp-backend-postgres-1 psql -U postgres -d dispatch \
 ```
 
 ---
+
+
 
 ### T7. 故障注入：offline
 
@@ -353,6 +385,8 @@ curl -s -X POST $SIM/api/v1/faults \
 
 ---
 
+
+
 ### T8. 故障注入：command_reject
 
 ```bash
@@ -368,6 +402,8 @@ curl -s -X POST $SIM/api/v1/faults -H 'Content-Type: application/json' \
 
 ---
 
+
+
 ### T9. 故障注入：telemetry_delay
 
 ```bash
@@ -379,6 +415,8 @@ curl -s -X POST $SIM/api/v1/faults \
 **通过标准：** Tick 周期内该设备上报明显变慢；`clear` 后恢复。
 
 ---
+
+
 
 ### T10. Reset / Reload
 
@@ -392,6 +430,8 @@ curl -s -X POST $SIM/api/v1/runtime/reload | jq .
 
 ---
 
+
+
 ### T11. Mapping 缺失负向
 
 ```bash
@@ -404,11 +444,15 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST \
 
 ---
 
+
+
 ### T12. Provider 过滤
 
 Simulator 默认只加载 `Provider=simulator`。在 Resource 建一个 `Provider=other` 的 CU 后 reload，不应出现在 `/runtime`。
 
 ---
+
+
 
 ## 4. 推荐联调顺序（最短路径）
 
@@ -424,41 +468,20 @@ Simulator 默认只加载 `Provider=simulator`。在 Resource 建一个 `Provide
 
 ---
 
+
+
 ## 5. 常见问题
 
-| 现象 | 可能原因 | 处理 |
-|------|----------|------|
-| Simulator `loaded 0 devices` | 未 seed / Provider 不匹配 / seed 在启动后未 reload | seed 后 `POST /runtime/reload` |
-| 遥测 404 | Gateway 无 mapping | 检查 mappings；ExternalID 是否一致 |
-| Dispatch 立刻 Rejected | CUCode 不是 Resource UUID 或 mapping disabled | 用 seed 输出的 CU UUID |
-| 命令走 ems_log 而非 simulator | Gateway 未配 `simulator.addr` 或未重启 | 检查 `config/gateway.yaml` 并重启 Gateway |
-| CreateSite `display_name is required` | JSON 用了 camelCase `name` | Resource 用 PascalCase：`{"Name":"..."}` |
-| Tick 无变化 | 间隔未到 / 设备 offline | 等 5s+；检查 fault |
+
+| 现象                                    | 可能原因                                       | 处理                                     |
+| ------------------------------------- | ------------------------------------------ | -------------------------------------- |
+| Simulator `loaded 0 devices`          | 未 seed / Provider 不匹配 / seed 在启动后未 reload  | seed 后 `POST /runtime/reload`          |
+| 遥测 404                                | Gateway 无 mapping                          | 检查 mappings；ExternalID 是否一致            |
+| Dispatch 立刻 Rejected                  | CUCode 不是 Resource UUID 或 mapping disabled | 用 seed 输出的 CU UUID                     |
+| 命令走 ems_log 而非 simulator              | Gateway 未配 `simulator.addr` 或未重启           | 检查 `config/gateway.yaml` 并重启 Gateway   |
+| CreateSite `display_name is required` | JSON 用了 camelCase `name`                   | Resource 用 PascalCase：`{"Name":"..."}` |
+| Tick 无变化                              | 间隔未到 / 设备 offline                          | 等 5s+；检查 fault                         |
+
 
 ---
 
-## 6. 清理（可选）
-
-假数据在 Postgres `resource` / `gateway` 库中。需要干净环境时可：
-
-```bash
-# 慎用：按库清空（会删该库全部业务数据）
-docker exec -it vpp-backend-postgres-1 psql -U postgres -c '\l'
-# 或仅删 demo Site（走 Resource 删除 API / 管理端）
-```
-
-重新 seed 前若 ExternalID 冲突（mapping unique），先删旧 mapping 或换 `sim-*-002` 后缀。
-
----
-
-## 7. Phase 1 验收清单
-
-- [ ] `/runtime` 加载 4 类设备  
-- [ ] 遥测经 Gateway 进入 Telemetry  
-- [ ] Debug 本地命令可改 setpoint  
-- [ ] Gateway `ExecuteCommand` 到达 Simulator  
-- [ ] Dispatch `SubmitTask` → Task `completed`  
-- [ ] `offline` / `command_reject` / `telemetry_delay` 行为符合预期  
-- [ ] `reset` / `reload` 可用  
-
-全部勾选即表示 Simulator Phase 1 联调通过。

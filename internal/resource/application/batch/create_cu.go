@@ -16,6 +16,10 @@ import (
 // fixed-size chunks. After each chunk, onChunk is called with the running count
 // of successfully inserted items; a non-nil return aborts the loop. Pass nil
 // for onChunk if no progress callback is needed.
+//
+// Chunks commit independently. If a later chunk (or onChunk) fails after earlier
+// chunks succeeded, already-written IDs are compensated via BatchDelete before
+// the error is returned, so RetryJob can safely re-run.
 func BatchCreateCUs(
 	ctx context.Context,
 	cuRepo port.CURepository,
@@ -64,7 +68,7 @@ func BatchCreateCUs(
 		batch := make([]*model.CU, 0, len(chunk))
 		chunkIDs := make([]string, 0, len(chunk))
 
-		for idx, cuItem := range chunk { // 重命名避免混淆
+		for idx, cuItem := range chunk {
 			globalIdx := start + idx
 			id := idgen.Must()
 			subType := strings.TrimSpace(cuItem.Type)
@@ -90,7 +94,8 @@ func BatchCreateCUs(
 				},
 			)
 			if err != nil {
-				return nil, fmt.Errorf("build cu at index %d: %w", globalIdx, err)
+				return nil, compensateCreated(ctx, tenantID, allIDs, cuRepo.BatchDelete,
+					fmt.Errorf("build cu at index %d: %w", globalIdx, err))
 			}
 			if cuItem.Metadata != nil {
 				for k, v := range cuItem.Metadata {
@@ -102,7 +107,8 @@ func BatchCreateCUs(
 		}
 
 		if err := cuRepo.BatchCreate(ctx, batch); err != nil {
-			return nil, fmt.Errorf("batch insert [%d:%d]: %w", start, end, err)
+			return nil, compensateCreated(ctx, tenantID, allIDs, cuRepo.BatchDelete,
+				fmt.Errorf("batch insert [%d:%d]: %w", start, end, err))
 		}
 
 		succeeded += len(chunk)
@@ -110,8 +116,7 @@ func BatchCreateCUs(
 
 		if onChunk != nil {
 			if err := onChunk(succeeded); err != nil {
-				// 注意: 此时部分数据已写入数据库，调用方需处理清理逻辑
-				return allIDs, err
+				return nil, compensateCreated(ctx, tenantID, allIDs, cuRepo.BatchDelete, err)
 			}
 		}
 	}
