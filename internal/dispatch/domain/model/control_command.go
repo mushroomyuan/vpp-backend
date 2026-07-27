@@ -66,9 +66,12 @@ func (c *ControlCommand) MarkSucceeded(result *CommandResult) error {
 }
 
 // MarkFailed transitions the command to Failed.
-// Called both on explicit Gateway rejection and after exhausting retries.
+// Called both on explicit Gateway rejection and after exhausting retries
+// (Timeout → Failed via OnCommandTimeout).
 func (c *ControlCommand) MarkFailed(result *CommandResult) error {
-	if c.Status != CommandStatusSending && c.Status != CommandStatusPending {
+	if c.Status != CommandStatusSending &&
+		c.Status != CommandStatusPending &&
+		c.Status != CommandStatusTimeout {
 		return fmt.Errorf("dispatch: command %s cannot fail from %q", c.ID, c.Status)
 	}
 	now := time.Now()
