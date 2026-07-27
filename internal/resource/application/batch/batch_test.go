@@ -181,7 +181,9 @@ func (r *stubPointRepo) Create(context.Context, *model.Point) (*model.Point, err
 func (r *stubPointRepo) BatchCreate(context.Context, []*model.Point) error {
 	return errors.New("not implemented")
 }
-func (r *stubPointRepo) Update(context.Context, *model.Point) error { return errors.New("not implemented") }
+func (r *stubPointRepo) Update(context.Context, *model.Point) error {
+	return errors.New("not implemented")
+}
 func (r *stubPointRepo) FindByID(context.Context, string, string) (*model.Point, error) {
 	return nil, errors.New("not implemented")
 }

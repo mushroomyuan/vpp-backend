@@ -13,8 +13,8 @@ import (
 //
 // DDL overview:
 //
-//   telemetry_records  — narrow-table hypertable (one row per metric sample)
-//   telemetry_15m      — continuous aggregate; bucket = 15 minutes
+//	telemetry_records  — narrow-table hypertable (one row per metric sample)
+//	telemetry_15m      — continuous aggregate; bucket = 15 minutes
 //
 // The continuous aggregate covers AVG / MAX / MIN / SUM / COUNT / LAST for
 // every (tenant_id, cu_code, metric_name) group and is refreshed automatically

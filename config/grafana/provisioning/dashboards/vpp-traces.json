@@ -26,19 +26,23 @@
       "datasource": { "type": "jaeger", "uid": "jaeger" },
       "gridPos": { "h": 14, "w": 24, "x": 0, "y": 3 },
       "id": 2,
-      "options": { "showTime": true, "sortOrder": "Descending" },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false }
+      },
       "targets": [
         {
           "datasource": { "type": "jaeger", "uid": "jaeger" },
           "limit": 30,
-          "query": "$service",
           "queryType": "search",
           "refId": "A",
           "service": "$service"
         }
       ],
       "title": "Recent Traces",
-      "type": "traces"
+      "transformations": [],
+      "type": "table"
     },
     {
       "datasource": { "type": "loki", "uid": "loki" },

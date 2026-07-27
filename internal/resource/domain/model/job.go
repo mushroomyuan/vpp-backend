@@ -30,8 +30,8 @@ const (
 )
 
 const (
-	defaultMaxAttempts      = 3
-	retryBackoffAfterFail   = 5 * time.Minute // matches worker poll / DB scheduling behavior
+	defaultMaxAttempts    = 3
+	retryBackoffAfterFail = 5 * time.Minute // matches worker poll / DB scheduling behavior
 )
 
 // JobKind is the composite key used to look up an executor in the registry.

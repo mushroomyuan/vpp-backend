@@ -29,11 +29,11 @@ func (r *stubTelemetryRepo) Query(context.Context, model.QueryCondition) ([]*mod
 }
 
 type stubSnapshotRepo struct {
-	snap     *model.Snapshot
-	findErr  error
-	saveErr  error
-	saved    *model.Snapshot
-	saveN    int
+	snap    *model.Snapshot
+	findErr error
+	saveErr error
+	saved   *model.Snapshot
+	saveN   int
 }
 
 func (r *stubSnapshotRepo) Save(_ context.Context, snapshot *model.Snapshot) error {

@@ -13,13 +13,13 @@ import (
 
 // base holds shared point bookkeeping for all device types.
 type base struct {
-	mu         sync.RWMutex
-	spec       domain.DeviceSpec
-	status     domain.DeviceStatus
-	points     map[string]domain.PointDef
-	values     map[string]float64
-	writable   map[string]bool
-	rng        *rand.Rand
+	mu       sync.RWMutex
+	spec     domain.DeviceSpec
+	status   domain.DeviceStatus
+	points   map[string]domain.PointDef
+	values   map[string]float64
+	writable map[string]bool
+	rng      *rand.Rand
 }
 
 func newBase(spec domain.DeviceSpec) *base {
@@ -149,10 +149,10 @@ func New(spec domain.DeviceSpec) domain.Device {
 
 type battery struct {
 	*base
-	socKey     string
-	powerKey   string
+	socKey      string
+	powerKey    string
 	setpointKey string
-	tempKey    string
+	tempKey     string
 	capacityKWh float64
 	maxPowerKW  float64
 }

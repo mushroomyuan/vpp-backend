@@ -16,7 +16,7 @@ type stubJobRepo struct {
 	claimJob *model.Job
 	claimErr error
 
-	saved []*model.Job
+	saved   []*model.Job
 	saveErr error
 }
 

@@ -140,10 +140,10 @@ func (s *AggregationStore) Query(
 	var points []*model.AggregatedPoint
 	for pgxRows.Next() {
 		var (
-			bucket    time.Time
-			bucketEnd time.Time
-			tenantID  string
-			cuCode    string
+			bucket     time.Time
+			bucketEnd  time.Time
+			tenantID   string
+			cuCode     string
 			metricName string
 		)
 

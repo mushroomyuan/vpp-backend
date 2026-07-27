@@ -65,12 +65,12 @@ func (c *stubTelemetryClient) Ingest(_ context.Context, t *model.StandardTelemet
 }
 
 type stubEMSClient struct {
-	n            int
-	lastSystem   string
-	lastExtID    string
-	lastCommand  string
-	lastValue    float64
-	err          error
+	n           int
+	lastSystem  string
+	lastExtID   string
+	lastCommand string
+	lastValue   float64
+	err         error
 }
 
 func (c *stubEMSClient) SendCommand(_ context.Context, _, externalSystem, externalID, command string, value float64) error {
@@ -83,9 +83,9 @@ func (c *stubEMSClient) SendCommand(_ context.Context, _, externalSystem, extern
 }
 
 type stubPublisher struct {
-	n     int
-	last  port.CommandCompletedEvent
-	err   error
+	n    int
+	last port.CommandCompletedEvent
+	err  error
 }
 
 func (p *stubPublisher) PublishCommandCompleted(_ context.Context, event port.CommandCompletedEvent) error {

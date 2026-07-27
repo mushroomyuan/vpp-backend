@@ -16,8 +16,8 @@ type State struct {
 
 // Engine tracks injectable faults keyed by CUCode or ExternalID.
 type Engine struct {
-	mu     sync.RWMutex
-	byKey  map[string]*State
+	mu    sync.RWMutex
+	byKey map[string]*State
 }
 
 func NewEngine() *Engine {

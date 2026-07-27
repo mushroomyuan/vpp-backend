@@ -7,10 +7,10 @@ import "time"
 // IngestTelemetryRequest is the JSON body for POST /api/v1/tenants/:tenant_id/telemetry:ingest.
 // TenantID is taken from the URL path, not the body.
 type IngestTelemetryRequest struct {
-	ExternalSystem string          `json:"external_system" binding:"required"`
-	ExternalID     string          `json:"external_id" binding:"required"`
+	ExternalSystem string `json:"external_system" binding:"required"`
+	ExternalID     string `json:"external_id" binding:"required"`
 	// Timestamp is optional. When omitted the server uses time.Now().
-	Timestamp *time.Time          `json:"timestamp"`
+	Timestamp *time.Time           `json:"timestamp"`
 	Metrics   []MetricValueRequest `json:"metrics" binding:"required,min=1"`
 }
 

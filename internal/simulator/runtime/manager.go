@@ -134,13 +134,13 @@ func (m *Manager) ResetAll() {
 
 // DeviceSummary is a JSON-friendly view for Debug API.
 type DeviceSummary struct {
-	CUCode     string               `json:"cu_code"`
-	ExternalID string               `json:"external_id"`
-	Name       string               `json:"name"`
-	Type       string               `json:"type"`
-	Status     domain.DeviceStatus  `json:"status"`
-	Points     []domain.PointValue  `json:"points"`
-	Fault      fault.State          `json:"fault"`
+	CUCode     string              `json:"cu_code"`
+	ExternalID string              `json:"external_id"`
+	Name       string              `json:"name"`
+	Type       string              `json:"type"`
+	Status     domain.DeviceStatus `json:"status"`
+	Points     []domain.PointValue `json:"points"`
+	Fault      fault.State         `json:"fault"`
 }
 
 func (m *Manager) Summaries() []DeviceSummary {

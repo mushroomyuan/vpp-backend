@@ -52,10 +52,10 @@ type GatewayOptions struct {
 // KafkaOptions configures command-result consumer and task-event publisher.
 // Brokers empty → consumers/publishers degrade to no-op.
 type KafkaOptions struct {
-	Brokers      []string `mapstructure:"brokers"`
-	CommandTopic string   `mapstructure:"command-topic"`
-	DispatchTopic string  `mapstructure:"dispatch-topic"`
-	GroupID      string   `mapstructure:"group-id"`
+	Brokers       []string `mapstructure:"brokers"`
+	CommandTopic  string   `mapstructure:"command-topic"`
+	DispatchTopic string   `mapstructure:"dispatch-topic"`
+	GroupID       string   `mapstructure:"group-id"`
 }
 
 func NewOptions() *Options {

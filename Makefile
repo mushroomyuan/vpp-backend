@@ -3,14 +3,16 @@
 # Common targets:
 #   make help | infra-up | build-all | run-all | stop-all | restart
 #   make status | logs | logs SERVICE=gateway
+#   make tidy | gen | fmt | lint
 #   make clean | clean-logs | clean-telemetry | clean-all
 #
 # ─────────────────────────────────────────────────────────────────────────────
 
 SHELL := /bin/bash
 
-BIN_DIR := ./bin
-# Absolute path: run-all cds into internal/<svc>; relative LOG_DIR would break redirection.
+BIN_DIR := bin
+# Absolute paths: run-all cds into internal/<svc>; relative LOG_DIR would break redirection.
+BIN_ABS := $(abspath $(BIN_DIR))
 LOG_DIR := $(abspath data/vpp-logs)
 SERVICES := resource telemetry gateway dispatch simulator
 
@@ -46,7 +48,8 @@ help:
 	@echo "    make clean                    stop-all + clean-logs + remove $(BIN_DIR)"
 	@echo "    make clean-all                clean + clean-telemetry"
 	@echo ""
-	@echo "  Codegen / lint"
+	@echo "  Codegen / lint / modules"
+	@echo "    make tidy                     go mod tidy in internal/{platform,services}"
 	@echo "    make gen | fmt | lint"
 
 # ── single-service foreground run ─────────────────────────────────────────────
@@ -74,16 +77,18 @@ infra-up: grafana-fix-perms
 	docker compose up -d
 
 # Grafana image runs as UID 472; host bind-mount must be writable by that user.
+# Also normalize ./data/vpp-logs ownership so host processes (make run-all) can write.
 grafana-fix-perms:
 	@mkdir -p $(LOG_DIR) ./data/grafana
-	@docker run --rm -v "$(CURDIR)/data/grafana:/data" alpine:3.20 chown -R 472:472 /data
+	@docker run --rm -v "$(CURDIR)/data:/data" alpine:3.20 \
+		sh -c 'chown -R 472:472 /data/grafana && chown -R $(shell id -u):$(shell id -g) /data/vpp-logs'
 
 infra-down:
 	docker compose down
 
-# ── codegen / lint ────────────────────────────────────────────────────────────
+# ── codegen / lint / modules ──────────────────────────────────────────────────
 
-.PHONY: gen genproto gengateway fmt lint
+.PHONY: gen genproto gengateway fmt lint tidy
 gen: genproto gengateway
 
 genproto:
@@ -97,6 +102,22 @@ fmt:
 
 lint:
 	@./scripts/lint.sh
+
+# Run go mod tidy for the six internal modules (platform + services).
+tidy:
+	@failed=0; \
+	for dir in internal/platform internal/resource internal/telemetry \
+		internal/gateway internal/dispatch internal/simulator; do \
+		echo "==> go mod tidy ($$dir)"; \
+		if ( cd "$$dir" && go mod tidy ); then \
+			:; \
+		else \
+			echo "FAILED: $$dir"; \
+			failed=1; \
+		fi; \
+	done; \
+	echo "tidy done (6 modules)"; \
+	exit $$failed
 
 # ── build / run / stop / restart ──────────────────────────────────────────────
 
@@ -112,21 +133,43 @@ build-all:
 	@echo "Build completed → $(BIN_DIR)/"
 
 # Start all services in background. Simulator waits for resource+gateway ports.
+# - setsid: new session so services survive the make/shell process-group cleanup
+# - env -u LOCAL_ENV: background logs stay JSON for Loki (colored text = foreground only)
+# - pidfile records the real binary PID (via pgrep), not a shell wrapper
 run-all: build-all
-	@mkdir -p $(LOG_DIR)
-	@for name in resource telemetry gateway dispatch; do \
-		if [ -f $(LOG_DIR)/$$name.pid ] && kill -0 $$(cat $(LOG_DIR)/$$name.pid) 2>/dev/null; then \
-			echo "$$name already running (pid $$(cat $(LOG_DIR)/$$name.pid)); skip. Use 'make restart' to recycle."; \
-			continue; \
+	@mkdir -p $(LOG_DIR) $(BIN_ABS)
+	@start_svc() { \
+		name=$$1; \
+		bin="$(BIN_ABS)/$$name"; \
+		pidfile="$(LOG_DIR)/$$name.pid"; \
+		logfile="$(LOG_DIR)/$$name.log"; \
+		if [ -f $$pidfile ] && kill -0 $$(cat $$pidfile) 2>/dev/null; then \
+			echo "$$name already running (pid $$(cat $$pidfile)); skip. Use 'make restart' to recycle."; \
+			return 0; \
 		fi; \
-		( cd $(PWD)/internal/$$name && \
-			$(PWD)/$(BIN_DIR)/$$name > $(LOG_DIR)/$$name.log 2>&1 & \
-			echo $$! > $(LOG_DIR)/$$name.pid; \
-			echo "started $$name pid=$$!" ); \
-	done
-
-	@echo "Waiting for resource (:5002) and gateway (:8083)..."
-	@i=0; \
+		if pgrep -f "$${bin}$$" >/dev/null 2>&1; then \
+			echo "$$name orphan binary still running; run 'make stop-all' first."; \
+			return 1; \
+		fi; \
+		( cd "$(PWD)/internal/$$name" && \
+			setsid env -u LOCAL_ENV $$bin > $$logfile 2>&1 < /dev/null & ); \
+		sleep 0.5; \
+		pid=$$(pgrep -n -f "$${bin}$$" || true); \
+		if [ -n "$$pid" ] && kill -0 $$pid 2>/dev/null; then \
+			echo $$pid > $$pidfile; \
+			echo "started $$name pid=$$pid"; \
+			return 0; \
+		fi; \
+		echo "FAILED $$name (exited immediately — see $$logfile)"; \
+		tail -n 8 $$logfile 2>/dev/null || true; \
+		rm -f $$pidfile; \
+		return 1; \
+	}; \
+	for name in resource telemetry gateway dispatch; do \
+		start_svc $$name || exit 1; \
+	done; \
+	echo "Waiting for resource (:5002) and gateway (:8083)..."; \
+	i=0; \
 	while [ $$i -lt 45 ]; do \
 		res_ok=0; gw_ok=0; \
 		(echo >/dev/tcp/127.0.0.1/5002) >/dev/null 2>&1 && res_ok=1; \
@@ -140,41 +183,41 @@ run-all: build-all
 	done; \
 	if [ $$i -ge 45 ]; then \
 		echo "WARN: timed out waiting for resource/gateway; starting simulator anyway (it will retry)."; \
-	fi
+	fi; \
+	start_svc simulator || exit 1; \
+	echo "Services started. Logs: $(LOG_DIR)/  |  make status | make logs"
 
-	@if [ -f $(LOG_DIR)/simulator.pid ] && kill -0 $$(cat $(LOG_DIR)/simulator.pid) 2>/dev/null; then \
-		echo "simulator already running (pid $$(cat $(LOG_DIR)/simulator.pid)); skip."; \
-	else \
-		( cd $(PWD)/internal/simulator && \
-			$(PWD)/$(BIN_DIR)/simulator > $(LOG_DIR)/simulator.log 2>&1 & \
-			echo $$! > $(LOG_DIR)/simulator.pid; \
-			echo "started simulator pid=$$!" ); \
-	fi
-	@echo "Services started. Logs: $(LOG_DIR)/  |  make status | make logs"
-
-# Graceful stop, then force-kill stragglers.
+# Stop via pidfile, then sweep leftover binaries (stale pidfiles, ./bin vs bin paths).
 stop-all:
 	@mkdir -p $(LOG_DIR)
 	@for name in $(SERVICES); do \
 		pidfile=$(LOG_DIR)/$$name.pid; \
-		[ -f $$pidfile ] || continue; \
-		pid=$$(cat $$pidfile); \
-		if kill -0 $$pid 2>/dev/null; then \
-			echo "Stopping $$name pid=$$pid"; \
-			kill $$pid 2>/dev/null || true; \
-			for i in 1 2 3 4 5; do \
-				kill -0 $$pid 2>/dev/null || break; \
-				sleep 1; \
-			done; \
+		if [ -f $$pidfile ]; then \
+			pid=$$(cat $$pidfile); \
 			if kill -0 $$pid 2>/dev/null; then \
-				echo "  force kill $$name pid=$$pid"; \
-				kill -9 $$pid 2>/dev/null || true; \
+				echo "Stopping $$name pid=$$pid"; \
+				kill $$pid 2>/dev/null || true; \
+			else \
+				echo "$$name pidfile stale (pid $$pid not running)"; \
 			fi; \
-		else \
-			echo "$$name pidfile stale (pid $$pid not running)"; \
+			rm -f $$pidfile; \
 		fi; \
-		rm -f $$pidfile; \
+		orphans=$$(pgrep -f '/$(BIN_DIR)/'"$$name"'( |$$)' 2>/dev/null || true); \
+		if [ -n "$$orphans" ]; then \
+			echo "Stopping $$name orphan(s): $$orphans"; \
+			kill $$orphans 2>/dev/null || true; \
+		fi; \
 	done
+	@for i in 1 2 3 4 5; do \
+		left=$$(pgrep -f '/$(BIN_DIR)/(resource|telemetry|gateway|dispatch|simulator)( |$$)' 2>/dev/null || true); \
+		[ -z "$$left" ] && break; \
+		sleep 1; \
+	done
+	@left=$$(pgrep -f '/$(BIN_DIR)/(resource|telemetry|gateway|dispatch|simulator)( |$$)' 2>/dev/null || true); \
+	if [ -n "$$left" ]; then \
+		echo "force kill stragglers: $$left"; \
+		kill -9 $$left 2>/dev/null || true; \
+	fi
 	@echo "Services stopped."
 
 restart: stop-all run-all
@@ -193,6 +236,9 @@ status:
 			if kill -0 $$pid 2>/dev/null; then proc="UP"; else proc="DEAD"; fi; \
 		fi; \
 		if ss -ltn 2>/dev/null | grep -qE ":$$port\s"; then listen="UP"; fi; \
+		if [ "$$proc" != "UP" ] && [ "$$listen" = "UP" ]; then \
+			note="ORPHAN port holder — make stop-all"; \
+		fi; \
 		printf "%-12s %-8s %-10s %-8s %-s\n" $$name $$pid $$proc $$listen "$$note"; \
 	}; \
 	check resource  $(PORT_resource)  "gRPC (+HTTP :8082)"; \
@@ -221,9 +267,11 @@ logs:
 
 .PHONY: clean-logs clean-telemetry clean clean-all
 
+# Logs dir may be root-owned (e.g. created via sudo / prior container). Use Alpine
+# as root to wipe + recreate owned by the invoking user.
 clean-logs:
-	@rm -rf $(LOG_DIR)
-	@mkdir -p $(LOG_DIR)
+	@docker run --rm -v "$(CURDIR)/data:/data" alpine:3.20 \
+		sh -c 'rm -rf /data/vpp-logs && mkdir -p /data/vpp-logs && chown $(shell id -u):$(shell id -g) /data/vpp-logs'
 	@echo "Logs cleaned: $(LOG_DIR) (empty dir recreated for Alloy mount)"
 
 # Truncate telemetry hypertable + Redis snapshot db. Does NOT touch other DBs.

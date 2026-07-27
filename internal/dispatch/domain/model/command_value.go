@@ -6,10 +6,11 @@ import "fmt"
 // Exactly one field must be non-nil; use Validate to enforce this invariant.
 //
 // When converting to the gateway proto, map to the corresponding oneof field:
-//   BoolValue   → ExecuteCommandRequest.bool_value
-//   IntValue    → ExecuteCommandRequest.int_value
-//   FloatValue  → ExecuteCommandRequest.float_value
-//   StringValue → ExecuteCommandRequest.string_value
+//
+//	BoolValue   → ExecuteCommandRequest.bool_value
+//	IntValue    → ExecuteCommandRequest.int_value
+//	FloatValue  → ExecuteCommandRequest.float_value
+//	StringValue → ExecuteCommandRequest.string_value
 type CommandValue struct {
 	BoolValue   *bool
 	IntValue    *int64

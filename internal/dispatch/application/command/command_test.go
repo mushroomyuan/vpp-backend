@@ -103,11 +103,11 @@ func (p *stubPublisher) PublishTaskFailed(context.Context, *model.DispatchTask) 
 }
 
 var (
-	_ port.TaskRepository      = (*stubTaskRepo)(nil)
-	_ port.ActionRepository    = (*stubActionRepo)(nil)
-	_ port.CommandRepository   = (*stubCommandRepo)(nil)
-	_ appport.GatewayPort      = (*stubGateway)(nil)
-	_ port.TaskEventPublisher  = (*stubPublisher)(nil)
+	_ port.TaskRepository     = (*stubTaskRepo)(nil)
+	_ port.ActionRepository   = (*stubActionRepo)(nil)
+	_ port.CommandRepository  = (*stubCommandRepo)(nil)
+	_ appport.GatewayPort     = (*stubGateway)(nil)
+	_ port.TaskEventPublisher = (*stubPublisher)(nil)
 )
 
 func TestSubmitTask_Accepted(t *testing.T) {
@@ -118,7 +118,7 @@ func TestSubmitTask_Accepted(t *testing.T) {
 	gw := &stubGateway{status: appport.GatewayAccepted}
 	pub := &stubPublisher{}
 	h := submitTaskHandler{
-		helper: newDispatchHelper(tasks, actions, cmds, gw, pub, service.NewDispatcher()),
+		helper:                newDispatchHelper(tasks, actions, cmds, gw, pub, service.NewDispatcher()),
 		validator:             service.NewValidator(),
 		defaultCommandTimeout: 30 * time.Second,
 		defaultMaxRetries:     3,
@@ -154,7 +154,7 @@ func TestSubmitTask_RejectedFailsTask(t *testing.T) {
 	gw := &stubGateway{status: appport.GatewayRejected}
 	pub := &stubPublisher{}
 	h := submitTaskHandler{
-		helper: newDispatchHelper(tasks, &stubActionRepo{}, &stubCommandRepo{}, gw, pub, service.NewDispatcher()),
+		helper:                newDispatchHelper(tasks, &stubActionRepo{}, &stubCommandRepo{}, gw, pub, service.NewDispatcher()),
 		validator:             service.NewValidator(),
 		defaultCommandTimeout: time.Second,
 		defaultMaxRetries:     1,

@@ -11,8 +11,8 @@ import (
 )
 
 type stubJobRepo struct {
-	created []*model.Job
-	byID    map[string]*model.Job
+	created   []*model.Job
+	byID      map[string]*model.Job
 	createErr error
 	saveErr   error
 	saved     []*model.Job

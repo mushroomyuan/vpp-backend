@@ -76,12 +76,14 @@ func (a *DispatchAction) CancelPendingCommands() {
 // CommandsToDispatch returns the commands that should be sent to Gateway right now.
 //
 // Sequential policy:
-//   Returns the first Pending command (in slice order), but only if no command
-//   is currently in Sending state. If a command is already in-flight, returns nil
-//   (the continuation will be driven by the Kafka callback for that command).
+//
+//	Returns the first Pending command (in slice order), but only if no command
+//	is currently in Sending state. If a command is already in-flight, returns nil
+//	(the continuation will be driven by the Kafka callback for that command).
 //
 // Parallel policy:
-//   Returns all Pending commands regardless of any in-flight commands.
+//
+//	Returns all Pending commands regardless of any in-flight commands.
 func (a *DispatchAction) CommandsToDispatch() []*ControlCommand {
 	switch a.ExecutionPolicy {
 	case Parallel:

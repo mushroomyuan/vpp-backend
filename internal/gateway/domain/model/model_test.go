@@ -18,7 +18,7 @@ func TestNewDeviceMapping(t *testing.T) {
 	}
 
 	cases := []struct {
-		name string
+		name                     string
 		id, tenant, sys, ext, cu string
 	}{
 		{"empty id", "", "t", "s", "e", "c"},

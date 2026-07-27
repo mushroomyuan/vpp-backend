@@ -36,12 +36,12 @@ type GatewayOptions struct {
 }
 
 type RuntimeOptions struct {
-	TickInterval      time.Duration `mapstructure:"tick-interval"`
-	PublishEnabled    bool          `mapstructure:"publish-enabled"` // false → Tick only, no Gateway ingest
-	TraceSampleEvery  int           `mapstructure:"trace-sample-every"` // create tick/publish spans every N ticks; 1 = every tick
-	SiteIDs           []string      `mapstructure:"site-ids"`
-	CUIDs             []string      `mapstructure:"cu-ids"`
-	RequireProvider   string        `mapstructure:"require-provider"` // default "simulator"; empty = no provider filter
+	TickInterval     time.Duration `mapstructure:"tick-interval"`
+	PublishEnabled   bool          `mapstructure:"publish-enabled"`    // false → Tick only, no Gateway ingest
+	TraceSampleEvery int           `mapstructure:"trace-sample-every"` // create tick/publish spans every N ticks; 1 = every tick
+	SiteIDs          []string      `mapstructure:"site-ids"`
+	CUIDs            []string      `mapstructure:"cu-ids"`
+	RequireProvider  string        `mapstructure:"require-provider"` // default "simulator"; empty = no provider filter
 }
 
 func NewOptions() *Options {

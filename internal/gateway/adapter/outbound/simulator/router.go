@@ -12,7 +12,7 @@ import (
 // everything else → Default (typically ems_log or a real EMS adapter).
 type Router struct {
 	Simulator port.EMSClient
-	Default  port.EMSClient
+	Default   port.EMSClient
 }
 
 var _ port.EMSClient = (*Router)(nil)

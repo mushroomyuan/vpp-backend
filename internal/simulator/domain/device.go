@@ -58,8 +58,8 @@ type Device interface {
 type FaultKind string
 
 const (
-	FaultOffline         FaultKind = "offline"
-	FaultCommandReject   FaultKind = "command_reject"
-	FaultTelemetryDelay  FaultKind = "telemetry_delay"
-	FaultClear           FaultKind = "clear"
+	FaultOffline        FaultKind = "offline"
+	FaultCommandReject  FaultKind = "command_reject"
+	FaultTelemetryDelay FaultKind = "telemetry_delay"
+	FaultClear          FaultKind = "clear"
 )
