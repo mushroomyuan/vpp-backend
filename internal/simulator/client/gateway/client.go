@@ -15,13 +15,15 @@ import (
 
 // Config for Gateway HTTP ingest.
 type Config struct {
-	BaseURL string // e.g. http://127.0.0.1:8083
+	BaseURL string // e.g. http://127.0.0.1:9080/gateway
+	APIKey  string // X-API-KEY when traffic goes through APISIX key-auth
 	Timeout time.Duration
 }
 
 // Client posts telemetry to Gateway.
 type Client struct {
 	baseURL    string
+	apiKey     string
 	httpClient *http.Client
 }
 
@@ -48,6 +50,7 @@ func New(cfg Config) (*Client, error) {
 	}
 	return &Client{
 		baseURL: base,
+		apiKey:  strings.TrimSpace(cfg.APIKey),
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
@@ -86,6 +89,9 @@ func (c *Client) IngestTelemetry(
 		return fmt.Errorf("build ingest request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
+		req.Header.Set("X-API-KEY", c.apiKey)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

@@ -507,7 +507,8 @@ curl http://127.0.0.1:9104/metrics | grep app_
 - [ ] **Kafka 消费者**：订阅 resource CU 生命周期事件，自动禁用/清理 stale mapping（v2）
 - [ ] **Resource 存在性校验**：创建映射时可选调用 resource gRPC 验证 CUCode（v2）
 - [ ] **单元 / 集成测试**：Application Handler mock 测试 + testcontainers 端到端
-- [ ] **认证鉴权**：HTTP API Key / mTLS（通常由 APISIX 层承担）
+- [x] **APISIX key-auth（Phase 1）**：外部 EMS 经 APISIX `:9080/gateway/*` 需 `X-API-KEY`；Gateway 应用内不重复校验
+- [ ] **mTLS**（真实 EMS 对接，APISIX `mutual-tls` 插件）
 
 ### 📌 已知限制
 
@@ -515,5 +516,5 @@ curl http://127.0.0.1:9104/metrics | grep app_
 |---|---|
 | EMS 为 log-only | v1 不连接真实 EMS，仅验证 dispatch → mapping → adapter 链路 |
 | 映射手动维护 | v1 无 Kafka 自动同步；CU 删除后需运维手动 `DisableMapping` |
-| 无 HTTP 鉴权 | 外部 EMS 接口暂未配置认证，生产环境建议经 APISIX 接入 |
+| 无应用内 HTTP 鉴权 | 认证由 APISIX key-auth 承担（Phase 1）；直连 `:8083` 仅用于本地调试 |
 | WSL 5004 端口 | 部分 WSL2 环境 TCP 5004 不可用，已改用 5005 |

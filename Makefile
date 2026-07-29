@@ -3,6 +3,7 @@
 # Common targets:
 #   make help | infra-up | build-all | run-all | stop-all | restart
 #   make status | logs | logs SERVICE=gateway
+#   make apisix-up | apisix-init | apisix-down | apisix-status
 #   make tidy | gen | fmt | lint
 #   make clean | clean-logs | clean-telemetry | clean-all
 #
@@ -14,6 +15,8 @@ BIN_DIR := bin
 # Absolute paths: run-all cds into internal/<svc>; relative LOG_DIR would break redirection.
 BIN_ABS := $(abspath $(BIN_DIR))
 LOG_DIR := $(abspath data/vpp-logs)
+APISIX_COMPOSE := deploy/apisix/docker-compose.apisix.yaml
+DOCKER_COMPOSE := $(shell command -v docker-compose >/dev/null 2>&1 && echo docker-compose || echo "docker compose")
 SERVICES := resource telemetry gateway dispatch simulator
 
 # Primary listen port used by `status` (gRPC where available; HTTP for simulator).
@@ -31,6 +34,9 @@ help:
 	@echo ""
 	@echo "  Infra"
 	@echo "    make infra-up / infra-down     Start/stop docker compose stack"
+	@echo "    make apisix-up / apisix-down   Start/stop APISIX edge gateway"
+	@echo "    make apisix-init               Install Phase 0 transparent proxy routes"
+	@echo "    make apisix-status             APISIX + backend port health"
 	@echo ""
 	@echo "  Services"
 	@echo "    make build-all                Build all binaries → $(BIN_DIR)/"
@@ -85,6 +91,48 @@ grafana-fix-perms:
 
 infra-down:
 	docker compose down
+
+# ── APISIX northbound edge (Phase 0) ──────────────────────────────────────────
+
+.PHONY: apisix-up apisix-down apisix-init apisix-status apisix-logs
+apisix-up:
+	$(DOCKER_COMPOSE) -f $(APISIX_COMPOSE) up -d
+	@echo "APISIX starting. Proxy :9080 | Admin :9181 | Metrics :9091"
+	@echo "Next: make run-all && make apisix-init"
+
+apisix-down:
+	$(DOCKER_COMPOSE) -f $(APISIX_COMPOSE) down
+
+apisix-init:
+	@bash deploy/apisix/init.sh
+
+apisix-logs:
+	$(DOCKER_COMPOSE) -f $(APISIX_COMPOSE) logs -f apisix
+
+apisix-status:
+	@printf "%-14s %-8s %-s\n" "COMPONENT" "PORT" "STATUS"
+	@printf "%-14s %-8s %-s\n" "-----------" "----" "------"
+	@check_port() { \
+		name=$$1; port=$$2; \
+		if ss -ltn 2>/dev/null | grep -qE ":$$port\s"; then \
+			printf "%-14s %-8s %-s\n" $$name $$port "UP"; \
+		else \
+			printf "%-14s %-8s %-s\n" $$name $$port "DOWN"; \
+		fi; \
+	}; \
+	check_port apisix-proxy 9080; \
+	check_port apisix-admin 9181; \
+	check_port gateway-http 8083; \
+	check_port resource-http 8082; \
+	if curl --noproxy '*' -sf http://127.0.0.1:9181/apisix/admin/routes \
+		-H "X-API-KEY: $$(awk '/key:/{print $$2; exit}' deploy/apisix/conf/config.yaml)" >/dev/null 2>&1; then \
+		routes=$$(curl --noproxy '*' -sf http://127.0.0.1:9181/apisix/admin/routes \
+			-H "X-API-KEY: $$(awk '/key:/{print $$2; exit}' deploy/apisix/conf/config.yaml)" | \
+			grep -o '"total":[0-9]*' | head -1 | cut -d: -f2); \
+		echo "routes-configured: $${routes:-unknown}"; \
+	else \
+		echo "routes-configured: admin-unreachable"; \
+	fi
 
 # ── codegen / lint / modules ──────────────────────────────────────────────────
 

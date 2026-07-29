@@ -1,0 +1,18 @@
+# Resource service transparent proxy route (Phase 0 reference).
+# Applied by deploy/apisix/init.sh via Admin API.
+
+upstream_id: resource-backend
+upstream:
+  type: roundrobin
+  nodes:
+    host.docker.internal:8082: 1
+
+route:
+  name: resource-proxy
+  uri: /resource/*
+  backend_path: /api/tenants/*
+  plugins:
+    proxy-rewrite:
+      regex_uri:
+        - "^/resource/(.*)"
+        - "/$1"

@@ -24,10 +24,12 @@ Phase 1 已具备闭环能力：Resource 加载 → Tick 遥测 → Gateway 入�
 
 ```bash
 cd /home/yfz/project/vpp-backend
-docker compose up -d postgres redis kafka consul jaeger
+make infra-up
+make apisix-up
+make apisix-init    # Phase 1: gateway 路由需 X-API-KEY
 ```
 
-确认端口：`5432` / `6379` / `9092` / `8500` / `4318`。
+确认端口：`5432` / `6379` / `9092` / `8500` / `4318` / **9080（APISIX）**。
 
 ### 1.2 启动五个服务（各开一个终端）
 
@@ -53,8 +55,14 @@ cd internal/simulator && go run ./cmd -c ../../config/simulator.yaml
 健康检查：
 
 ```bash
+# resource / gateway 直连（开发调试）
 curl -s http://127.0.0.1:8082/api/tenants/default/sites | head -c 200; echo
 curl -s http://127.0.0.1:8083/api/v1/tenants/default/mappings | head -c 200; echo
+
+# 经 APISIX（Simulator 实际路径，需 X-API-KEY）
+curl --noproxy '*' -s -H 'X-API-KEY: vpp-dev-simulator-key' \
+  http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings | head -c 200; echo
+
 curl -s http://127.0.0.1:8084/healthz; echo
 ```
 
@@ -63,7 +71,8 @@ curl -s http://127.0.0.1:8084/healthz; echo
 | --------- | ------------------------------ |
 | resource  | HTTP `:8082` / gRPC `:5002`    |
 | telemetry | gRPC `:5003`                   |
-| gateway   | HTTP `:8083` / gRPC `:5005`    |
+| APISIX（北向入口） | HTTP `:9080`（`/gateway/*` 需 Key） |
+| gateway   | HTTP `:8083` / gRPC `:5005`（内网，Simulator 经 APISIX） |
 | dispatch  | gRPC `:5006`                   |
 | simulator | HTTP `:8084` / metrics `:9106` |
 

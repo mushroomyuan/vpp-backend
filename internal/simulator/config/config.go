@@ -19,6 +19,7 @@ type Config struct {
 
 	ResourceGRPCAddr string
 	GatewayHTTPAddr  string
+	GatewayAPIKey    string
 
 	TickInterval     time.Duration
 	PublishEnabled   bool
@@ -43,6 +44,7 @@ func CreateFromOptions(opts *options.Options) *Config {
 		TelemetryInsecure: opts.Tracing.Insecure,
 		ResourceGRPCAddr:  opts.Resource.GRPCAddr,
 		GatewayHTTPAddr:   opts.Gateway.HTTPAddr,
+		GatewayAPIKey:     opts.Gateway.APIKey,
 		TickInterval:      opts.Runtime.TickInterval,
 		PublishEnabled:    opts.Runtime.PublishEnabled,
 		TraceSampleEvery:  sampleEvery,

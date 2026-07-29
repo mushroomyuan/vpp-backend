@@ -13,7 +13,9 @@ resource:
   grpc-addr: 127.0.0.1:5002
 
 gateway:
-  http-addr: http://127.0.0.1:8083
+  # APISIX northbound entry (Phase 1 key-auth). Direct :8083 bypasses auth for local debug.
+  http-addr: http://127.0.0.1:9080/gateway
+  api-key: vpp-dev-simulator-key
 
 runtime:
   # Device Tick + telemetry ingest interval (was 5s; raised to cut local DB growth).

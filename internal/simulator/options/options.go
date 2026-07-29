@@ -32,7 +32,8 @@ type ResourceOptions struct {
 }
 
 type GatewayOptions struct {
-	HTTPAddr string `mapstructure:"http-addr"` // e.g. http://127.0.0.1:8083
+	HTTPAddr string `mapstructure:"http-addr"` // e.g. http://127.0.0.1:9080/gateway
+	APIKey   string `mapstructure:"api-key"`   // X-API-KEY for APISIX key-auth
 }
 
 type RuntimeOptions struct {
@@ -56,7 +57,8 @@ func NewOptions() *Options {
 			GRPCAddr: "127.0.0.1:5002",
 		},
 		Gateway: GatewayOptions{
-			HTTPAddr: "http://127.0.0.1:8083",
+			HTTPAddr: "http://127.0.0.1:9080/gateway",
+			APIKey:   "vpp-dev-simulator-key",
 		},
 		Runtime: RuntimeOptions{
 			TickInterval:     30 * time.Second,

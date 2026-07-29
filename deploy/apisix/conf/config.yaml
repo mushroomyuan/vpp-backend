@@ -1,0 +1,39 @@
+#
+# APISIX bootstrap config (Phase 0 — transparent reverse proxy).
+# Mounted as a single file (not the whole conf/ dir — APISIX must write nginx.conf in-container).
+#
+apisix:
+  node_listen: 9080
+  enable_ipv6: false
+  # Fixed node id avoids APISIX trying to rewrite config.yaml on the host bind-mount.
+  id: vpp-dev-apisix-1
+
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+  admin:
+    allow_admin:
+      - 0.0.0.0/0
+    admin_listen:
+      ip: 0.0.0.0
+      port: 9180
+    admin_key:
+      - name: admin
+        key: edd1c9f034335f136f87ad84b625c8f1
+        role: admin
+  etcd:
+    host:
+      - "http://etcd:2379"
+    prefix: "/apisix"
+    timeout: 30
+
+plugin_attr:
+  prometheus:
+    export_addr:
+      ip: "0.0.0.0"
+      port: 9091
+
+nginx_config:
+  error_log: "/dev/stderr"
+  error_log_level: "warn"

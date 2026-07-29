@@ -1,0 +1,60 @@
+# APISIX northbound edge gateway (Phase 0 — transparent proxy).
+#
+# Usage (from repo root):
+#   make apisix-up
+#   make run-all          # business services on host :8082 / :8083
+#   make apisix-init
+#
+# Upstreams target host.docker.internal so APISIX in Docker can reach
+# Go services started via `make run-*` on the WSL/host.
+
+services:
+  etcd:
+    image: bitnamilegacy/etcd:3.5.11
+    restart: unless-stopped
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+    volumes:
+      - apisix_etcd_data:/bitnami/etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  apisix:
+    image: apache/apisix:3.11.0-debian
+    restart: unless-stopped
+    depends_on:
+      - etcd
+    volumes:
+      # Only override config.yaml; leave nginx.conf/mime.types to the image (writable in-container).
+      - ./conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - apisix_logs:/usr/local/apisix/logs
+    ports:
+      - "9080:9080"   # HTTP proxy (northbound entry)
+      - "9443:9443"   # HTTPS (unused in Phase 0)
+      - "9181:9180"   # Admin API (host 9181 — avoids local port/proxy conflicts)
+      - "9091:9091"   # Prometheus metrics (Phase 3)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-sf",
+          "http://127.0.0.1:9180/apisix/admin/routes",
+          "-H",
+          "X-API-KEY: edd1c9f034335f136f87ad84b625c8f1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+volumes:
+  apisix_etcd_data:
+  apisix_logs:

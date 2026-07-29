@@ -57,7 +57,10 @@ func createServer(appCfg *config.Config) (*simulatorServer, error) {
 		return nil, fmt.Errorf("init resource client: %w", err)
 	}
 
-	gatewayCli, err := gatewayclient.New(gatewayclient.Config{BaseURL: appCfg.GatewayHTTPAddr})
+	gatewayCli, err := gatewayclient.New(gatewayclient.Config{
+		BaseURL: appCfg.GatewayHTTPAddr,
+		APIKey:  appCfg.GatewayAPIKey,
+	})
 	if err != nil {
 		metricsCancel()
 		_ = resourceCli.Close()

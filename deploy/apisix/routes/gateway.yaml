@@ -1,0 +1,28 @@
+# Gateway service transparent proxy route (Phase 1).
+# Applied by deploy/apisix/init.sh via Admin API.
+
+upstream_id: gateway-backend
+upstream:
+  type: roundrobin
+  nodes:
+    host.docker.internal:8083: 1
+
+consumer:
+  username: simulator_default
+  api_key: vpp-dev-simulator-key   # see conf/consumers.yaml
+
+route:
+  name: gateway-proxy
+  uri: /gateway/*
+  backend_path: /api/v1/tenants/*
+  plugins:
+    proxy-rewrite:
+      regex_uri:
+        - "^/gateway/(.*)"
+        - "/$1"
+    key-auth: {}
+    limit-req:
+      rate: 100
+      burst: 200
+      key: remote_addr
+      rejected_code: 429

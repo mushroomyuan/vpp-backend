@@ -1,0 +1,8 @@
+# Dev consumer credentials for APISIX key-auth (Phase 1).
+# Username must match ^[a-zA-Z0-9_]+$ (no hyphens).
+
+simulator_default:
+  username: simulator_default
+  tenant_id: default
+  external_system: simulator
+  api_key: vpp-dev-simulator-key
