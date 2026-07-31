@@ -1,5 +1,8 @@
-# Resource service transparent proxy route (Phase 0 reference).
+# Resource service route (Phase 2 — Casdoor OIDC).
 # Applied by deploy/apisix/init.sh via Admin API.
+#
+# Path C: openid-connect bearer_only + set_userinfo_header only
+# (no Lua; Resource parses X-Userinfo in C3).
 
 upstream_id: resource-backend
 upstream:
@@ -16,3 +19,21 @@ route:
       regex_uri:
         - "^/resource/(.*)"
         - "/$1"
+    openid-connect:
+      client_id: vpp-resource-dev-client
+      client_secret: vpp-resource-dev-secret
+      # Reachable from APISIX container (Casdoor origin = host.docker.internal:8000).
+      discovery: http://host.docker.internal:8000/.well-known/openid-configuration
+      bearer_only: true
+      realm: vpp
+      use_jwks: true
+      ssl_verify: false
+      set_userinfo_header: true
+      set_access_token_header: true
+      access_token_in_authorization_header: true
+      set_id_token_header: false
+    limit-req:
+      rate: 30
+      burst: 50
+      key: remote_addr
+      rejected_code: 429

@@ -28,6 +28,10 @@ flowchart TB
 
         Prom["Prometheus :9090"]
 
+        Casdoor["Casdoor IdP :8000"]
+
+        APISIX["APISIX :9080<br/>北向入口"]
+
     end
 
     subgraph Resource["vpp-resource"]
@@ -78,11 +82,19 @@ flowchart TB
 
     Redis -->|db=1 CU 快照| Telemetry
 
-    Admin -->|REST| R_HTTP
+    Admin -->|REST Bearer JWT| APISIX
 
     Admin -->|gRPC SubmitTask| D_GRPC
 
-    EMS -->|POST telemetry:ingest<br/>POST /mappings| G_HTTP
+    EMS -->|X-API-KEY| APISIX
+
+    APISIX -->|"/resource/* OIDC"| R_HTTP
+
+    APISIX -->|"/gateway/* key-auth"| G_HTTP
+
+    Casdoor -.->|JWKS / 签发 JWT| APISIX
+
+    Casdoor -.->|Password Grant / 登录| Admin
 
     D_GRPC --> D_APP
 
@@ -146,14 +158,14 @@ flowchart TB
 
 | **调用方**   | **被调用方**                 | **协议**       | **状态**      | **说明**                                        |
 | --------- | ------------------------ | ------------ | ----------- | --------------------------------------------- |
-| EMS       | gateway                  | HTTP `:8083` | ✅ 已通        | 遥测上报、映射 CRUD                                  |
+| EMS       | gateway（经 APISIX）     | HTTP `:9080/gateway` | ✅ 已通 | `X-API-KEY`；也可直连 `:8083` 本地调试 |
+| 管理端       | resource（经 APISIX）    | HTTP `:9080/resource` | ✅ 已通 | Casdoor JWT + OIDC；直连 `:8082` 可关应用鉴权 |
 | gateway   | telemetry                | gRPC `:5003` | ✅ 已通        | `IngestTelemetry`，配置写死在 `gateway.yaml`        |
 | 管理端 / 算法  | dispatch                 | gRPC `:5006` | ✅ **v2 已通** | `SubmitTask` / `GetTask`（`CancelTask` 未实现）   |
 | dispatch  | gateway                  | gRPC `:5005` | ✅ **v2 已通** | `ExecuteCommand`（CommandID / PointKey / oneof Value） |
 | gateway   | 外部系统 / Simulator     | HTTP         | ✅ **simulator 已通** | `ExternalSystem=simulator` → Simulator；其它 → `ems_log`；成功后发 Kafka 回调 |
-| simulator | gateway                  | HTTP `:8083` | ✅ **新增**    | 遥测 `telemetry:ingest`（`external_system=simulator`） |
+| simulator | gateway                  | HTTP `:9080/gateway` 或 `:8083` | ✅ **新增**    | 遥测 `telemetry:ingest`（经 APISIX 需 api-key） |
 | gateway   | simulator                | HTTP `:8084` | ✅ **新增**    | 命令 `POST /api/v1/commands` |
-| 管理端       | resource                 | HTTP `:8082` | ✅ 已通        | grpc-gateway 转 gRPC                           |
 | **任意**    | **resource**             | —            | ❌ 无         | gateway **不调用** resource（通过 Kafka 解耦）         |
 | **任意**    | **telemetry → resource** | —            | ❌ 无         | telemetry 不查 resource，只认 `(TenantID, CUCode)` |
 | telemetry | Kafka                    | 生产           | ✅ 已通        | 离散量 SOE → `vpp.soe.events`                    |
@@ -359,10 +371,15 @@ EMS ──HTTP──▶ gateway ──查 mapping(DB)──▶ gRPC IngestTeleme
 
 ```
 
-管理端 ──HTTP──▶ resource ──▶ Postgres + Redis(db=0)
-                   │
-                   └──▶ Kafka: vpp.resource.events ──▶ gateway lifecycle_consumer
-                                                            └──▶ Disable DeviceMapping
+管理端 ──Bearer JWT──▶ APISIX :9080/resource/* ──X-Userinfo──▶ resource :8082
+                                                                      │
+                                                                      └──▶ Postgres + Redis(db=0)
+                                                                             │
+                                                                             └──▶ Kafka: vpp.resource.events ──▶ gateway lifecycle_consumer
+
+EMS / Simulator ──X-API-KEY──▶ APISIX :9080/gateway/* ──▶ gateway :8083
+
+Casdoor :8000 签发 JWT；APISIX 验签（详见 docs/CASDOOR.md、docs/APISIX.md）。
 
 ```
 
@@ -384,12 +401,16 @@ EMS ──HTTP──▶ gateway ──查 mapping(DB)──▶ gRPC IngestTeleme
 
 | 服务 | gRPC | HTTP | Metrics |
 |---|---|---|---|
+| **APISIX**（北向） | — | **`:9080`**（Admin API `:9181`） | — |
+| **Casdoor**（IdP） | — | **`:8000`** | — |
 | resource | `:5002` | `:8082` (grpc-gateway) | `:9102` |
 | telemetry | `:5003` | — | `:9103` |
 | gateway | `:5005` | `:8083` | `:9104` |
 | **dispatch** | **`:5006`** | — | **`:9105`** |
 | **simulator** | — | **`:8084`** | **`:9106`** |
 
+北向鉴权：管理端 → `:9080/resource/*`（Casdoor OIDC）；EMS → `:9080/gateway/*`（`key-auth`）。详见 [`docs/CASDOOR.md`](docs/CASDOOR.md)、[`docs/APISIX.md`](docs/APISIX.md)。
+
 ---
 
-**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。后续重点：真实外部系统适配、`CancelTask`、告警消费 `vpp.dispatch.events` / SOE、Simulator Scenario Engine。
+**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。后续重点：真实外部系统适配、`CancelTask`、告警消费 `vpp.dispatch.events` / SOE、Simulator Scenario Engine、APISIX metrics（Phase 3）。

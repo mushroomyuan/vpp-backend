@@ -146,6 +146,9 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 	// ── HTTP layer (gin + grpc-gateway in-process) ────────────────────────────
 	logger := logrus.NewEntry(logrus.StandardLogger())
 	ginEngine := platformserver.NewGinEngine(cfg.ServiceName, logger)
+	ginEngine.Use(gatewaypkg.AuthMiddleware(gatewaypkg.AuthConfig{
+		TrustProxyHeaders: cfg.TrustProxyHeaders,
+	}))
 
 	if err := gatewaypkg.MountGateway(context.Background(), ginEngine, resourceSvc); err != nil {
 		metricsCancel()

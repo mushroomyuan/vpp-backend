@@ -14,6 +14,11 @@ resource:
   metrics-addr: 127.0.0.1:9102
   consul-addr: 127.0.0.1:8500
 
+  # When true (recommended behind APISIX): require X-Userinfo, enforce tenant + RBAC.
+  # When false: auth bypass for local direct :8082 debugging (do not trust client-forged headers).
+  auth:
+    trust-proxy-headers: false
+
 database:
   driver: postgres
   host: 127.0.0.1

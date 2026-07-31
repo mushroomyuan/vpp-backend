@@ -508,6 +508,7 @@ curl http://127.0.0.1:9104/metrics | grep app_
 - [ ] **Resource 存在性校验**：创建映射时可选调用 resource gRPC 验证 CUCode（v2）
 - [ ] **单元 / 集成测试**：Application Handler mock 测试 + testcontainers 端到端
 - [x] **APISIX key-auth（Phase 1）**：外部 EMS 经 APISIX `:9080/gateway/*` 需 `X-API-KEY`；Gateway 应用内不重复校验
+- [x] **APISIX + Casdoor OIDC（Phase 2）**：管理端经 `:9080/resource/*`（Resource 侧 RBAC；与 Gateway EMS 线独立）
 - [ ] **mTLS**（真实 EMS 对接，APISIX `mutual-tls` 插件）
 
 ### 📌 已知限制

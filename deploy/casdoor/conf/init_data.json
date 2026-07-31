@@ -1,0 +1,328 @@
+{
+  "organizations": [
+    {
+      "owner": "admin",
+      "name": "default",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Default Tenant",
+      "websiteUrl": "http://127.0.0.1:8000",
+      "favicon": "",
+      "passwordType": "bcrypt",
+      "passwordSalt": "",
+      "passwordOptions": [
+        "AtLeast6"
+      ],
+      "countryCodes": [
+        "CN",
+        "US"
+      ],
+      "defaultAvatar": "",
+      "defaultApplication": "vpp-resource",
+      "tags": [],
+      "languages": [
+        "en",
+        "zh"
+      ],
+      "masterPassword": "",
+      "defaultPassword": "",
+      "initScore": 2000,
+      "enableSoftDeletion": false,
+      "isProfilePublic": true,
+      "disableSignin": false,
+      "accountItems": [
+        {
+          "name": "Organization",
+          "visible": true,
+          "viewRule": "Public",
+          "modifyRule": "Admin"
+        },
+        {
+          "name": "ID",
+          "visible": true,
+          "viewRule": "Public",
+          "modifyRule": "Immutable"
+        },
+        {
+          "name": "Name",
+          "visible": true,
+          "viewRule": "Public",
+          "modifyRule": "Admin"
+        },
+        {
+          "name": "Display name",
+          "visible": true,
+          "viewRule": "Public",
+          "modifyRule": "Self"
+        },
+        {
+          "name": "Avatar",
+          "visible": true,
+          "viewRule": "Public",
+          "modifyRule": "Self"
+        },
+        {
+          "name": "User type",
+          "visible": true,
+          "viewRule": "Public",
+          "modifyRule": "Admin"
+        },
+        {
+          "name": "Password",
+          "visible": true,
+          "viewRule": "Self",
+          "modifyRule": "Self"
+        },
+        {
+          "name": "Email",
+          "visible": true,
+          "viewRule": "Public",
+          "modifyRule": "Self"
+        },
+        {
+          "name": "Phone",
+          "visible": true,
+          "viewRule": "Public",
+          "modifyRule": "Self"
+        },
+        {
+          "name": "Roles",
+          "visible": true,
+          "viewRule": "Public",
+          "modifyRule": "Immutable"
+        },
+        {
+          "name": "Permissions",
+          "visible": true,
+          "viewRule": "Public",
+          "modifyRule": "Immutable"
+        },
+        {
+          "name": "Is admin",
+          "visible": true,
+          "viewRule": "Admin",
+          "modifyRule": "Admin"
+        },
+        {
+          "name": "Is forbidden",
+          "visible": true,
+          "viewRule": "Admin",
+          "modifyRule": "Admin"
+        },
+        {
+          "name": "Is deleted",
+          "visible": true,
+          "viewRule": "Admin",
+          "modifyRule": "Admin"
+        }
+      ]
+    }
+  ],
+  "certs": [
+    {
+      "owner": "admin",
+      "name": "cert-vpp",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP DEV JWT Cert (fixed)",
+      "scope": "JWT",
+      "type": "x509",
+      "cryptoAlgorithm": "RS256",
+      "bitSize": 2048,
+      "expireInYears": 10,
+      "certificate": "-----BEGIN CERTIFICATE-----\nMIIDFTCCAf2gAwIBAgIUc1INZSiwk1FeotblwQ/jhjxh6AYwDQYJKoZIhvcNAQEL\nBQAwGjEYMBYGA1UEAwwPdnBwLWNhc2Rvb3ItZGV2MB4XDTI2MDcyOTA5Mzg1NFoX\nDTM2MDcyNjA5Mzg1NFowGjEYMBYGA1UEAwwPdnBwLWNhc2Rvb3ItZGV2MIIBIjAN\nBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAirmu/Go26VHd/zr8JIt0x+F4peLL\nOcovdRDaEZqVjzvCSqZOnhYvCh0URtQfBAq78Hk2dX6/y5koLC2txmNdZU5fippL\nXeDeqlGInB3VCJkMp6ALXV52Ay1jcuB4Q8Js1iFOTBgIpA+2NW9ZCgrvwcQsnkK+\n6idFuV94x/6T2lWg7hrVLYYpvVmZYzw+U1AOxTqHfT6YmTw5UFpehyzQ/mGgovRz\nIUWwCRN14skcERdIh+uWcn3ZLHIduBkWvRiEPT7TCI8/NyIeAY2OPcHUy1g/0wJF\nTnoWVWFjLK0JcFUOqgJiv8Qs/EB42xiiE0VxrmOw1gM8l3FIikVN5qNAxQIDAQAB\no1MwUTAdBgNVHQ4EFgQUYQyxd0BEcQYxbi7J9EwuYgJhpCEwHwYDVR0jBBgwFoAU\nYQyxd0BEcQYxbi7J9EwuYgJhpCEwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0B\nAQsFAAOCAQEAeigeOEPkZVkdtkrNBSEDyZK81YlGnDqM9lLZLmuBU9JuZWaZvJKW\nN+3pfDHxA2UCV91OIHMaqD0YMufzG+4vYJLeCmF5kew6/7L7ka0EPitcdJF/4wfb\njv+AbeAFVqUle9t2f81qhFfhhuggMJ52bJz1lSgF4VzYJE+7ChAchhtKIPOZF/dE\nJfSqUtWwiKSpESepVezNILRGe3l10Lm4hoyaWO15f8lRV028znz5GSJFAntzh35H\nvU7QOxscamtKO8OC6gB+SCw7UDAb9oHb3SPAb0NX70ixAJ333fSA93UzIvihlJa4\nv+4rYJZgctkaUVjl+VzIoFs58pYayY56Zw==\n-----END CERTIFICATE-----\n",
+      "privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCKua78ajbpUd3/\nOvwki3TH4Xil4ss5yi91ENoRmpWPO8JKpk6eFi8KHRRG1B8ECrvweTZ1fr/LmSgs\nLa3GY11lTl+Kmktd4N6qUYicHdUImQynoAtdXnYDLWNy4HhDwmzWIU5MGAikD7Y1\nb1kKCu/BxCyeQr7qJ0W5X3jH/pPaVaDuGtUthim9WZljPD5TUA7FOod9PpiZPDlQ\nWl6HLND+YaCi9HMhRbAJE3XiyRwRF0iH65Zyfdksch24GRa9GIQ9PtMIjz83Ih4B\njY49wdTLWD/TAkVOehZVYWMsrQlwVQ6qAmK/xCz8QHjbGKITRXGuY7DWAzyXcUiK\nRU3mo0DFAgMBAAECggEACIKoqgKIGNs1X8WKF2HYybRa1u5pYkO1kpx0jFTr7OwR\nGMxIEWmx/BBZoJi9yF0yN2fwP9gFQyPDs6YfvYZ2AdODh/i8O+eiMVesJkusOIlP\nHe9zEwjK+5nqum7r4dhJHf/QEln9Gbd/CZspnrSaDcyPoivdE3dSTzN8sOQ8xM2Z\n3i8T9ml8rXVPLsiVdZ6HC/Wxznnllazac5p8sZFEolxPQpKZPJzPlKjVMPk93m8M\nx8rG/CiRiM3i1lkilwZjOERtgoi1wM/0gTufAQBn6rxFXOBqiZOf5gzHB8899YHK\nDNdpHwmk5wlOvPZ0cQA0yghSnzcmF8xpr0ywy+YCAQKBgQDCaJT6w83MFjpV5dlb\nGwsYe1TWSa1C+30twCwf7nfxp4tEYYp3g9Gi2djatjNzt0WUBApWV3ibjvI+N+IX\nAvDV44Wws7ifDI2XVKULU3T9S6GfrDrwNr0PytK3kc2eO4B3ntwlxzxdDsQvPSsN\nfnAW/UKbPvXXYEDG63ASmqHpAQKBgQC2rPC4WSLrAwkxFQo9BMIaI0OHvS920UMg\nzRaibvBk+2fQsLl92JpnD8+9SKMaUMhdAXj3ldf02CXkpLvDMfVc/1xgMVuvclO/\n8BuYLKdkFNM9m2k6afZtzw8YUn2A3xP5OFQNwpT/GS8hIpRxgACylAXzE5SuqqEl\naE3rQN/zxQKBgDI5WHusSCd4epukZNHPm784ZYNyx0sts3o1UnDxZ5VLpoQE+wPD\nT05WH1rphUNYzqXdoVoLAQKXHGgMgeFWBigLvocW9xRH5vB4kqbpaajieB/LG/Lh\nAVjqGiQIi+lcD+VXaiJsZWDZJr/Zepzi1ExsI1/+FP8OQ83gFzUHM9sBAoGAGB57\nZgu21YrAEu/xOx8+tY7EYs6yzqBQmasaevXk3aBoE6DRzPDlaggnaJmHl3jlC4qf\nOylYqyZC0o6BkAMvn0jEHJtHvMF+l1APhKcYrtklDvRPD3xgIh19o7t4gKRzkatD\nRdHUNF5R37EeImJBNVLf+jkyn2E+B59e8lnNd/UCgYB4xAocoV2tDRjd5vksViYL\nibCvTnnYuGUwIGyOpO792XV4EGBJPzAHKnTxlc9ahTGHMfJEtVd6nOD2RYRj5MVt\nw3C7IvVjeBMuANbjhU2BvJlIdG44JPRGiN0lvLzxvjRBuO1aImG9U/R7j699km2K\nDUMlv8Z4/MiHfwSsdTV5Ig==\n-----END PRIVATE KEY-----\n"
+    }
+  ],
+  "applications": [
+    {
+      "owner": "admin",
+      "name": "vpp-resource",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Resource Admin API",
+      "logo": "https://cdn.casbin.org/img/casdoor-logo_1185x256.png",
+      "homepageUrl": "http://127.0.0.1:9080/resource",
+      "description": "Dev OIDC app for /resource/* via APISIX",
+      "organization": "default",
+      "cert": "cert-vpp",
+      "enablePassword": true,
+      "enableSignUp": false,
+      "disableSignin": false,
+      "clientId": "vpp-resource-dev-client",
+      "clientSecret": "vpp-resource-dev-secret",
+      "providers": [],
+      "signinMethods": [
+        {
+          "name": "Password",
+          "displayName": "Password",
+          "rule": "All"
+        }
+      ],
+      "signupItems": [
+        {
+          "name": "ID",
+          "visible": false,
+          "required": true,
+          "prompted": false,
+          "rule": "Random"
+        },
+        {
+          "name": "Username",
+          "visible": true,
+          "required": true,
+          "prompted": false,
+          "rule": "None"
+        },
+        {
+          "name": "Password",
+          "visible": true,
+          "required": true,
+          "prompted": false,
+          "rule": "None"
+        },
+        {
+          "name": "Confirm password",
+          "visible": true,
+          "required": true,
+          "prompted": false,
+          "rule": "None"
+        }
+      ],
+      "grantTypes": [
+        "authorization_code",
+        "password",
+        "client_credentials",
+        "refresh_token"
+      ],
+      "redirectUris": [
+        "http://127.0.0.1:9080/resource/",
+        "http://localhost:9080/resource/"
+      ],
+      "tokenFormat": "JWT",
+      "tokenFields": [],
+      "expireInHours": 24,
+      "refreshExpireInHours": 168,
+      "failedSigninLimit": 20,
+      "failedSigninFrozenTime": 15
+    }
+  ],
+  "users": [
+    {
+      "owner": "default",
+      "name": "admin",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "type": "normal-user",
+      "password": "vpp-admin-dev",
+      "displayName": "VPP Admin",
+      "avatar": "",
+      "email": "admin@default.local",
+      "phone": "",
+      "countryCode": "CN",
+      "address": [],
+      "affiliation": "",
+      "tag": "",
+      "score": 2000,
+      "ranking": 1,
+      "isAdmin": true,
+      "isForbidden": false,
+      "isDeleted": false,
+      "signupApplication": "vpp-resource"
+    },
+    {
+      "owner": "default",
+      "name": "operator",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "type": "normal-user",
+      "password": "vpp-operator-dev",
+      "displayName": "VPP Operator",
+      "avatar": "",
+      "email": "operator@default.local",
+      "phone": "",
+      "countryCode": "CN",
+      "address": [],
+      "affiliation": "",
+      "tag": "",
+      "score": 2000,
+      "ranking": 2,
+      "isAdmin": false,
+      "isForbidden": false,
+      "isDeleted": false,
+      "signupApplication": "vpp-resource"
+    },
+    {
+      "owner": "default",
+      "name": "viewer",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "type": "normal-user",
+      "password": "vpp-viewer-dev",
+      "displayName": "VPP Viewer",
+      "avatar": "",
+      "email": "viewer@default.local",
+      "phone": "",
+      "countryCode": "CN",
+      "address": [],
+      "affiliation": "",
+      "tag": "",
+      "score": 2000,
+      "ranking": 3,
+      "isAdmin": false,
+      "isForbidden": false,
+      "isDeleted": false,
+      "signupApplication": "vpp-resource"
+    }
+  ],
+  "roles": [
+    {
+      "owner": "default",
+      "name": "admin",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "Admin",
+      "description": "Full Resource API access",
+      "users": [
+        "default/admin"
+      ],
+      "groups": [],
+      "roles": [],
+      "isEnabled": true
+    },
+    {
+      "owner": "default",
+      "name": "operator",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "Operator",
+      "description": "Read/write Resource API (no delete/lifecycle)",
+      "users": [
+        "default/operator"
+      ],
+      "groups": [],
+      "roles": [],
+      "isEnabled": true
+    },
+    {
+      "owner": "default",
+      "name": "viewer",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "Viewer",
+      "description": "Read-only Resource API",
+      "users": [
+        "default/viewer"
+      ],
+      "groups": [],
+      "roles": [],
+      "isEnabled": true
+    }
+  ],
+  "providers": [],
+  "ldaps": [],
+  "models": [],
+  "permissions": [],
+  "payments": [],
+  "products": [],
+  "resources": [],
+  "syncers": [],
+  "tokens": [],
+  "webhooks": [],
+  "groups": [],
+  "adapters": [],
+  "enforcers": [],
+  "plans": [],
+  "pricings": []
+}

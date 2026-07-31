@@ -123,6 +123,15 @@ Node 是所有资源类型的公共行（统一树结构），其他表以 `node
 
 服务通过 gRPC（`:5002`）对外暴露接口，HTTP（`:8082`）由 grpc-gateway 自动代理为 REST。接口定义见 `api/resource/proto/`。
 
+**北向鉴权（推荐经 APISIX）：**
+
+| 路径 | 说明 |
+|------|------|
+| `http://127.0.0.1:9080/resource/api/tenants/...` | 需 Casdoor Bearer JWT；APISIX OIDC + 应用内租户/RBAC |
+| 直连 `:8082` | 本地调试；`config/resource.yaml` → `auth.trust-proxy-headers: false` 时跳过鉴权 |
+
+详见 [`docs/CASDOOR.md`](../../docs/CASDOOR.md)、[`docs/APISIX.md`](../../docs/APISIX.md) §11.6。
+
 ### Site 管理
 
 | 接口 | 说明 |

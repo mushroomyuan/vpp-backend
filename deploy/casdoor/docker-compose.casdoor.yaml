@@ -1,0 +1,43 @@
+# Casdoor IdP (Phase 2 — Resource OIDC).
+#
+# Usage (from repo root):
+#   make infra-up          # Postgres must be up (casdoor DB)
+#   make casdoor-up
+#   make casdoor-init      # wait + verify seed (init_data.json on first boot)
+#
+# UI: http://127.0.0.1:8000  (built-in admin / 123; org "default" users in credentials.yaml)
+# Discovery: http://127.0.0.1:8000/.well-known/openid-configuration
+
+services:
+  casdoor:
+    # Hub 3.x tags have no "v" prefix. Pin patch for reproducibility (see docs/CASDOOR.md §5).
+    image: casbin/casdoor:3.125.0
+    restart: unless-stopped
+    # Create DB schema/tables; database itself is created by make casdoor-db / initdb.
+    entrypoint: ["/bin/sh", "-c", "./server --createDatabase=true"]
+    environment:
+      RUNNING_IN_DOCKER: "true"
+      GIN_MODE: release
+    volumes:
+      - ./conf/app.conf:/conf/app.conf:ro
+      - ./conf/init_data.json:/conf/init_data.json:ro
+      - casdoor_logs:/logs
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-sf",
+          "http://127.0.0.1:8000/api/health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+
+volumes:
+  casdoor_logs:

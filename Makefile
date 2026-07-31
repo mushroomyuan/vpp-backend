@@ -4,6 +4,7 @@
 #   make help | infra-up | build-all | run-all | stop-all | restart
 #   make status | logs | logs SERVICE=gateway
 #   make apisix-up | apisix-init | apisix-down | apisix-status
+#   make casdoor-up | casdoor-init | casdoor-down | casdoor-status | casdoor-token
 #   make tidy | gen | fmt | lint
 #   make clean | clean-logs | clean-telemetry | clean-all
 #
@@ -16,6 +17,7 @@ BIN_DIR := bin
 BIN_ABS := $(abspath $(BIN_DIR))
 LOG_DIR := $(abspath data/vpp-logs)
 APISIX_COMPOSE := deploy/apisix/docker-compose.apisix.yaml
+CASDOOR_COMPOSE := deploy/casdoor/docker-compose.casdoor.yaml
 DOCKER_COMPOSE := $(shell command -v docker-compose >/dev/null 2>&1 && echo docker-compose || echo "docker compose")
 SERVICES := resource telemetry gateway dispatch simulator
 
@@ -35,8 +37,13 @@ help:
 	@echo "  Infra"
 	@echo "    make infra-up / infra-down     Start/stop docker compose stack"
 	@echo "    make apisix-up / apisix-down   Start/stop APISIX edge gateway"
-	@echo "    make apisix-init               Install Phase 0 transparent proxy routes"
+	@echo "    make apisix-init               Install Phase 0+1 proxy routes"
 	@echo "    make apisix-status             APISIX + backend port health"
+	@echo "    make casdoor-up / casdoor-down Start/stop Casdoor IdP"
+	@echo "    make casdoor-init             Ensure casdoor DB + verify seed"
+	@echo "    make casdoor-status           Casdoor port / OIDC discovery"
+	@echo "    make casdoor-token [USER=]    Password Grant access_token"
+	@echo "    make casdoor-token USER=admin DECODE=1   decode JWT claims"
 	@echo ""
 	@echo "  Services"
 	@echo "    make build-all                Build all binaries → $(BIN_DIR)/"
@@ -133,6 +140,60 @@ apisix-status:
 	else \
 		echo "routes-configured: admin-unreachable"; \
 	fi
+
+# ── Casdoor IdP (Phase 2 OIDC) ────────────────────────────────────────────────
+
+.PHONY: casdoor-up casdoor-down casdoor-init casdoor-status casdoor-logs casdoor-db casdoor-token
+casdoor-db:
+	@bash -c ' \
+		c=$$(docker ps --format "{{.Names}}" | grep -E "postgres" | head -1); \
+		if [ -z "$$c" ]; then echo "ERROR: postgres container not running (make infra-up)" >&2; exit 1; fi; \
+		if [ "$$(docker exec $$c psql -U postgres -Atc "SELECT 1 FROM pg_database WHERE datname='"'"'casdoor'"'"'")" = "1" ]; then \
+			echo "Database casdoor already exists."; \
+		else \
+			docker exec $$c psql -U postgres -c "CREATE DATABASE casdoor;"; \
+		fi'
+
+casdoor-up: casdoor-db
+	$(DOCKER_COMPOSE) -f $(CASDOOR_COMPOSE) up -d
+	@echo "Casdoor starting. UI :8000 | OIDC discovery /.well-known/openid-configuration"
+	@echo "Next: make casdoor-init"
+
+casdoor-down:
+	$(DOCKER_COMPOSE) -f $(CASDOOR_COMPOSE) down
+
+casdoor-init:
+	@bash deploy/casdoor/init.sh
+
+casdoor-logs:
+	$(DOCKER_COMPOSE) -f $(CASDOOR_COMPOSE) logs -f casdoor
+
+casdoor-status:
+	@printf "%-14s %-8s %-s\n" "COMPONENT" "PORT" "STATUS"
+	@printf "%-14s %-8s %-s\n" "-----------" "----" "------"
+	@check_port() { \
+		name=$$1; port=$$2; \
+		if ss -ltn 2>/dev/null | grep -qE ":$$port\s"; then \
+			printf "%-14s %-8s %-s\n" $$name $$port "UP"; \
+		else \
+			printf "%-14s %-8s %-s\n" $$name $$port "DOWN"; \
+		fi; \
+	}; \
+	check_port casdoor 8000; \
+	if curl --noproxy '*' -sf http://127.0.0.1:8000/.well-known/openid-configuration >/dev/null 2>&1; then \
+		echo "oidc-discovery: OK"; \
+	else \
+		echo "oidc-discovery: DOWN"; \
+	fi
+
+# Password Grant → access_token. USER=admin|operator|viewer (default admin).
+# DECODE=1 prints JWT payload + C3 claim mapping instead of raw token.
+# Example: curl -H "Authorization: Bearer $$(make -s casdoor-token)" ...
+casdoor-token:
+	@u="$(USER)"; \
+	case "$$u" in admin|operator|viewer) ;; *) u=admin ;; esac; \
+	CASDOOR_USER="$$u" DECODE="$(DECODE)" bash deploy/casdoor/token.sh \
+		$$( [ "$(DECODE)" = "1" ] && echo --decode )
 
 # ── codegen / lint / modules ──────────────────────────────────────────────────
 

@@ -21,6 +21,8 @@ type Config struct {
 	ConsulAddr        string
 	WorkerConfig      worker.ImportWorkerConfig
 	Kafka             KafkaConfig
+	// TrustProxyHeaders enables Resource HTTP auth (X-Userinfo + tenant + RBAC).
+	TrustProxyHeaders bool
 }
 
 // KafkaConfig holds connection parameters for the resource event publisher.
@@ -46,5 +48,6 @@ func CreateFromOptions(opts *options.Options) *Config {
 			Brokers: opts.Kafka.Brokers,
 			Topic:   opts.Kafka.Topic,
 		},
+		TrustProxyHeaders: opts.Resource.Auth.TrustProxyHeaders,
 	}
 }

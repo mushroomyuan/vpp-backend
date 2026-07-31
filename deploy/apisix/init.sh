@@ -3,8 +3,10 @@
 #
 # Phase 0: transparent proxy for gateway + resource
 # Phase 1: key-auth + limit-req on /gateway/* (EMS / simulator)
+# Phase 2: openid-connect bearer_only on /resource/* (Casdoor OIDC)
 #
 # Requires APISIX Admin API (default host :9181 → container :9180).
+# Casdoor should be reachable from the APISIX container at host.docker.internal:8000.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,6 +16,12 @@ APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:-edd1c9f034335f136f87ad84b625c8f1}"
 # Dev EMS/simulator API key (see deploy/apisix/conf/consumers.yaml).
 SIMULATOR_CONSUMER="${SIMULATOR_CONSUMER:-simulator_default}"
 SIMULATOR_API_KEY="${SIMULATOR_API_KEY:-vpp-dev-simulator-key}"
+
+# Casdoor OIDC (see deploy/casdoor/conf/credentials.yaml).
+OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-vpp-resource-dev-client}"
+OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-vpp-resource-dev-secret}"
+# Must be reachable FROM the APISIX container (not 127.0.0.1).
+OIDC_DISCOVERY="${OIDC_DISCOVERY:-http://host.docker.internal:8000/.well-known/openid-configuration}"
 
 if [[ -z "${APISIX_ADMIN_KEY}" && -f "${SCRIPT_DIR}/conf/config.yaml" ]]; then
   APISIX_ADMIN_KEY="$(awk '/key:/{print $2; exit}' "${SCRIPT_DIR}/conf/config.yaml")"
@@ -82,18 +90,48 @@ put_consumer_key_auth() {
 }
 
 put_resource_route() {
-  admin_curl -X PUT "${APISIX_ADMIN_URL}/apisix/admin/routes/resource-proxy" -d '{
-    "uri": "/resource/*",
-    "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    "upstream_id": "resource-backend",
-    "plugins": {
-      "proxy-rewrite": {
-        "regex_uri": ["^/resource/(.*)", "/$1"]
-      }
-    }
-  }'
+  # Path C: bearer_only + JWKS verify + X-Userinfo only (no Lua / no X-Roles split).
+  local body
+  body="$(OIDC_CLIENT_ID="${OIDC_CLIENT_ID}" \
+    OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET}" \
+    OIDC_DISCOVERY="${OIDC_DISCOVERY}" \
+    python3 - <<'PY'
+import json, os
+doc = {
+  "uri": "/resource/*",
+  "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  "upstream_id": "resource-backend",
+  "plugins": {
+    "proxy-rewrite": {
+      "regex_uri": ["^/resource/(.*)", "/$1"]
+    },
+    "openid-connect": {
+      "client_id": os.environ["OIDC_CLIENT_ID"],
+      "client_secret": os.environ["OIDC_CLIENT_SECRET"],
+      "discovery": os.environ["OIDC_DISCOVERY"],
+      "bearer_only": True,
+      "realm": "vpp",
+      "use_jwks": True,
+      "ssl_verify": False,
+      "set_userinfo_header": True,
+      "set_access_token_header": True,
+      "access_token_in_authorization_header": True,
+      "set_id_token_header": False,
+    },
+    "limit-req": {
+      "rate": 30,
+      "burst": 50,
+      "key": "remote_addr",
+      "rejected_code": 429,
+    },
+  },
+}
+print(json.dumps(doc))
+PY
+)"
+  admin_curl -X PUT "${APISIX_ADMIN_URL}/apisix/admin/routes/resource-proxy" -d "${body}"
   echo
-  echo "Route resource-proxy: /resource/* -> resource-backend (no auth)"
+  echo "Route resource-proxy: /resource/* -> resource-backend (openid-connect bearer_only + limit-req)"
 }
 
 put_gateway_route() {
@@ -132,18 +170,19 @@ main() {
   put_resource_route
 
   echo ""
-  echo "Phase 0+1 routes installed."
+  echo "Phase 0+1+2 routes installed."
   echo ""
-  echo "Smoke test (services running):"
-  echo "  # 401 without key"
-  echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \\"
+  echo "Smoke test:"
+  echo "  # gateway 401 without key"
+  echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\\n' \\"
   echo "    http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings"
-  echo "  # 200 with key"
-  echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \\"
-  echo "    -H 'X-API-KEY: ${SIMULATOR_API_KEY}' \\"
-  echo "    http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings"
-  echo "  # resource still open (Phase 2 adds JWT)"
-  echo "  curl --noproxy '*' -s http://127.0.0.1:9080/resource/api/tenants/default/sites"
+  echo "  # resource 401 without Bearer"
+  echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\\n' \\"
+  echo "    http://127.0.0.1:9080/resource/api/tenants/default/sites"
+  echo "  # resource with Casdoor token (need make run-resource + casdoor-up)"
+  echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\\n' \\"
+  echo "    -H \"Authorization: Bearer \$(make -s casdoor-token)\" \\"
+  echo "    http://127.0.0.1:9080/resource/api/tenants/default/sites"
 }
 
 main "$@"

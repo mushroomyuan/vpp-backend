@@ -23,6 +23,14 @@ type ResourceOptions struct {
 	ServiceName  string        `mapstructure:"service-name"`
 	ConsulAddr   string        `mapstructure:"consul-addr"`
 	PollInterval time.Duration `mapstructure:"worker-poll-interval"`
+	Auth         AuthOptions   `mapstructure:"auth"`
+}
+
+// AuthOptions configures HTTP identity middleware (APISIX X-Userinfo / Casdoor).
+type AuthOptions struct {
+	// TrustProxyHeaders requires valid X-Userinfo when true (behind APISIX).
+	// When false, auth is bypassed for local direct :8082 debugging.
+	TrustProxyHeaders bool `mapstructure:"trust-proxy-headers"`
 }
 
 type TracingOptions struct {

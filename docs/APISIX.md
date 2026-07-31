@@ -410,7 +410,7 @@ make apisix-up && make apisix-init
 
 ## 11. Phase 1：Gateway API Key 认证（EMS 线）
 
-Phase 1 在 `/gateway/*` 路由上启用 `key-auth` + `limit-req`；`/resource/*` 仍保持 Phase 0 透明反代（JWT 在 Phase 2）。
+Phase 1 在 `/gateway/*` 路由上启用 `key-auth` + `limit-req`；`/resource/*` 已启用 Casdoor OIDC（Phase 2，见下节）。
 
 ### 11.1 配置内容
 
@@ -440,8 +440,10 @@ curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
   -H 'X-API-KEY: vpp-dev-simulator-key' \
   http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings
 
-# resource 仍无认证
-curl --noproxy '*' -s http://127.0.0.1:9080/resource/api/tenants/default/sites
+# resource 需 Bearer（Phase 2 Casdoor OIDC）
+curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
+  http://127.0.0.1:9080/resource/api/tenants/default/sites
+# → 401
 ```
 
 ### 11.4 Simulator 适配
@@ -472,13 +474,48 @@ curl --noproxy '*' -X PUT http://127.0.0.1:9181/apisix/admin/consumers/tenant-ac
 
 ---
 
+## 11.6 Phase 2：Resource Casdoor OIDC
+
+`/resource/*` 使用 APISIX `openid-connect`（**bearer_only** + **use_jwks** + **set_userinfo_header**）。  
+IdP 部署、claim 映射、Resource RBAC、端到端验收见 [`docs/CASDOOR.md`](CASDOOR.md)。
+
+| 项 | 值 |
+|----|-----|
+| Discovery（容器内） | `http://host.docker.internal:8000/.well-known/openid-configuration` |
+| Client | `vpp-resource-dev-client` / `vpp-resource-dev-secret` |
+| 限流 | 30 req/s，burst 50 |
+| 无 / 无效 Bearer | HTTP **401**（APISIX） |
+| 有效 Bearer | 转发到 resource `:8082`，注入 **`X-Userinfo`** |
+| Resource C3 | `auth.trust-proxy-headers: true` 时校验租户 + RBAC（缺 header → 401；越权 → 403） |
+
+```bash
+make casdoor-up && make casdoor-init
+make apisix-up && make apisix-init   # 含 Phase 2 OIDC
+# config/resource.yaml → auth.trust-proxy-headers: true ，再启动 Resource
+
+# 401 — 无 Bearer
+curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
+  http://127.0.0.1:9080/resource/api/tenants/default/sites
+
+# 200 — admin token（Resource 需在跑）
+curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
+  -H "Authorization: Bearer $(make -s casdoor-token USER=admin)" \
+  http://127.0.0.1:9080/resource/api/tenants/default/sites
+
+# 403 — 跨租户 / viewer 写操作：见 docs/CASDOOR.md §11
+```
+
+Casdoor `origin` 必须是 `host.docker.internal:8000`，否则 APISIX 容器无法拉 JWKS / userinfo（`127.0.0.1` 指向容器自身）。
+
+---
+
 ## 12. 后续阶段规划
 
 | 阶段 | 内容 | 依赖 |
 |------|------|------|
 | **Phase 0** ✅ | 透明反代 gateway/resource | 无 |
 | **Phase 1** ✅ | `/gateway/*` 启用 `key-auth`（EMS API Key） | Simulator client 带 Key |
-| **Phase 2** | `/resource/*` 启用 Casdoor OIDC | Casdoor compose |
+| **Phase 2** ✅ | `/resource/*` 启用 Casdoor OIDC + Resource RBAC（C3） | [docs/CASDOOR.md](CASDOOR.md) |
 | **Phase 3** | APISIX metrics → Prometheus；access log → Loki | prometheus.yaml |
 | **Phase 4** | K8s APISIX Ingress Controller | K8s manifests |
 
@@ -497,14 +534,18 @@ Phase 0 的 routes YAML 和 init.sh 逻辑可直接复用到 K8s 阶段，upstre
 | 404（经 APISIX） | routes 未灌入 | `make apisix-init` |
 | 转发路径不对 | proxy-rewrite `$1` 被 bash 吃掉 | 检查 init.sh 单引号拼接 |
 | etcd 镜像 pull 失败 | bitnami 下架 | 用 `bitnamilegacy/etcd` |
-| 401 经 APISIX | 未带 `X-API-KEY` | 添加 Key 或检查 consumer 是否创建 |
-| 401 Simulator ingest 失败 | simulator.yaml 缺 api-key | 配置 `gateway.api-key` 并重启 simulator |
+| 401 经 APISIX `/resource` | 未带 / 无效 Bearer | `make -s casdoor-token`；检查 Casdoor origin 是否 `host.docker.internal` |
+| 有效 token 仍 401 | JWKS 不可达 / iss 不匹配 | APISIX 容器需能访问 `host.docker.internal:8000`；重启 Casdoor 后重拿 token |
+| 有效 token 502 | Resource 未启动 | `make run-resource` 或 `make run-all` |
+| 403 经 APISIX `/resource` | 跨租户 path 或角色不够 | 见 [`docs/CASDOOR.md`](CASDOOR.md) §6.1 / §11 |
+| Resource 经 APISIX 仍无应用层鉴权 | `trust-proxy-headers: false` | 改为 `true` 并重启 Resource |
 
 ---
 
 ## 13. 相关文档
 
+- [`docs/CASDOOR.md`](CASDOOR.md) — Casdoor IdP + Phase 2 OIDC / Resource RBAC 联调
 - [`internal/gateway/OVERVIEW.md`](../internal/gateway/OVERVIEW.md) — 业务网关职责
 - [`internal/gateway/README.md`](../internal/gateway/README.md) — Gateway HTTP API
-- [`architecture.md`](../architecture.md) — 全局服务拓扑
+- [`architecture.md`](../architecture.md) — 全局服务拓扑（含北向 APISIX）
 - [APISIX 官方 Docker 文档](https://apisix.apache.org/docs/docker/apisix-3.11.0/manual/)
