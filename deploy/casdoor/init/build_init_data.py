@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Rebuild conf/init_data.json from conf/certs/jwt.{crt,key}.
 
-Dev-only seed for VPP Casdoor (org default, app vpp-resource, roles, users).
+Dev-only seed for VPP Casdoor (org default, app vpp-resource, roles, users,
+authz Model + Permissions for C5).
 Run from repo:  python3 deploy/casdoor/init/build_init_data.py
 """
 from __future__ import annotations
@@ -13,7 +14,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CERT_PATH = ROOT / "conf" / "certs" / "jwt.crt"
 KEY_PATH = ROOT / "conf" / "certs" / "jwt.key"
+MODEL_PATH = ROOT / "conf" / "authz_model.conf"
 OUT_PATH = ROOT / "conf" / "init_data.json"
+
+# Catalog objs used by Permission.Resources (see docs/AUTHZ_CENTRALIZATION_PLAN.md §7.1).
+# Wildcard resource:* matches any resource:{name} via keyMatch2 in authz_model.conf.
+AUTHZ_MODEL_NAME = "vpp-rbac"
+AUTHZ_RESOURCES = ["resource:*"]
+CREATED = "2026-01-01T00:00:00Z"
 
 ACCOUNT_ITEMS = [
     {"name": "Organization", "visible": True, "viewRule": "Public", "modifyRule": "Admin"},
@@ -33,6 +41,37 @@ ACCOUNT_ITEMS = [
 ]
 
 
+def _permission(
+    name: str,
+    display: str,
+    description: str,
+    roles: list[str],
+    actions: list[str],
+) -> dict:
+    return {
+        "owner": "default",
+        "name": name,
+        "createdTime": CREATED,
+        "displayName": display,
+        "description": description,
+        "users": [],
+        "groups": [],
+        "roles": roles,
+        "domains": [],
+        "model": f"default/{AUTHZ_MODEL_NAME}",
+        "adapter": "",
+        "resourceType": "Custom",
+        "resources": list(AUTHZ_RESOURCES),
+        "actions": actions,
+        "effect": "Allow",
+        "isEnabled": True,
+        "submitter": "admin",
+        "approver": "admin",
+        "approveTime": CREATED,
+        "state": "Approved",
+    }
+
+
 def main() -> int:
     if not CERT_PATH.is_file() or not KEY_PATH.is_file():
         print(f"ERROR: missing {CERT_PATH} or {KEY_PATH}", file=sys.stderr)
@@ -44,9 +83,38 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    if not MODEL_PATH.is_file():
+        print(f"ERROR: missing {MODEL_PATH}", file=sys.stderr)
+        return 1
 
     cert = CERT_PATH.read_text()
     key = KEY_PATH.read_text()
+    model_text = MODEL_PATH.read_text().strip() + "\n"
+
+    # C3-equivalent role bindings (placeholder roles). Fine-grained splits stay in Casdoor.
+    permissions = [
+        _permission(
+            "vpp-resource-read",
+            "VPP Resource Read",
+            "viewer/operator/admin: catalog read (maps from GET/HEAD)",
+            ["default/viewer", "default/operator", "default/admin"],
+            ["read"],
+        ),
+        _permission(
+            "vpp-resource-write",
+            "VPP Resource Write",
+            "operator/admin: non-destructive write (POST/PUT/PATCH except change-lifecycle)",
+            ["default/operator", "default/admin"],
+            ["write"],
+        ),
+        _permission(
+            "vpp-resource-admin",
+            "VPP Resource Admin",
+            "admin only: delete + change-lifecycle",
+            ["default/admin"],
+            ["delete", "change-lifecycle"],
+        ),
+    ]
 
     data = {
         "organizations": [
@@ -259,8 +327,17 @@ def main() -> int:
         ],
         "providers": [],
         "ldaps": [],
-        "models": [],
-        "permissions": [],
+        "models": [
+            {
+                "owner": "default",
+                "name": AUTHZ_MODEL_NAME,
+                "createdTime": CREATED,
+                "displayName": "VPP RBAC",
+                "description": "Shared Casbin model for local PDP (AUTHZ C5); see conf/authz_model.conf",
+                "modelText": model_text,
+            }
+        ],
+        "permissions": permissions,
         "payments": [],
         "products": [],
         "resources": [],

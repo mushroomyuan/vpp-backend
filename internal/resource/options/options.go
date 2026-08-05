@@ -31,6 +31,30 @@ type AuthOptions struct {
 	// TrustProxyHeaders requires valid X-Userinfo when true (behind APISIX).
 	// When false, auth is bypassed for local direct :8082 debugging.
 	TrustProxyHeaders bool `mapstructure:"trust-proxy-headers"`
+	// Authz configures local Casbin PDP + Casdoor policy sync (C7).
+	// Enabled automatically when TrustProxyHeaders is true (unless authz.disabled).
+	Authz AuthzOptions `mapstructure:"authz"`
+}
+
+// AuthzOptions is the resource-service wiring for platform/authz.
+type AuthzOptions struct {
+	// Disabled skips Checker entirely (only valid with trust-proxy-headers: false).
+	Disabled bool `mapstructure:"disabled"`
+
+	CasdoorURL      string `mapstructure:"casdoor-url"`
+	CasdoorOrg      string `mapstructure:"casdoor-organization"`
+	CasdoorApp      string `mapstructure:"casdoor-application"`
+	CasdoorUsername string `mapstructure:"casdoor-username"`
+	CasdoorPassword string `mapstructure:"casdoor-password"`
+
+	Owner        string `mapstructure:"owner"`
+	ModelFilter  string `mapstructure:"model-filter"`
+	SnapshotPath string `mapstructure:"snapshot-path"`
+
+	SyncInterval         string `mapstructure:"sync-interval"`
+	HealthyAfter         string `mapstructure:"healthy-after"`
+	StaleAfter           string `mapstructure:"stale-after"`
+	AllowReadWhenInvalid bool   `mapstructure:"allow-read-when-invalid"`
 }
 
 type TracingOptions struct {

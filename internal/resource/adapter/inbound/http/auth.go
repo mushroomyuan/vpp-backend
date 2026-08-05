@@ -3,15 +3,16 @@ package ports
 import (
 	"net/http"
 	"regexp"
-	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mushroomyuan/vpp-backend/platform/authz"
 	"github.com/mushroomyuan/vpp-backend/platform/middleware"
+	"github.com/sirupsen/logrus"
 )
 
 const ginIdentityKey = "vpp_identity"
 
-// AuthConfig controls Resource HTTP identity / RBAC middleware.
+// AuthConfig controls Resource HTTP identity / authorization middleware.
 type AuthConfig struct {
 	// TrustProxyHeaders when true requires a valid X-Userinfo header (APISIX Path C).
 	// When false, auth is fully bypassed (local direct :8082 debug).
@@ -20,8 +21,9 @@ type AuthConfig struct {
 
 var tenantPathRE = regexp.MustCompile(`^/api/tenants/([^/]+)(?:/|$)`)
 
-// AuthMiddleware enforces identity, path-tenant binding, and role RBAC when TrustProxyHeaders is true.
-func AuthMiddleware(cfg AuthConfig) gin.HandlerFunc {
+// AuthMiddleware enforces identity, path-tenant binding, and PermissionChecker
+// when TrustProxyHeaders is true. checker must be non-nil in that mode.
+func AuthMiddleware(cfg AuthConfig, checker authz.PermissionChecker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !cfg.TrustProxyHeaders {
 			c.Next()
@@ -49,11 +51,49 @@ func AuthMiddleware(cfg AuthConfig) gin.HandlerFunc {
 			}
 		}
 
-		if !allowRBAC(id, c.Request.Method, c.Request.URL.Path) {
+		if checker == nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"error": "authorization checker not configured",
+			})
+			return
+		}
+
+		resource := resourceOf(c.Request.URL.Path)
+		action := actionOf(c.Request.Method, c.Request.URL.Path)
+		if resource == "" || action == "" {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error": "forbidden: role cannot perform this action",
 			})
 			return
+		}
+
+		allowed, degraded, err := checker.Allow(c.Request.Context(), id, resource, action)
+		if err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"resource": resource,
+				"action":   action,
+				"user":     id.Username,
+			}).Error("authz Allow failed")
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error": "forbidden: authorization error",
+			})
+			return
+		}
+		if !allowed {
+			msg := "forbidden: role cannot perform this action"
+			if degraded {
+				msg = "forbidden: authorization unavailable or policy stale"
+			}
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": msg})
+			return
+		}
+		if degraded {
+			logrus.WithFields(logrus.Fields{
+				"resource": resource,
+				"action":   action,
+				"user":     id.Username,
+				"roles":    id.Roles,
+			}).Warn("authz decision made in degraded mode")
 		}
 
 		c.Set(ginIdentityKey, id)
@@ -78,35 +118,4 @@ func pathTenantID(path string) (string, bool) {
 		return "", false
 	}
 	return m[1], true
-}
-
-// allowRBAC implements the C3 matrix:
-//
-//	viewer:   GET only
-//	operator: GET + POST/PUT/PATCH, except delete / changeLifecycle
-//	admin:    all
-func allowRBAC(id middleware.Identity, method, path string) bool {
-	if id.HasRole("admin") {
-		return true
-	}
-
-	destructive := method == http.MethodDelete || isChangeLifecycle(path)
-
-	switch method {
-	case http.MethodGet, http.MethodHead:
-		return id.HasRole("viewer") || id.HasRole("operator")
-	case http.MethodPost, http.MethodPut, http.MethodPatch:
-		if destructive {
-			return false
-		}
-		return id.HasRole("operator")
-	case http.MethodDelete:
-		return false
-	default:
-		return false
-	}
-}
-
-func isChangeLifecycle(path string) bool {
-	return strings.Contains(path, ":changeLifecycle")
 }

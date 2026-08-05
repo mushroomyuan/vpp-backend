@@ -312,8 +312,106 @@
   ],
   "providers": [],
   "ldaps": [],
-  "models": [],
-  "permissions": [],
+  "models": [
+    {
+      "owner": "default",
+      "name": "vpp-rbac",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP RBAC",
+      "description": "Shared Casbin model for local PDP (AUTHZ C5); see conf/authz_model.conf",
+      "modelText": "# VPP shared Casbin model (C5).\n# Used by Casdoor Model seed and by each service's local Enforcer (C6+).\n#\n# Request:  sub = VPP role name (admin|operator|viewer|\u2026), obj = catalog resource, act = action\n# Catalog:  {service}:{resource}  +  {action}  \u2192  full id {service}:{resource}:{action}\n# Example:  (operator, resource:sites, write)\n#\n# keyMatch2 lets Casdoor/local policies use wildcards (e.g. resource:*).\n# Role inheritance (g) is optional; Syncer may load Casdoor nested roles later.\n\n[request_definition]\nr = sub, obj, act\n\n[policy_definition]\np = sub, obj, act\n\n[role_definition]\ng = _, _\n\n[policy_effect]\ne = some(where (p.eft == allow))\n\n[matchers]\nm = g(r.sub, p.sub) && keyMatch2(r.obj, p.obj) && r.act == p.act\n"
+    }
+  ],
+  "permissions": [
+    {
+      "owner": "default",
+      "name": "vpp-resource-read",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Resource Read",
+      "description": "viewer/operator/admin: catalog read (maps from GET/HEAD)",
+      "users": [],
+      "groups": [],
+      "roles": [
+        "default/viewer",
+        "default/operator",
+        "default/admin"
+      ],
+      "domains": [],
+      "model": "default/vpp-rbac",
+      "adapter": "",
+      "resourceType": "Custom",
+      "resources": [
+        "resource:*"
+      ],
+      "actions": [
+        "read"
+      ],
+      "effect": "Allow",
+      "isEnabled": true,
+      "submitter": "admin",
+      "approver": "admin",
+      "approveTime": "2026-01-01T00:00:00Z",
+      "state": "Approved"
+    },
+    {
+      "owner": "default",
+      "name": "vpp-resource-write",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Resource Write",
+      "description": "operator/admin: non-destructive write (POST/PUT/PATCH except change-lifecycle)",
+      "users": [],
+      "groups": [],
+      "roles": [
+        "default/operator",
+        "default/admin"
+      ],
+      "domains": [],
+      "model": "default/vpp-rbac",
+      "adapter": "",
+      "resourceType": "Custom",
+      "resources": [
+        "resource:*"
+      ],
+      "actions": [
+        "write"
+      ],
+      "effect": "Allow",
+      "isEnabled": true,
+      "submitter": "admin",
+      "approver": "admin",
+      "approveTime": "2026-01-01T00:00:00Z",
+      "state": "Approved"
+    },
+    {
+      "owner": "default",
+      "name": "vpp-resource-admin",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Resource Admin",
+      "description": "admin only: delete + change-lifecycle",
+      "users": [],
+      "groups": [],
+      "roles": [
+        "default/admin"
+      ],
+      "domains": [],
+      "model": "default/vpp-rbac",
+      "adapter": "",
+      "resourceType": "Custom",
+      "resources": [
+        "resource:*"
+      ],
+      "actions": [
+        "delete",
+        "change-lifecycle"
+      ],
+      "effect": "Allow",
+      "isEnabled": true,
+      "submitter": "admin",
+      "approver": "admin",
+      "approveTime": "2026-01-01T00:00:00Z",
+      "state": "Approved"
+    }
+  ],
   "payments": [],
   "products": [],
   "resources": [],

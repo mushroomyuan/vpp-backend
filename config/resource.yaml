@@ -14,10 +14,25 @@ resource:
   metrics-addr: 127.0.0.1:9102
   consul-addr: 127.0.0.1:8500
 
-  # When true (recommended behind APISIX): require X-Userinfo, enforce tenant + RBAC.
+  # When true (recommended behind APISIX): require X-Userinfo, enforce tenant + authz.
   # When false: auth bypass for local direct :8082 debugging (do not trust client-forged headers).
   auth:
     trust-proxy-headers: false
+    # Local Casbin PDP + Casdoor policy sync (AUTHZ C7). Ignored when trust-proxy-headers is false.
+    authz:
+      # When trust-proxy-headers is true, Casdoor B1 sync starts automatically.
+      casdoor-url: http://127.0.0.1:8000
+      casdoor-organization: built-in
+      casdoor-application: app-built-in
+      casdoor-username: admin
+      casdoor-password: "123"
+      owner: default
+      model-filter: default/vpp-rbac
+      snapshot-path: ./data/resource-authz-snapshot.json
+      sync-interval: 30s
+      healthy-after: 5m
+      stale-after: 30m
+      allow-read-when-invalid: false
 
 database:
   driver: postgres

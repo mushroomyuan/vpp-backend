@@ -43,7 +43,8 @@ Logging → Metrics → Tracing → 业务 Handler
 | `NewGRPCServer` | 预置 otelgrpc、tags、结构化日志 interceptor |
 | `DialGRPC` | 出站客户端：insecure + otel 传播 |
 | `NewGinEngine` | Gin：结构化日志、Recovery、请求日志、otelgin |
-| **middleware** | HTTP 请求日志等 Gin 中间件 |
+| **middleware** | HTTP 请求日志；`Identity` / `ParseXUserinfo`（IdP 防腐层） |
+| **authz** | `PermissionChecker` + 本地 Casbin PDP + Casdoor 策略同步（AUTHZ C6；见 `docs/AUTHZ_CENTRALIZATION_PLAN.md`） |
 
 各服务在此基础上注册自己的 proto / 路由，并自行管理优雅停机。
 

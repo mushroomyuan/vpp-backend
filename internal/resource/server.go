@@ -16,6 +16,7 @@ import (
 	googlegrpc "google.golang.org/grpc"
 
 	resourcepb "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
+	"github.com/mushroomyuan/vpp-backend/platform/authz"
 	"github.com/mushroomyuan/vpp-backend/platform/metrics"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
 	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
@@ -43,6 +44,7 @@ type resourceServer struct {
 	metricsCancel  context.CancelFunc
 	redisClient    *platformredis.Client
 	eventPublisher *kafka.EventPublisher
+	authzSyncer    *authz.Syncer
 }
 
 type preparedServer struct {
@@ -146,9 +148,23 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 	// ── HTTP layer (gin + grpc-gateway in-process) ────────────────────────────
 	logger := logrus.NewEntry(logrus.StandardLogger())
 	ginEngine := platformserver.NewGinEngine(cfg.ServiceName, logger)
+
+	var permissionChecker authz.PermissionChecker
+	var authzSyncer *authz.Syncer
+	if cfg.Authz.Enabled {
+		checker, syncer, err := wireAuthz(cfg.Authz)
+		if err != nil {
+			metricsCancel()
+			_ = redisClient.Close()
+			return nil, fmt.Errorf("wire authz: %w", err)
+		}
+		permissionChecker = checker
+		authzSyncer = syncer
+	}
+
 	ginEngine.Use(gatewaypkg.AuthMiddleware(gatewaypkg.AuthConfig{
 		TrustProxyHeaders: cfg.TrustProxyHeaders,
-	}))
+	}, permissionChecker))
 
 	if err := gatewaypkg.MountGateway(context.Background(), ginEngine, resourceSvc); err != nil {
 		metricsCancel()
@@ -170,7 +186,51 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 		metricsCancel:  metricsCancel,
 		redisClient:    redisClient,
 		eventPublisher: eventPublisher,
+		authzSyncer:    authzSyncer,
 	}, nil
+}
+
+func wireAuthz(cfg config.AuthzConfig) (*authz.Checker, *authz.Syncer, error) {
+	checker, err := authz.NewChecker(authz.Config{
+		HealthyAfter:         cfg.HealthyAfter,
+		StaleAfter:           cfg.StaleAfter,
+		AllowReadWhenInvalid: cfg.AllowReadWhenInvalid,
+		SnapshotPath:         cfg.SnapshotPath,
+		SyncInterval:         cfg.SyncInterval,
+		Owner:                cfg.Owner,
+		ModelFilter:          cfg.ModelFilter,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var syncer *authz.Syncer
+	if cfg.Sync {
+		client, err := authz.NewCasdoorClient(authz.CasdoorClientConfig{
+			BaseURL:      cfg.CasdoorURL,
+			Organization: cfg.CasdoorOrg,
+			Application:  cfg.CasdoorApp,
+			Username:     cfg.CasdoorUsername,
+			Password:     cfg.CasdoorPassword,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		syncer = authz.NewSyncer(client, checker, authz.Config{
+			HealthyAfter:         cfg.HealthyAfter,
+			StaleAfter:           cfg.StaleAfter,
+			AllowReadWhenInvalid: cfg.AllowReadWhenInvalid,
+			SnapshotPath:         cfg.SnapshotPath,
+			SyncInterval:         cfg.SyncInterval,
+			Owner:                cfg.Owner,
+			ModelFilter:          cfg.ModelFilter,
+		})
+		logrus.Infof("authz syncer configured (casdoor=%s owner=%s interval=%s)",
+			cfg.CasdoorURL, cfg.Owner, cfg.SyncInterval)
+	} else {
+		logrus.Warn("authz checker enabled without syncer — using snapshot/safety-net only")
+	}
+	return checker, syncer, nil
 }
 
 // ─── lifecycle ────────────────────────────────────────────────────────────────
@@ -256,6 +316,17 @@ func (s *preparedServer) Run() error {
 
 	// ── Import worker (not in errgroup — it manages its own stop via context) ─
 	go s.app.Workers.ImportWorker.Start(workerCtx)
+
+	// ── Authz policy syncer (B1 pull; optional) ────────────────────────────────
+	if s.authzSyncer != nil {
+		eg.Go(func() error {
+			err := s.authzSyncer.Run(egCtx)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				logrus.WithError(err).Warn("authz syncer stopped")
+			}
+			return nil
+		})
+	}
 
 	// ── Shutdown coordinator ──────────────────────────────────────────────────
 	// Fires as soon as egCtx is cancelled (signal or any server error).

@@ -68,10 +68,11 @@ deploy/casdoor/
   conf/
     app.conf                    # Casdoor 运行时配置（DSN、initData*）
     init_data.json              # 空库首次启动时导入的种子
+    authz_model.conf            # C5：共享 Casbin Model（嵌入 init_data）
     credentials.yaml            # 给人看的凭据说明（不驱动运行）
     certs/jwt.{crt,key}         # 固定 DEV RSA（写入 init_data）
   init.sh                       # make casdoor-init：建库检查 + 校验 + 冒烟
-  init/build_init_data.py       # 从 certs 重新生成 init_data.json
+  init/build_init_data.py       # 从 certs + authz_model 重新生成 init_data.json
   README.md                     # 短入口，细节以本文为准
 
 migrations/initdb/60-casdoor-db.sh   # 全新 Postgres volume 时 CREATE DATABASE
@@ -79,8 +80,9 @@ migrations/initdb/60-casdoor-db.sh   # 全新 Postgres volume 时 CREATE DATABAS
 
 | 文件 | 写 DB？ | 作用 |
 |------|---------|------|
-| `build_init_data.py` | 否 | 生成 / 重写 `init_data.json`（换证或改种子结构时用） |
+| `build_init_data.py` | 否 | 生成 / 重写 `init_data.json`（换证或改种子结构时用；含 C5 authz Model/Permission） |
 | `init_data.json` | 间接 | 被 Casdoor **空库首次启动**读入并写入 Postgres |
+| `authz_model.conf` | 否 | C5 Casbin Model 源文件；由 `build_init_data.py` 嵌入 Model 种子 |
 | `init.sh` | 仅可能 `CREATE DATABASE` | **不灌业务种子**；等就绪、SQL/API 校验、Password Grant 冒烟 |
 | `app.conf` | 否 | 告诉 Casdoor 连哪、种子文件在哪、`initDataNewOnly` |
 | `credentials.yaml` | 否 | 文档用凭据清单 |
@@ -163,10 +165,12 @@ K8s 后 Resource 仅 ClusterIP 时，伪造面自然缩小。
 |------|------|
 | VPP 身份契约 `Identity` | [`internal/platform/middleware/identity.go`](../internal/platform/middleware/identity.go) |
 | Casdoor claim → `Identity`（ACL） | [`internal/platform/middleware/casdoor_userinfo.go`](../internal/platform/middleware/casdoor_userinfo.go) |
-| Gin 中间件（租户 + RBAC） | [`internal/resource/adapter/inbound/http/auth.go`](../internal/resource/adapter/inbound/http/auth.go) |
+| Gin 中间件（租户 + PermissionChecker） | [`internal/resource/adapter/inbound/http/auth.go`](../internal/resource/adapter/inbound/http/auth.go) |
+| 目录映射 `resourceOf` / `actionOf` | [`catalog.go`](../internal/resource/adapter/inbound/http/catalog.go) |
+| 本地 PDP + 策略同步 | [`internal/platform/authz/`](../internal/platform/authz/) |
 | 挂载 | [`internal/resource/server.go`](../internal/resource/server.go)（`NewGinEngine` 之后） |
 
-RBAC 矩阵：
+授权矩阵（现状占位角色；**策略在 Casdoor**，种子对齐下表）：
 
 | 角色 | GET | POST/PUT/PATCH | DELETE / `:changeLifecycle` |
 |------|-----|----------------|------------------------------|
@@ -177,7 +181,9 @@ RBAC 矩阵：
 路径含 `/api/tenants/{id}/...` 时：`id` 必须等于 `Identity.TenantID`，否则 **403**。  
 `/api/import-jobs...` 无 path tenant：只要求身份有效（本期不做 body 租户深校验）。
 
-单元测试：`go test ./middleware/`（platform）、`go test ./adapter/inbound/http/`（resource）。
+经 APISIX 联调前：`auth.trust-proxy-headers: true`（同时启用 Casdoor 策略同步，见 `auth.authz.*`）。
+
+单元测试：`go test ./middleware/ ./authz/`（platform）、`go test ./adapter/inbound/http/`（resource）。
 
 ---
 
@@ -331,8 +337,9 @@ operator / viewer 同结构，仅 `name` 为 `operator` / `viewer`。
 | **C2** | APISIX `/resource/*`：`openid-connect` + `set_userinfo_header` | ✅ |
 | **C3** | Resource 解析 `X-Userinfo` + 租户 + RBAC（按 §7.5 映射） | ✅ |
 | **C4** | 联调清单 + 与 APISIX.md / architecture 文档闭环 | ✅ |
+| **C5+** | 集中式授权（Casdoor PAP + 本地 Casbin PDP） | 见 [`AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md)；**C5–C7 已完成** |
 
-相关：[`docs/APISIX.md`](APISIX.md) §11.6；[`architecture.md`](../architecture.md) 北向入口。
+相关：[`docs/APISIX.md`](APISIX.md) §11.6；[`architecture.md`](../architecture.md) 北向入口；[`docs/AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md)。
 
 ---
 
@@ -344,7 +351,8 @@ operator / viewer 同结构，仅 `name` 为 `operator` / `viewer`。
 - [`deploy/apisix/`](../deploy/apisix/)（C2）
 - [`internal/platform/middleware/identity.go`](../internal/platform/middleware/identity.go)（C3 · VPP `Identity`）
 - [`internal/platform/middleware/casdoor_userinfo.go`](../internal/platform/middleware/casdoor_userinfo.go)（C3 · Casdoor ACL）
-- [`internal/resource/adapter/inbound/http/auth.go`](../internal/resource/adapter/inbound/http/auth.go)（C3）
+- [`internal/platform/authz/`](../internal/platform/authz/)（C6 · PermissionChecker / Casbin / Syncer）
+- [`internal/resource/adapter/inbound/http/auth.go`](../internal/resource/adapter/inbound/http/auth.go)（C3；C7 将接 authz）
 - [`config/resource.yaml`](../config/resource.yaml) — `auth.trust-proxy-headers`
 
 ---
