@@ -2,17 +2,23 @@ package authz
 
 import "strings"
 
-// RemotePermission is the Casdoor Permission shape we care about for sync.
+// RemotePermission is the Casdoor Permission shape used for sync and catalog upsert.
 type RemotePermission struct {
-	Owner       string   `json:"owner"`
-	Name        string   `json:"name"`
-	Roles       []string `json:"roles"`
-	Resources   []string `json:"resources"`
-	Actions     []string `json:"actions"`
-	Model       string   `json:"model"`
-	Effect      string   `json:"effect"`
-	IsEnabled   bool     `json:"isEnabled"`
-	State       string   `json:"state"`
+	Owner        string   `json:"owner"`
+	Name         string   `json:"name"`
+	DisplayName  string   `json:"displayName,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	Users        []string `json:"users,omitempty"`
+	Groups       []string `json:"groups,omitempty"`
+	Roles        []string `json:"roles"`
+	Domains      []string `json:"domains,omitempty"`
+	Model        string   `json:"model"`
+	ResourceType string   `json:"resourceType,omitempty"`
+	Resources    []string `json:"resources"`
+	Actions      []string `json:"actions"`
+	Effect       string   `json:"effect"`
+	IsEnabled    bool     `json:"isEnabled"`
+	State        string   `json:"state"`
 }
 
 // PolicyRule is one Casbin p-rule: sub, obj, act.

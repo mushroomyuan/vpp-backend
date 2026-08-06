@@ -24,6 +24,38 @@ func TestActionOf(t *testing.T) {
 	}
 }
 
+func TestAuthzCatalog_CoversMappedObjects(t *testing.T) {
+	cat := AuthzCatalog("default", "default/vpp-rbac")
+	if cat.Owner != "default" || cat.Model != "default/vpp-rbac" || cat.Service != "resource" {
+		t.Fatalf("meta=%+v", cat)
+	}
+	want := map[string]map[string]bool{
+		"resource:sites":       {"read": true, "write": true},
+		"resource:assets":      {"read": true, "write": true, "delete": true},
+		"resource:cus":         {"read": true, "write": true},
+		"resource:points":      {"read": true, "write": true, "delete": true},
+		"resource:tree":        {"read": true, "write": true, "change-lifecycle": true},
+		"resource:import-jobs": {"read": true, "write": true},
+	}
+	if len(cat.Entries) != len(want) {
+		t.Fatalf("entries=%d want %d", len(cat.Entries), len(want))
+	}
+	for _, e := range cat.Entries {
+		acts, ok := want[e.Object]
+		if !ok {
+			t.Fatalf("unexpected object %q", e.Object)
+		}
+		if len(e.Actions) != len(acts) {
+			t.Fatalf("%s actions=%v", e.Object, e.Actions)
+		}
+		for _, a := range e.Actions {
+			if !acts[a] {
+				t.Fatalf("%s unexpected action %q", e.Object, a)
+			}
+		}
+	}
+}
+
 func TestResourceOf(t *testing.T) {
 	cases := []struct {
 		path, want string

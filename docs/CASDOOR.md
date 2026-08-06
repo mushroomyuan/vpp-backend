@@ -337,9 +337,9 @@ operator / viewer 同结构，仅 `name` 为 `operator` / `viewer`。
 | **C2** | APISIX `/resource/*`：`openid-connect` + `set_userinfo_header` | ✅ |
 | **C3** | Resource 解析 `X-Userinfo` + 租户 + RBAC（按 §7.5 映射） | ✅ |
 | **C4** | 联调清单 + 与 APISIX.md / architecture 文档闭环 | ✅ |
-| **C5+** | 集中式授权（Casdoor PAP + 本地 Casbin PDP） | 见 [`AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md)；**C5–C7 已完成** |
+| **C5+** | 集中式授权（Casdoor PAP + 本地 Casbin PDP） | 见 [`AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md)；**C5–C9 已完成** |
 
-相关：[`docs/APISIX.md`](APISIX.md) §11.6；[`architecture.md`](../architecture.md) 北向入口；[`docs/AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md)。
+相关：[`docs/APISIX.md`](APISIX.md) §11.6；[`architecture.md`](../architecture.md) 北向入口；[`docs/AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md)；联调 [`docs/AUTHZ_TEST.md`](AUTHZ_TEST.md)；运维 [`docs/AUTHZ_RUNBOOK.md`](AUTHZ_RUNBOOK.md)。
 
 ---
 
@@ -352,12 +352,16 @@ operator / viewer 同结构，仅 `name` 为 `operator` / `viewer`。
 - [`internal/platform/middleware/identity.go`](../internal/platform/middleware/identity.go)（C3 · VPP `Identity`）
 - [`internal/platform/middleware/casdoor_userinfo.go`](../internal/platform/middleware/casdoor_userinfo.go)（C3 · Casdoor ACL）
 - [`internal/platform/authz/`](../internal/platform/authz/)（C6 · PermissionChecker / Casbin / Syncer）
-- [`internal/resource/adapter/inbound/http/auth.go`](../internal/resource/adapter/inbound/http/auth.go)（C3；C7 将接 authz）
-- [`config/resource.yaml`](../config/resource.yaml) — `auth.trust-proxy-headers`
+- [`internal/resource/adapter/inbound/http/auth.go`](../internal/resource/adapter/inbound/http/auth.go)（C7 · PEP）
+- [`config/resource.yaml`](../config/resource.yaml) — `auth.trust-proxy-headers` / `auth.authz.*`
+- [`docs/AUTHZ_TEST.md`](AUTHZ_TEST.md)（C5–C7 联调测试）
 
 ---
 
 ## 11. 端到端联调清单（C4）
+
+> C5–C7 授权同步与「改 Casdoor 权限是否生效」见 **[`AUTHZ_TEST.md`](AUTHZ_TEST.md)**（含 Syncer、降级、最小验收清单）。  
+> 下文保留 C4 认证门卫冒烟；与 `AUTHZ_TEST.md` §4 可对照执行。
 
 前提：Postgres / Casdoor / APISIX 已起；[`config/resource.yaml`](../config/resource.yaml) 中 **`auth.trust-proxy-headers: true`**；Resource 已 `make run-resource`（或 `run-all`）。
 

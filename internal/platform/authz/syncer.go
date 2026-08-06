@@ -14,16 +14,19 @@ type Syncer struct {
 	checker *Checker
 	cfg     Config
 	log     logrus.FieldLogger
+	metrics *Metrics
 }
 
 // NewSyncer wires a permission source to checker. cfg should match the checker.
-func NewSyncer(src PermissionSource, checker *Checker, cfg Config) *Syncer {
+// NewSyncerWithMetrics wires a permission source to checker and optionally records C8 sync metrics.
+func NewSyncerWithMetrics(src PermissionSource, checker *Checker, cfg Config, metrics *Metrics) *Syncer {
 	cfg = cfg.withDefaults()
 	return &Syncer{
 		src:     src,
 		checker: checker,
 		cfg:     cfg,
 		log:     logrus.WithField("component", "authz.syncer"),
+		metrics: metrics,
 	}
 }
 
@@ -31,12 +34,29 @@ func NewSyncer(src PermissionSource, checker *Checker, cfg Config) *Syncer {
 func (s *Syncer) SyncOnce(ctx context.Context) error {
 	perms, err := s.src.FetchPermissions(ctx, s.cfg.Owner)
 	if err != nil {
+		if s.metrics != nil {
+			s.metrics.ObserveSyncFailure()
+		}
 		return err
 	}
 	rules := PoliciesFromPermissions(perms, s.cfg.ModelFilter)
 	now := time.Now().UTC()
 	if err := s.checker.ReplacePolicies(rules, now); err != nil {
+		if s.metrics != nil {
+			s.metrics.ObserveSyncFailure()
+		}
 		return err
+	}
+	if s.metrics != nil {
+		s.metrics.ObserveSyncSuccess(now, len(rules))
+		prev, cur := s.metrics.RefreshFromChecker(s.checker)
+		if prev != cur && (cur == TierStale || cur == TierInvalid) {
+			s.log.WithFields(logrus.Fields{
+				"from_tier":    prev.String(),
+				"to_tier":      cur.String(),
+				"last_success": s.checker.LastSuccess(),
+			}).Error("authz policy sync tier degraded")
+		}
 	}
 	s.log.WithFields(logrus.Fields{
 		"owner":    s.cfg.Owner,

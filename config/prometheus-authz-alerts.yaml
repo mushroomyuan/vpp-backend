@@ -1,0 +1,52 @@
+# Authz policy-sync alert rules (C8).
+# Loaded by config/prometheus.yaml via rule_files.
+groups:
+  - name: vpp-authz
+    rules:
+      - alert: AuthzPolicySyncFailing
+        expr: increase(authz_policy_sync_failures_total[10m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Authz policy sync failures on {{ $labels.service }}"
+          description: >-
+            {{ $labels.service }} failed to sync Casdoor permissions more than 3 times
+            in 10m. Check Casdoor reachability, Syncer credentials (built-in admin),
+            and resource logs for "authz policy sync failed". See docs/AUTHZ_RUNBOOK.md.
+
+      - alert: AuthzPolicyStale
+        expr: authz_policy_stale_seconds >= 300 and authz_policy_stale_seconds < 1800
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Authz policy cache stale on {{ $labels.service }}"
+          description: >-
+            {{ $labels.service }} last successful sync was {{ $value }}s ago
+            (stale band). Decisions still use cached policy; investigate Syncer
+            before hitting the hard invalid threshold. See docs/AUTHZ_RUNBOOK.md.
+
+      - alert: AuthzPolicyInvalid
+        expr: authz_policy_tier{tier="invalid"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Authz policy tier invalid on {{ $labels.service }}"
+          description: >-
+            {{ $labels.service }} is in fail-closed / safety-net mode
+            (staleness beyond hard threshold or never synced). Writes are denied;
+            restore Casdoor sync ASAP. See docs/AUTHZ_RUNBOOK.md.
+
+      - alert: AuthzPolicyNotLoaded
+        expr: authz_policy_loaded == 0 and authz_policy_tier{tier="invalid"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Authz cold-start safety net on {{ $labels.service }}"
+          description: >-
+            {{ $labels.service }} has no policy rules loaded (cold start / empty
+            snapshot). Only SafetyNetRole (admin) is allowed. Confirm Casdoor is
+            up and Syncer can login. See docs/AUTHZ_RUNBOOK.md.

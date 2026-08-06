@@ -25,6 +25,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./config/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus-authz-alerts.yaml:/etc/prometheus/prometheus-authz-alerts.yaml:ro
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'

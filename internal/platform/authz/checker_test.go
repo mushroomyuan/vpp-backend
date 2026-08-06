@@ -10,10 +10,10 @@ import (
 )
 
 func TestChecker_HealthyAllowDeny(t *testing.T) {
-	c, err := NewChecker(Config{
+	c, err := NewCheckerWithMetrics(Config{
 		HealthyAfter: 5 * time.Minute,
 		StaleAfter:   30 * time.Minute,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,10 +50,10 @@ func TestChecker_HealthyAllowDeny(t *testing.T) {
 }
 
 func TestChecker_StaleStillUsesCache(t *testing.T) {
-	c, err := NewChecker(Config{
+	c, err := NewCheckerWithMetrics(Config{
 		HealthyAfter: 1 * time.Minute,
 		StaleAfter:   10 * time.Minute,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,11 +72,11 @@ func TestChecker_StaleStillUsesCache(t *testing.T) {
 }
 
 func TestChecker_InvalidFailClosed(t *testing.T) {
-	c, err := NewChecker(Config{
+	c, err := NewCheckerWithMetrics(Config{
 		HealthyAfter:         1 * time.Minute,
 		StaleAfter:           2 * time.Minute,
 		AllowReadWhenInvalid: false,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,11 +100,11 @@ func TestChecker_InvalidFailClosed(t *testing.T) {
 }
 
 func TestChecker_InvalidAllowReadWhenConfigured(t *testing.T) {
-	c, err := NewChecker(Config{
+	c, err := NewCheckerWithMetrics(Config{
 		HealthyAfter:         1 * time.Minute,
 		StaleAfter:           2 * time.Minute,
 		AllowReadWhenInvalid: true,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestChecker_InvalidAllowReadWhenConfigured(t *testing.T) {
 }
 
 func TestChecker_ColdStartSafetyNet(t *testing.T) {
-	c, err := NewChecker(Config{})
+	c, err := NewCheckerWithMetrics(Config{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestChecker_ColdStartSafetyNet(t *testing.T) {
 func TestChecker_SnapshotRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "policy.json")
-	c1, err := NewChecker(Config{SnapshotPath: path})
+	c1, err := NewCheckerWithMetrics(Config{SnapshotPath: path}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,11 +153,11 @@ func TestChecker_SnapshotRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c2, err := NewChecker(Config{
+	c2, err := NewCheckerWithMetrics(Config{
 		SnapshotPath: path,
 		HealthyAfter: 5 * time.Minute,
 		StaleAfter:   30 * time.Minute,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

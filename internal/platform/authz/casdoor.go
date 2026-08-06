@@ -74,9 +74,6 @@ type casdoorAPIResponse struct {
 
 // FetchPermissions implements PermissionSource via GET /api/get-permissions.
 func (c *CasdoorClient) FetchPermissions(ctx context.Context, owner string) ([]RemotePermission, error) {
-	if err := c.ensureLogin(ctx); err != nil {
-		return nil, err
-	}
 	u, err := url.Parse(strings.TrimRight(c.cfg.BaseURL, "/") + "/api/get-permissions")
 	if err != nil {
 		return nil, err
@@ -85,41 +82,9 @@ func (c *CasdoorClient) FetchPermissions(ctx context.Context, owner string) ([]R
 	q.Set("owner", owner)
 	u.RawQuery = q.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	body, err := c.doAPI(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		return nil, err
-	}
-	res, err := c.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-	if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
-		// Session may have expired; one retry after re-login.
-		if err := c.login(ctx); err != nil {
-			return nil, err
-		}
-		req2, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-		if err != nil {
-			return nil, err
-		}
-		res2, err := c.client.Do(req2)
-		if err != nil {
-			return nil, err
-		}
-		defer res2.Body.Close()
-		body, err = io.ReadAll(res2.Body)
-		if err != nil {
-			return nil, err
-		}
-		res = res2
-	}
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("authz casdoor get-permissions: HTTP %d: %s", res.StatusCode, truncate(body, 200))
+		return nil, fmt.Errorf("authz casdoor get-permissions: %w", err)
 	}
 	var wrap casdoorAPIResponse
 	if err := json.Unmarshal(body, &wrap); err != nil {
@@ -136,6 +101,100 @@ func (c *CasdoorClient) FetchPermissions(ctx context.Context, owner string) ([]R
 		return nil, fmt.Errorf("authz casdoor permissions data: %w", err)
 	}
 	return perms, nil
+}
+
+// AddPermission implements PermissionAdmin via POST /api/add-permission.
+func (c *CasdoorClient) AddPermission(ctx context.Context, p RemotePermission) error {
+	endpoint := strings.TrimRight(c.cfg.BaseURL, "/") + "/api/add-permission"
+	payload, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	body, err := c.doAPI(ctx, http.MethodPost, endpoint, payload)
+	if err != nil {
+		return fmt.Errorf("authz casdoor add-permission: %w", err)
+	}
+	return parseActionOK(body, "add-permission")
+}
+
+// UpdatePermission implements PermissionAdmin via POST /api/update-permission?id=.
+func (c *CasdoorClient) UpdatePermission(ctx context.Context, p RemotePermission) error {
+	u, err := url.Parse(strings.TrimRight(c.cfg.BaseURL, "/") + "/api/update-permission")
+	if err != nil {
+		return err
+	}
+	q := u.Query()
+	q.Set("id", p.Owner+"/"+p.Name)
+	u.RawQuery = q.Encode()
+	payload, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	body, err := c.doAPI(ctx, http.MethodPost, u.String(), payload)
+	if err != nil {
+		return fmt.Errorf("authz casdoor update-permission: %w", err)
+	}
+	return parseActionOK(body, "update-permission")
+}
+
+// doAPI ensures a session, performs the request, and retries once after re-login on 401/403.
+func (c *CasdoorClient) doAPI(ctx context.Context, method, endpoint string, payload []byte) ([]byte, error) {
+	if err := c.ensureLogin(ctx); err != nil {
+		return nil, err
+	}
+	body, status, err := c.roundTrip(ctx, method, endpoint, payload)
+	if err != nil {
+		return nil, err
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		if err := c.login(ctx); err != nil {
+			return nil, err
+		}
+		body, status, err = c.roundTrip(ctx, method, endpoint, payload)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", status, truncate(body, 200))
+	}
+	return body, nil
+}
+
+func (c *CasdoorClient) roundTrip(ctx context.Context, method, endpoint string, payload []byte) ([]byte, int, error) {
+	var rdr io.Reader
+	if payload != nil {
+		rdr = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, rdr)
+	if err != nil {
+		return nil, 0, err
+	}
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	res, err := c.client.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, res.StatusCode, err
+	}
+	return body, res.StatusCode, nil
+}
+
+func parseActionOK(body []byte, op string) error {
+	var wrap casdoorAPIResponse
+	if err := json.Unmarshal(body, &wrap); err != nil {
+		return fmt.Errorf("authz casdoor %s decode: %w", op, err)
+	}
+	// Casdoor wrapActionResponse returns status "ok" / "error"; data may be bool.
+	if wrap.Status != "" && wrap.Status != "ok" {
+		return fmt.Errorf("authz casdoor %s: status=%s msg=%s", op, wrap.Status, wrap.Msg)
+	}
+	return nil
 }
 
 func (c *CasdoorClient) ensureLogin(ctx context.Context) error {

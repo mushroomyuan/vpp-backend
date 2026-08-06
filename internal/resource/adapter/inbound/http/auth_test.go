@@ -161,7 +161,7 @@ func TestAuthMiddleware_ChangeLifecycle(t *testing.T) {
 func TestAuthMiddleware_ColdStartSafetyNet(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	// Empty checker: TierInvalid, no policies → admin only.
-	checker, err := authz.NewChecker(authz.Config{})
+	checker, err := authz.NewCheckerWithMetrics(authz.Config{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,10 +221,10 @@ func TestAuthMiddleware_NilCheckerWhenTrustTrue(t *testing.T) {
 
 func mustHealthyChecker(t *testing.T) *authz.Checker {
 	t.Helper()
-	c, err := authz.NewChecker(authz.Config{
+	c, err := authz.NewCheckerWithMetrics(authz.Config{
 		HealthyAfter: 1 * time.Hour,
 		StaleAfter:   2 * time.Hour,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

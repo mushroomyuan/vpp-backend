@@ -27,12 +27,12 @@ func (s *staticSource) FetchPermissions(context.Context, string) ([]RemotePermis
 }
 
 func TestSyncer_SyncOnceLoadsPolicies(t *testing.T) {
-	c, err := NewChecker(Config{
+	c, err := NewCheckerWithMetrics(Config{
 		HealthyAfter: 5 * time.Minute,
 		StaleAfter:   30 * time.Minute,
 		ModelFilter:  "default/vpp-rbac",
 		Owner:        "default",
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestSyncer_SyncOnceLoadsPolicies(t *testing.T) {
 		IsEnabled: true,
 		State:     "Approved",
 	}}}
-	s := NewSyncer(src, c, c.cfg)
+	s := NewSyncerWithMetrics(src, c, c.cfg, nil)
 	if err := s.SyncOnce(context.Background()); err != nil {
 		t.Fatal(err)
 	}

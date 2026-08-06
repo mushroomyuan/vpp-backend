@@ -33,6 +33,8 @@ resource:
       healthy-after: 5m
       stale-after: 30m
       allow-read-when-invalid: false
+      # C9: upsert AuthzCatalog Permissions (empty Roles); set true to skip.
+      # disable-register-catalog: false
 
 database:
   driver: postgres

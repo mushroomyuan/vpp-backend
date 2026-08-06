@@ -42,6 +42,8 @@ type AuthzConfig struct {
 	Enabled bool
 	// Sync starts the Casdoor policy syncer.
 	Sync bool
+	// RegisterCatalog upserts the service permission inventory to Casdoor (C9).
+	RegisterCatalog bool
 
 	CasdoorURL      string
 	CasdoorOrg      string
@@ -83,6 +85,7 @@ func CreateFromOptions(opts *options.Options) *Config {
 		Authz: AuthzConfig{
 			Enabled:              authzEnabled,
 			Sync:                 authzEnabled, // B1 pull whenever PDP is on
+			RegisterCatalog:      authzEnabled && !az.DisableRegisterCatalog,
 			CasdoorURL:           defaultStr(az.CasdoorURL, "http://127.0.0.1:8000"),
 			CasdoorOrg:           defaultStr(az.CasdoorOrg, "built-in"),
 			CasdoorApp:           defaultStr(az.CasdoorApp, "app-built-in"),

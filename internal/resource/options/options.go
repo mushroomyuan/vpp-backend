@@ -55,6 +55,9 @@ type AuthzOptions struct {
 	HealthyAfter         string `mapstructure:"healthy-after"`
 	StaleAfter           string `mapstructure:"stale-after"`
 	AllowReadWhenInvalid bool   `mapstructure:"allow-read-when-invalid"`
+
+	// DisableRegisterCatalog skips C9 catalog upsert at startup (default: register when sync is on).
+	DisableRegisterCatalog bool `mapstructure:"disable-register-catalog"`
 }
 
 type TracingOptions struct {
