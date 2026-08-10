@@ -410,7 +410,9 @@ make apisix-up && make apisix-init
 
 ## 11. Phase 1：Gateway API Key 认证（EMS 线）
 
-Phase 1 在 `/gateway/*` 路由上启用 `key-auth` + `limit-req`；`/resource/*` 已启用 Casdoor OIDC（Phase 2，见下节）。
+Phase 1 在 `/gateway/*` 路由上启用 `key-auth` + `limit-req`（**EMS `telemetry:ingest` 等机机路径**）。
+
+**C10b：** `/gateway/api/v1/tenants/*/mappings*` 另有更高优先级的 **OIDC** 路由（`gateway-mappings`，priority 100），人管映射走 Casdoor，不再用 API Key。`make apisix-init` 会同时安装两条路由。详见 [`AUTHZ_TEST.md`](AUTHZ_TEST.md) §7.6。
 
 ### 11.1 配置内容
 
@@ -419,25 +421,35 @@ Phase 1 在 `/gateway/*` 路由上启用 `key-auth` + `limit-req`；`/resource/*
 | Consumer | `simulator_default` |
 | Dev API Key | `vpp-dev-simulator-key`（见 [`conf/consumers.yaml`](../deploy/apisix/conf/consumers.yaml)） |
 | 限流 | 100 req/s，burst 200（按 `remote_addr`） |
-| 无 Key 访问 | HTTP **401** |
-| 有 Key 访问 | 正常转发到 gateway `:8083` |
+| 无 Key 访问 ingest 等 | HTTP **401** |
+| 有 Key 访问 ingest | 正常转发到 gateway `:8083` |
+| mappings | 需 **Bearer**（OIDC），不是 API Key |
 
 ### 11.2 应用配置
 
 ```bash
-make apisix-init    # 幂等，含 Phase 0 + Phase 1
+make apisix-init    # 幂等，含 Phase 0 + Phase 1 + mappings OIDC
 ```
 
 ### 11.3 验证
 
 ```bash
-# 401 — 无 Key
+# ingest：401 — 无 Key
+curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
+  -X POST http://127.0.0.1:9080/gateway/api/v1/tenants/default/telemetry:ingest
+
+# ingest：带 Key（需 gateway 在跑）
+curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
+  -H 'X-API-KEY: vpp-dev-simulator-key' \
+  -X POST http://127.0.0.1:9080/gateway/api/v1/tenants/default/telemetry:ingest
+
+# mappings：401 — 无 Bearer（OIDC，不再接受仅 API Key）
 curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
   http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings
 
-# 200 — 带 Key（需 make run-all）
+# mappings：Bearer（Casdoor）
 curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
-  -H 'X-API-KEY: vpp-dev-simulator-key' \
+  -H "Authorization: Bearer $(make -s casdoor-token)" \
   http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings
 
 # resource 需 Bearer（Phase 2 Casdoor OIDC）

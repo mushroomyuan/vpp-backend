@@ -1,5 +1,9 @@
-# Gateway service transparent proxy route (Phase 1).
+# Gateway EMS catch-all (Phase 1 key-auth).
 # Applied by deploy/apisix/init.sh via Admin API.
+#
+# Mappings human-admin traffic uses a higher-priority OIDC route
+# (see gateway-mappings.yaml). This route covers telemetry:ingest and
+# any other /gateway/* paths that remain machine-authenticated.
 
 upstream_id: gateway-backend
 upstream:
@@ -14,6 +18,7 @@ consumer:
 route:
   name: gateway-proxy
   uri: /gateway/*
+  priority: 0
   backend_path: /api/v1/tenants/*
   plugins:
     proxy-rewrite:

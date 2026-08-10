@@ -8,6 +8,25 @@ telemetry:
   metrics-addr: 127.0.0.1:9103
   consul-addr: 127.0.0.1:8500
 
+  # When true: require x-userinfo + Casbin on read RPCs (AUTHZ C10c).
+  # IngestTelemetry stays machine-auth (gateway→telemetry) and skips user PEP.
+  # When false: auth bypass for local direct :5003 debugging.
+  auth:
+    trust-proxy-headers: false
+    authz:
+      casdoor-url: http://127.0.0.1:8000
+      casdoor-organization: built-in
+      casdoor-application: app-built-in
+      casdoor-username: admin
+      casdoor-password: "123"
+      owner: default
+      model-filter: default/vpp-rbac
+      snapshot-path: ./data/telemetry-authz-snapshot.json
+      sync-interval: 30s
+      healthy-after: 5m
+      stale-after: 30m
+      allow-read-when-invalid: false
+
 # TimescaleDB (PostgreSQL + TimescaleDB extension).
 # Keep in sync with compose.yaml → postgres environment.*
 timescaledb:

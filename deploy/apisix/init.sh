@@ -4,6 +4,7 @@
 # Phase 0: transparent proxy for gateway + resource
 # Phase 1: key-auth + limit-req on /gateway/* (EMS / simulator)
 # Phase 2: openid-connect bearer_only on /resource/* (Casdoor OIDC)
+# Phase 2b / C10b: openid-connect on /gateway/.../mappings* (human-managed mappings)
 #
 # Requires APISIX Admin API (default host :9181 → container :9180).
 # Casdoor should be reachable from the APISIX container at host.docker.internal:8000.
@@ -137,6 +138,7 @@ PY
 put_gateway_route() {
   admin_curl -X PUT "${APISIX_ADMIN_URL}/apisix/admin/routes/gateway-proxy" -d '{
     "uri": "/gateway/*",
+    "priority": 0,
     "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     "upstream_id": "gateway-backend",
     "plugins": {
@@ -155,7 +157,53 @@ put_gateway_route() {
     }
   }'
   echo
-  echo "Route gateway-proxy: /gateway/* -> gateway-backend (key-auth + limit-req)"
+  echo "Route gateway-proxy: /gateway/* -> gateway-backend (key-auth + limit-req, priority 0)"
+}
+
+put_gateway_mappings_route() {
+  # C10b: mappings use OIDC + X-Userinfo; higher priority than key-auth catch-all.
+  local body
+  body="$(OIDC_CLIENT_ID="${OIDC_CLIENT_ID}" \
+    OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET}" \
+    OIDC_DISCOVERY="${OIDC_DISCOVERY}" \
+    python3 - <<'PY'
+import json, os
+doc = {
+  "uri": "/gateway/api/v1/tenants/*/mappings*",
+  "priority": 100,
+  "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  "upstream_id": "gateway-backend",
+  "plugins": {
+    "proxy-rewrite": {
+      "regex_uri": ["^/gateway/(.*)", "/$1"]
+    },
+    "openid-connect": {
+      "client_id": os.environ["OIDC_CLIENT_ID"],
+      "client_secret": os.environ["OIDC_CLIENT_SECRET"],
+      "discovery": os.environ["OIDC_DISCOVERY"],
+      "bearer_only": True,
+      "realm": "vpp",
+      "use_jwks": True,
+      "ssl_verify": False,
+      "set_userinfo_header": True,
+      "set_access_token_header": True,
+      "access_token_in_authorization_header": True,
+      "set_id_token_header": False,
+    },
+    "limit-req": {
+      "rate": 30,
+      "burst": 50,
+      "key": "remote_addr",
+      "rejected_code": 429,
+    },
+  },
+}
+print(json.dumps(doc))
+PY
+)"
+  admin_curl -X PUT "${APISIX_ADMIN_URL}/apisix/admin/routes/gateway-mappings" -d "${body}"
+  echo
+  echo "Route gateway-mappings: /gateway/.../mappings* -> gateway-backend (openid-connect, priority 100)"
 }
 
 main() {
@@ -167,21 +215,25 @@ main() {
   put_consumer_key_auth "${SIMULATOR_CONSUMER}" "${SIMULATOR_API_KEY}"
 
   put_gateway_route
+  put_gateway_mappings_route
   put_resource_route
 
   echo ""
-  echo "Phase 0+1+2 routes installed."
+  echo "Phase 0+1+2(+C10b mappings OIDC) routes installed."
   echo ""
   echo "Smoke test:"
-  echo "  # gateway 401 without key"
+  echo "  # EMS ingest still needs API key (not OIDC)"
   echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\\n' \\"
+  echo "    http://127.0.0.1:9080/gateway/api/v1/tenants/default/telemetry:ingest"
+  echo "  # mappings without Bearer → 401 (OIDC)"
+  echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\\n' \\"
+  echo "    http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings"
+  echo "  # mappings with Casdoor token"
+  echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\\n' \\"
+  echo "    -H \"Authorization: Bearer \$(make -s casdoor-token)\" \\"
   echo "    http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings"
   echo "  # resource 401 without Bearer"
   echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\\n' \\"
-  echo "    http://127.0.0.1:9080/resource/api/tenants/default/sites"
-  echo "  # resource with Casdoor token (need make run-resource + casdoor-up)"
-  echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\\n' \\"
-  echo "    -H \"Authorization: Bearer \$(make -s casdoor-token)\" \\"
   echo "    http://127.0.0.1:9080/resource/api/tenants/default/sites"
 }
 

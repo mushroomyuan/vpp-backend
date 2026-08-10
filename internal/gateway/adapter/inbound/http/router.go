@@ -6,15 +6,22 @@ import (
 	"github.com/mushroomyuan/vpp-backend/gateway/application"
 )
 
-// RegisterRoutes mounts all gateway HTTP endpoints on the given Gin engine.
-func RegisterRoutes(r *gin.Engine, app application.Application) {
+// RegisterRoutes mounts gateway HTTP endpoints.
+// authMiddleware is applied only to mappings routes so EMS telemetry:ingest
+// stays machine-auth (APISIX key-auth) and is not forced through user RBAC.
+func RegisterRoutes(r *gin.Engine, app application.Application, authMiddleware gin.HandlerFunc) {
 	h := NewHandler(app)
 	v1 := r.Group("/api/v1/tenants/:tenant_id")
 	{
 		v1.POST("/telemetry:ingest", h.IngestTelemetry)
-		v1.POST("/mappings", h.CreateMapping)
-		v1.GET("/mappings", h.ListMappings)
-		v1.DELETE("/mappings/:id", h.DeleteMapping)
-		v1.PATCH("/mappings/:id/disable", h.DisableMapping)
+
+		mappings := v1.Group("")
+		if authMiddleware != nil {
+			mappings.Use(authMiddleware)
+		}
+		mappings.POST("/mappings", h.CreateMapping)
+		mappings.GET("/mappings", h.ListMappings)
+		mappings.DELETE("/mappings/:id", h.DeleteMapping)
+		mappings.PATCH("/mappings/:id/disable", h.DisableMapping)
 	}
 }

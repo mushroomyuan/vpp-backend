@@ -28,7 +28,7 @@ APISIX :9080 /resource/*   ← C2 openid-connect
 Resource :8082             ← C3 middleware
 ```
 
-业务代码 **不引入** `casdoor-sdk-go`。换 IdP 时：改 APISIX `discovery` + 重写 claim→`Identity` 映射（见 §7.6）；**不要**让 usecase 依赖 Casdoor 字段名。
+业务代码 **不引入** `casdoor-sdk-go`。换 IdP 时：改 APISIX `discovery` + 重写 claim→`identity.Principal` 映射（见 §7.6）；**不要**让 usecase 依赖 Casdoor 字段名。
 
 ---
 
@@ -163,8 +163,8 @@ K8s 后 Resource 仅 ClusterIP 时，伪造面自然缩小。
 
 | 组件 | 路径 |
 |------|------|
-| VPP 身份契约 `Identity` | [`internal/platform/middleware/identity.go`](../internal/platform/middleware/identity.go) |
-| Casdoor claim → `Identity`（ACL） | [`internal/platform/middleware/casdoor_userinfo.go`](../internal/platform/middleware/casdoor_userinfo.go) |
+| VPP 身份契约 `Principal` | [`internal/platform/identity/identity.go`](../internal/platform/identity/identity.go) |
+| Casdoor claim → `Principal`（ACL） | [`internal/platform/authn/casdoor/userinfo.go`](../internal/platform/authn/casdoor/userinfo.go) |
 | Gin 中间件（租户 + PermissionChecker） | [`internal/resource/adapter/inbound/http/auth.go`](../internal/resource/adapter/inbound/http/auth.go) |
 | 目录映射 `resourceOf` / `actionOf` | [`catalog.go`](../internal/resource/adapter/inbound/http/catalog.go) |
 | 本地 PDP + 策略同步 | [`internal/platform/authz/`](../internal/platform/authz/) |
@@ -246,11 +246,11 @@ curl --noproxy '*' -s \
 ## 7.5 JWT claim 实测格式（C1 门禁 · Casdoor 3.125.0）
 
 实测 Password Grant 签发的 access_token（`alg=RS256`, `kid=cert-vpp`）。  
-**`casdoor_userinfo.go` 必须按此结构解析，不要假设 `roles` 是 `string[]`。**
+**`authn/casdoor/userinfo.go` 必须按此结构解析，不要假设 `roles` 是 `string[]`。**
 
-### Casdoor wire → VPP `Identity`
+### Casdoor wire → VPP `Principal`
 
-| `Identity`（稳定契约） | Casdoor claim（可替换面） | 实测类型 | 示例 |
+| `Principal`（稳定契约） | Casdoor claim（可替换面） | 实测类型 | 示例 |
 |------------------------|---------------------------|----------|------|
 | `UserID` | `sub`（缺省时 `id`） | string (UUID) | `cd4686dc-129b-…` |
 | `TenantID` | `owner` | string | `default` |
@@ -292,7 +292,7 @@ operator / viewer 同结构，仅 `name` 为 `operator` / `viewer`。
 ### 对 C2 / C3 的约定
 
 - **C2**：APISIX `openid-connect` + `set_userinfo_header: true` → 转发 **`X-Userinfo`**（整包）；不在网关拆 `X-Roles`。
-- **C3**：`ParseXUserinfo` 按上表映射后，用 `Identity.TenantID` / `Roles` 做 path 租户与 RBAC。
+- **C3**：`casdoor.ParseUserinfo` 按上表映射后，用 `Principal.TenantID` / `Roles` 做 path 租户与 RBAC。
 
 复现：`make -s casdoor-token USER=admin DECODE=1`。
 
@@ -302,8 +302,8 @@ operator / viewer 同结构，仅 `name` 为 `operator` / `viewer`。
 
 | 层 | 内容 | 替换 IdP 时 |
 |----|------|-------------|
-| **稳定** | `Identity` + Resource RBAC（`admin`/`operator`/`viewer`） | 尽量不动 |
-| **Casdoor ACL** | [`casdoor_userinfo.go`](../internal/platform/middleware/casdoor_userinfo.go) + 本节 claim 表 | **重写映射**；更新 §7.5 实测样例 |
+| **稳定** | `identity.Principal` + Resource RBAC（`admin`/`operator`/`viewer`） | 尽量不动 |
+| **Casdoor ACL** | [`authn/casdoor/userinfo.go`](../internal/platform/authn/casdoor/userinfo.go) + 本节 claim 表 | **重写映射**；更新 §7.5 实测样例 |
 | **运维** | APISIX `discovery` / client_id / secret | 改 IdP 端点与凭证 |
 
 不做 `ports.UserinfoMapper` 多实现：当前只有 Casdoor。文件名与注释标明「这是 Casdoor 形状」，避免把 `owner` 误当成行业标准 OIDC。
@@ -337,7 +337,7 @@ operator / viewer 同结构，仅 `name` 为 `operator` / `viewer`。
 | **C2** | APISIX `/resource/*`：`openid-connect` + `set_userinfo_header` | ✅ |
 | **C3** | Resource 解析 `X-Userinfo` + 租户 + RBAC（按 §7.5 映射） | ✅ |
 | **C4** | 联调清单 + 与 APISIX.md / architecture 文档闭环 | ✅ |
-| **C5+** | 集中式授权（Casdoor PAP + 本地 Casbin PDP） | 见 [`AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md)；**C5–C9 已完成** |
+| **C5+** | 集中式授权（Casdoor PAP + 本地 Casbin PDP） | 见 [`AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md)；**C5–C10 已完成**（C10a/b/c） |
 
 相关：[`docs/APISIX.md`](APISIX.md) §11.6；[`architecture.md`](../architecture.md) 北向入口；[`docs/AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md)；联调 [`docs/AUTHZ_TEST.md`](AUTHZ_TEST.md)；运维 [`docs/AUTHZ_RUNBOOK.md`](AUTHZ_RUNBOOK.md)。
 
@@ -349,8 +349,8 @@ operator / viewer 同结构，仅 `name` 为 `operator` / `viewer`。
 - [`deploy/casdoor/token.sh`](../deploy/casdoor/token.sh)（C1）
 - [`migrations/initdb/60-casdoor-db.sh`](../migrations/initdb/60-casdoor-db.sh)
 - [`deploy/apisix/`](../deploy/apisix/)（C2）
-- [`internal/platform/middleware/identity.go`](../internal/platform/middleware/identity.go)（C3 · VPP `Identity`）
-- [`internal/platform/middleware/casdoor_userinfo.go`](../internal/platform/middleware/casdoor_userinfo.go)（C3 · Casdoor ACL）
+- [`internal/platform/identity/identity.go`](../internal/platform/identity/identity.go)（C3 · VPP `Principal`）
+- [`internal/platform/authn/casdoor/userinfo.go`](../internal/platform/authn/casdoor/userinfo.go)（C3 · Casdoor ACL）
 - [`internal/platform/authz/`](../internal/platform/authz/)（C6 · PermissionChecker / Casbin / Syncer）
 - [`internal/resource/adapter/inbound/http/auth.go`](../internal/resource/adapter/inbound/http/auth.go)（C7 · PEP）
 - [`config/resource.yaml`](../config/resource.yaml) — `auth.trust-proxy-headers` / `auth.authz.*`

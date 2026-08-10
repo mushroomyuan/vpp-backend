@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mushroomyuan/vpp-backend/platform/authn/casdoor"
 	"github.com/mushroomyuan/vpp-backend/platform/authz"
-	"github.com/mushroomyuan/vpp-backend/platform/middleware"
+	"github.com/mushroomyuan/vpp-backend/platform/identity"
 )
 
 type stubChecker struct {
@@ -21,14 +22,14 @@ type stubChecker struct {
 	err      error
 }
 
-func (s stubChecker) Allow(context.Context, middleware.Identity, string, string) (bool, bool, error) {
-	return s.allowed, s.degraded, s.err
+func (s stubChecker) Allow(context.Context, identity.Principal, string, string) (authz.Decision, error) {
+	return authz.Decision{Allowed: s.allowed, Degraded: s.degraded}, s.err
 }
 
 func TestAuthMiddleware_BypassWhenTrustFalse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: false}, nil))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: false}, nil, nil))
 	r.GET("/api/tenants/default/sites", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
@@ -42,7 +43,7 @@ func TestAuthMiddleware_BypassWhenTrustFalse(t *testing.T) {
 func TestAuthMiddleware_RequireUserinfo(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, mustHealthyChecker(t)))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, casdoor.ParseUserinfo, mustHealthyChecker(t)))
 	r.GET("/api/tenants/default/sites", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
@@ -53,10 +54,24 @@ func TestAuthMiddleware_RequireUserinfo(t *testing.T) {
 	}
 }
 
+func TestAuthMiddleware_NilPrincipalParser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, nil, mustHealthyChecker(t)))
+	r.GET("/api/tenants/default/sites", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/tenants/default/sites", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("code=%d", w.Code)
+	}
+}
+
 func TestAuthMiddleware_TenantMismatch(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, mustHealthyChecker(t)))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, casdoor.ParseUserinfo, mustHealthyChecker(t)))
 	r.GET("/api/tenants/other/sites", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
@@ -71,7 +86,7 @@ func TestAuthMiddleware_TenantMismatch(t *testing.T) {
 func TestAuthMiddleware_ViewerCannotWrite(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, mustHealthyChecker(t)))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, casdoor.ParseUserinfo, mustHealthyChecker(t)))
 	r.POST("/api/tenants/default/sites", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
@@ -86,7 +101,7 @@ func TestAuthMiddleware_ViewerCannotWrite(t *testing.T) {
 func TestAuthMiddleware_OperatorCannotDelete(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, mustHealthyChecker(t)))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, casdoor.ParseUserinfo, mustHealthyChecker(t)))
 	r.DELETE("/api/tenants/default/resources/x", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
@@ -101,11 +116,11 @@ func TestAuthMiddleware_OperatorCannotDelete(t *testing.T) {
 func TestAuthMiddleware_AdminOK(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, mustHealthyChecker(t)))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, casdoor.ParseUserinfo, mustHealthyChecker(t)))
 	r.DELETE("/api/tenants/default/resources/x", func(c *gin.Context) {
-		id, ok := IdentityFromGin(c)
-		if !ok || !id.HasRole("admin") {
-			t.Fatalf("identity missing: %+v ok=%v", id, ok)
+		principal, ok := PrincipalFromGin(c)
+		if !ok || !principal.HasRole("admin") {
+			t.Fatalf("principal missing: %+v ok=%v", principal, ok)
 		}
 		c.Status(http.StatusOK)
 	})
@@ -122,7 +137,7 @@ func TestAuthMiddleware_AdminOK(t *testing.T) {
 func TestAuthMiddleware_ImportJobsNoPathTenant(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, mustHealthyChecker(t)))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, casdoor.ParseUserinfo, mustHealthyChecker(t)))
 	r.GET("/api/import-jobs/abc", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
@@ -138,7 +153,7 @@ func TestAuthMiddleware_ChangeLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	checker := mustHealthyChecker(t)
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, checker))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, casdoor.ParseUserinfo, checker))
 	r.POST("/api/tenants/default/resources/r:changeLifecycle", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
@@ -166,7 +181,7 @@ func TestAuthMiddleware_ColdStartSafetyNet(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, checker))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, casdoor.ParseUserinfo, checker))
 	r.GET("/api/tenants/default/sites", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
@@ -189,7 +204,7 @@ func TestAuthMiddleware_ColdStartSafetyNet(t *testing.T) {
 func TestAuthMiddleware_InvalidPolicyFailClosed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, stubChecker{allowed: false, degraded: true}))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, casdoor.ParseUserinfo, stubChecker{allowed: false, degraded: true}))
 	r.GET("/api/tenants/default/sites", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
@@ -207,7 +222,7 @@ func TestAuthMiddleware_InvalidPolicyFailClosed(t *testing.T) {
 func TestAuthMiddleware_NilCheckerWhenTrustTrue(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, nil))
+	r.Use(AuthMiddleware(AuthConfig{TrustProxyHeaders: true}, casdoor.ParseUserinfo, nil))
 	r.GET("/api/tenants/default/sites", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()

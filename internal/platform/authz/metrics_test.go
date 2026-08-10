@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mushroomyuan/vpp-backend/platform/middleware"
+	"github.com/mushroomyuan/vpp-backend/platform/identity"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -49,13 +49,13 @@ func TestMetrics_DecisionAndSync(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ok, degraded, err := c.Allow(context.Background(), middleware.Identity{Roles: []string{"viewer"}}, "resource:sites", "read")
-	if err != nil || !ok || degraded {
-		t.Fatalf("ok=%v degraded=%v err=%v", ok, degraded, err)
+	decision, err := c.Allow(context.Background(), identity.Principal{Roles: []string{"viewer"}}, "resource:sites", "read")
+	if err != nil || !decision.Allowed || decision.Degraded {
+		t.Fatalf("decision=%+v err=%v", decision, err)
 	}
-	ok, _, err = c.Allow(context.Background(), middleware.Identity{Roles: []string{"viewer"}}, "resource:sites", "write")
-	if err != nil || ok {
-		t.Fatalf("write should deny ok=%v err=%v", ok, err)
+	decision, err = c.Allow(context.Background(), identity.Principal{Roles: []string{"viewer"}}, "resource:sites", "write")
+	if err != nil || decision.Allowed {
+		t.Fatalf("write should deny decision=%+v err=%v", decision, err)
 	}
 
 	body := scrape(t, reg)

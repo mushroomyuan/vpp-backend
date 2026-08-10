@@ -13,6 +13,10 @@ type Config struct {
 	// still evaluate read actions against the cache (default false = fail-closed).
 	AllowReadWhenInvalid bool
 
+	// DenyWritesWhenStale: when TierStale, deny any action other than "read"
+	// (control-class services such as dispatch; default false).
+	DenyWritesWhenStale bool
+
 	// SafetyNetRole: only this role is allowed when there is no usable policy
 	// cache (true cold start). Default "admin".
 	SafetyNetRole string

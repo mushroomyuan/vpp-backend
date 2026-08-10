@@ -18,6 +18,40 @@ type TelemetryOptions struct {
 	MetricsAddr string `mapstructure:"metrics-addr"`
 	ServiceName string `mapstructure:"service-name"`
 	ConsulAddr  string `mapstructure:"consul-addr"`
+
+	// Auth configures gRPC identity middleware (x-userinfo / Casdoor) for read RPCs.
+	Auth AuthOptions `mapstructure:"auth"`
+}
+
+// AuthOptions configures gRPC identity middleware for telemetry read APIs (C10c).
+type AuthOptions struct {
+	// TrustProxyHeaders requires valid x-userinfo when true.
+	// When false, auth is bypassed for local direct :5003 debugging.
+	TrustProxyHeaders bool `mapstructure:"trust-proxy-headers"`
+	// Authz configures local Casbin PDP + Casdoor policy sync.
+	Authz AuthzOptions `mapstructure:"authz"`
+}
+
+// AuthzOptions is the telemetry-service wiring for platform/authz.
+type AuthzOptions struct {
+	Disabled bool `mapstructure:"disabled"`
+
+	CasdoorURL      string `mapstructure:"casdoor-url"`
+	CasdoorOrg      string `mapstructure:"casdoor-organization"`
+	CasdoorApp      string `mapstructure:"casdoor-application"`
+	CasdoorUsername string `mapstructure:"casdoor-username"`
+	CasdoorPassword string `mapstructure:"casdoor-password"`
+
+	Owner        string `mapstructure:"owner"`
+	ModelFilter  string `mapstructure:"model-filter"`
+	SnapshotPath string `mapstructure:"snapshot-path"`
+
+	SyncInterval         string `mapstructure:"sync-interval"`
+	HealthyAfter         string `mapstructure:"healthy-after"`
+	StaleAfter           string `mapstructure:"stale-after"`
+	AllowReadWhenInvalid bool   `mapstructure:"allow-read-when-invalid"`
+
+	DisableRegisterCatalog bool `mapstructure:"disable-register-catalog"`
 }
 
 type TracingOptions struct {

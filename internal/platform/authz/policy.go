@@ -25,7 +25,7 @@ type RemotePermission struct {
 type PolicyRule [3]string
 
 // PoliciesFromPermissions expands Casdoor permissions into local Casbin p-rules.
-// Role ids like "default/admin" are stripped to bare names to match Identity.Roles.
+// Role ids like "default/admin" are stripped to bare names to match Principal.Roles.
 func PoliciesFromPermissions(perms []RemotePermission, modelFilter string) []PolicyRule {
 	var out []PolicyRule
 	for _, p := range perms {

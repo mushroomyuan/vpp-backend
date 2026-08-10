@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mushroomyuan/vpp-backend/platform/middleware"
+	"github.com/mushroomyuan/vpp-backend/platform/identity"
 )
 
 func TestChecker_HealthyAllowDeny(t *testing.T) {
@@ -35,16 +35,16 @@ func TestChecker_HealthyAllowDeny(t *testing.T) {
 		{"admin", "resource:tree", "change-lifecycle", true},
 	}
 	for _, tc := range cases {
-		id := middleware.Identity{Roles: []string{tc.role}}
-		ok, degraded, err := c.Allow(context.Background(), id, tc.resource, tc.action)
+		principal := identity.Principal{Roles: []string{tc.role}}
+		decision, err := c.Allow(context.Background(), principal, tc.resource, tc.action)
 		if err != nil {
 			t.Fatalf("%+v: %v", tc, err)
 		}
-		if degraded {
+		if decision.Degraded {
 			t.Fatalf("%+v: unexpectedly degraded", tc)
 		}
-		if ok != tc.want {
-			t.Fatalf("%+v: got %v", tc, ok)
+		if decision.Allowed != tc.want {
+			t.Fatalf("%+v: got %v", tc, decision.Allowed)
 		}
 	}
 }
@@ -65,9 +65,38 @@ func TestChecker_StaleStillUsesCache(t *testing.T) {
 	if c.Tier() != TierStale {
 		t.Fatalf("tier=%s", c.Tier())
 	}
-	ok, degraded, err := c.Allow(context.Background(), middleware.Identity{Roles: []string{"viewer"}}, "resource:sites", "read")
-	if err != nil || !ok || !degraded {
-		t.Fatalf("ok=%v degraded=%v err=%v", ok, degraded, err)
+	decision, err := c.Allow(context.Background(), identity.Principal{Roles: []string{"viewer"}}, "resource:sites", "read")
+	if err != nil || !decision.Allowed || !decision.Degraded {
+		t.Fatalf("decision=%+v err=%v", decision, err)
+	}
+}
+
+func TestChecker_DenyWritesWhenStale(t *testing.T) {
+	c, err := NewCheckerWithMetrics(Config{
+		HealthyAfter:        1 * time.Minute,
+		StaleAfter:          10 * time.Minute,
+		DenyWritesWhenStale: true,
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	synced := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	c.now = func() time.Time { return synced.Add(2 * time.Minute) }
+	rules := []PolicyRule{
+		{"operator", "dispatch:tasks", "read"},
+		{"operator", "dispatch:tasks", "submit"},
+	}
+	if err := c.ReplacePolicies(rules, synced); err != nil {
+		t.Fatal(err)
+	}
+	principal := identity.Principal{Roles: []string{"operator"}}
+	decision, err := c.Allow(context.Background(), principal, "dispatch:tasks", "read")
+	if err != nil || !decision.Allowed || !decision.Degraded {
+		t.Fatalf("read: decision=%+v err=%v", decision, err)
+	}
+	decision, err = c.Allow(context.Background(), principal, "dispatch:tasks", "submit")
+	if err != nil || decision.Allowed || !decision.Degraded {
+		t.Fatalf("submit: decision=%+v err=%v", decision, err)
 	}
 }
 
@@ -89,13 +118,13 @@ func TestChecker_InvalidFailClosed(t *testing.T) {
 		t.Fatalf("tier=%s", c.Tier())
 	}
 	// Even viewer read is denied when AllowReadWhenInvalid=false.
-	ok, degraded, err := c.Allow(context.Background(), middleware.Identity{Roles: []string{"viewer"}}, "resource:sites", "read")
-	if err != nil || ok || !degraded {
-		t.Fatalf("ok=%v degraded=%v err=%v", ok, degraded, err)
+	decision, err := c.Allow(context.Background(), identity.Principal{Roles: []string{"viewer"}}, "resource:sites", "read")
+	if err != nil || decision.Allowed || !decision.Degraded {
+		t.Fatalf("decision=%+v err=%v", decision, err)
 	}
-	ok, degraded, err = c.Allow(context.Background(), middleware.Identity{Roles: []string{"admin"}}, "resource:sites", "write")
-	if err != nil || ok || !degraded {
-		t.Fatalf("write ok=%v degraded=%v err=%v", ok, degraded, err)
+	decision, err = c.Allow(context.Background(), identity.Principal{Roles: []string{"admin"}}, "resource:sites", "write")
+	if err != nil || decision.Allowed || !decision.Degraded {
+		t.Fatalf("write decision=%+v err=%v", decision, err)
 	}
 }
 
@@ -113,13 +142,13 @@ func TestChecker_InvalidAllowReadWhenConfigured(t *testing.T) {
 	if err := c.ReplacePolicies(c3Policies(), synced); err != nil {
 		t.Fatal(err)
 	}
-	ok, degraded, err := c.Allow(context.Background(), middleware.Identity{Roles: []string{"viewer"}}, "resource:sites", "read")
-	if err != nil || !ok || !degraded {
-		t.Fatalf("ok=%v degraded=%v err=%v", ok, degraded, err)
+	decision, err := c.Allow(context.Background(), identity.Principal{Roles: []string{"viewer"}}, "resource:sites", "read")
+	if err != nil || !decision.Allowed || !decision.Degraded {
+		t.Fatalf("decision=%+v err=%v", decision, err)
 	}
-	ok, _, err = c.Allow(context.Background(), middleware.Identity{Roles: []string{"operator"}}, "resource:sites", "write")
-	if err != nil || ok {
-		t.Fatalf("write must fail-closed, ok=%v err=%v", ok, err)
+	decision, err = c.Allow(context.Background(), identity.Principal{Roles: []string{"operator"}}, "resource:sites", "write")
+	if err != nil || decision.Allowed {
+		t.Fatalf("write must fail-closed, decision=%+v err=%v", decision, err)
 	}
 }
 
@@ -131,13 +160,13 @@ func TestChecker_ColdStartSafetyNet(t *testing.T) {
 	if c.Tier() != TierInvalid || c.HasPolicies() {
 		t.Fatalf("tier=%s has=%v", c.Tier(), c.HasPolicies())
 	}
-	ok, degraded, err := c.Allow(context.Background(), middleware.Identity{Roles: []string{"admin"}}, "resource:sites", "write")
-	if err != nil || !ok || !degraded {
-		t.Fatalf("admin safety net: ok=%v degraded=%v err=%v", ok, degraded, err)
+	decision, err := c.Allow(context.Background(), identity.Principal{Roles: []string{"admin"}}, "resource:sites", "write")
+	if err != nil || !decision.Allowed || !decision.Degraded {
+		t.Fatalf("admin safety net: decision=%+v err=%v", decision, err)
 	}
-	ok, degraded, err = c.Allow(context.Background(), middleware.Identity{Roles: []string{"operator"}}, "resource:sites", "read")
-	if err != nil || ok || !degraded {
-		t.Fatalf("operator denied: ok=%v degraded=%v err=%v", ok, degraded, err)
+	decision, err = c.Allow(context.Background(), identity.Principal{Roles: []string{"operator"}}, "resource:sites", "read")
+	if err != nil || decision.Allowed || !decision.Degraded {
+		t.Fatalf("operator denied: decision=%+v err=%v", decision, err)
 	}
 }
 
@@ -165,9 +194,9 @@ func TestChecker_SnapshotRoundTrip(t *testing.T) {
 	if c2.Tier() != TierHealthy {
 		t.Fatalf("tier=%s last=%v", c2.Tier(), c2.LastSuccess())
 	}
-	ok, degraded, err := c2.Allow(context.Background(), middleware.Identity{Roles: []string{"viewer"}}, "resource:cus", "read")
-	if err != nil || !ok || degraded {
-		t.Fatalf("ok=%v degraded=%v err=%v", ok, degraded, err)
+	decision, err := c2.Allow(context.Background(), identity.Principal{Roles: []string{"viewer"}}, "resource:cus", "read")
+	if err != nil || !decision.Allowed || decision.Degraded {
+		t.Fatalf("decision=%+v err=%v", decision, err)
 	}
 }
 

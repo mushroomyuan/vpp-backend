@@ -21,6 +21,13 @@ OUT_PATH = ROOT / "conf" / "init_data.json"
 # Wildcard resource:* matches any resource:{name} via keyMatch2 in authz_model.conf.
 AUTHZ_MODEL_NAME = "vpp-rbac"
 AUTHZ_RESOURCES = ["resource:*"]
+DISPATCH_RESOURCES = ["dispatch:tasks"]
+GATEWAY_RESOURCES = ["gateway:mappings"]
+TELEMETRY_RESOURCES = [
+    "telemetry:telemetry",
+    "telemetry:snapshots",
+    "telemetry:aggregation",
+]
 CREATED = "2026-01-01T00:00:00Z"
 
 ACCOUNT_ITEMS = [
@@ -47,6 +54,7 @@ def _permission(
     description: str,
     roles: list[str],
     actions: list[str],
+    resources: list[str] | None = None,
 ) -> dict:
     return {
         "owner": "default",
@@ -61,7 +69,7 @@ def _permission(
         "model": f"default/{AUTHZ_MODEL_NAME}",
         "adapter": "",
         "resourceType": "Custom",
-        "resources": list(AUTHZ_RESOURCES),
+        "resources": list(resources if resources is not None else AUTHZ_RESOURCES),
         "actions": actions,
         "effect": "Allow",
         "isEnabled": True,
@@ -92,6 +100,7 @@ def main() -> int:
     model_text = MODEL_PATH.read_text().strip() + "\n"
 
     # C3-equivalent role bindings (placeholder roles). Fine-grained splits stay in Casdoor.
+    # C10a: dispatch control-class bindings (dispatch:tasks).
     permissions = [
         _permission(
             "vpp-resource-read",
@@ -113,6 +122,62 @@ def main() -> int:
             "admin only: delete + change-lifecycle",
             ["default/admin"],
             ["delete", "change-lifecycle"],
+        ),
+        _permission(
+            "vpp-dispatch-read",
+            "VPP Dispatch Read",
+            "viewer/operator/admin: GetTask",
+            ["default/viewer", "default/operator", "default/admin"],
+            ["read"],
+            DISPATCH_RESOURCES,
+        ),
+        _permission(
+            "vpp-dispatch-submit",
+            "VPP Dispatch Submit",
+            "operator/admin: SubmitTask (control commands)",
+            ["default/operator", "default/admin"],
+            ["submit"],
+            DISPATCH_RESOURCES,
+        ),
+        _permission(
+            "vpp-dispatch-cancel",
+            "VPP Dispatch Cancel",
+            "admin only: CancelTask",
+            ["default/admin"],
+            ["cancel"],
+            DISPATCH_RESOURCES,
+        ),
+        _permission(
+            "vpp-gateway-mappings-read",
+            "VPP Gateway Mappings Read",
+            "viewer/operator/admin: list mappings",
+            ["default/viewer", "default/operator", "default/admin"],
+            ["read"],
+            GATEWAY_RESOURCES,
+        ),
+        _permission(
+            "vpp-gateway-mappings-write",
+            "VPP Gateway Mappings Write",
+            "operator/admin: create/disable mappings",
+            ["default/operator", "default/admin"],
+            ["write"],
+            GATEWAY_RESOURCES,
+        ),
+        _permission(
+            "vpp-gateway-mappings-delete",
+            "VPP Gateway Mappings Delete",
+            "admin only: delete mappings",
+            ["default/admin"],
+            ["delete"],
+            GATEWAY_RESOURCES,
+        ),
+        _permission(
+            "vpp-telemetry-read",
+            "VPP Telemetry Read",
+            "viewer/operator/admin: QueryTelemetry/GetSnapshot/GetFleetSnapshot/QueryAggregation",
+            ["default/viewer", "default/operator", "default/admin"],
+            ["read"],
+            TELEMETRY_RESOURCES,
         ),
     ]
 

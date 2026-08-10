@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mushroomyuan/vpp-backend/platform/middleware"
+	"github.com/mushroomyuan/vpp-backend/platform/identity"
 )
 
 type staticSource struct {
@@ -49,9 +49,9 @@ func TestSyncer_SyncOnceLoadsPolicies(t *testing.T) {
 	if err := s.SyncOnce(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	ok, _, err := c.Allow(context.Background(), middleware.Identity{Roles: []string{"viewer"}}, "resource:sites", "read")
-	if err != nil || !ok {
-		t.Fatalf("ok=%v err=%v", ok, err)
+	decision, err := c.Allow(context.Background(), identity.Principal{Roles: []string{"viewer"}}, "resource:sites", "read")
+	if err != nil || !decision.Allowed {
+		t.Fatalf("decision=%+v err=%v", decision, err)
 	}
 	if src.n.Load() != 1 {
 		t.Fatalf("fetches=%d", src.n.Load())

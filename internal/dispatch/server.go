@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -23,7 +24,10 @@ import (
 	"github.com/mushroomyuan/vpp-backend/dispatch/application/command"
 	"github.com/mushroomyuan/vpp-backend/dispatch/config"
 	infrapg "github.com/mushroomyuan/vpp-backend/dispatch/infrastructure/persistent/postgres"
+	"github.com/mushroomyuan/vpp-backend/platform/authn/casdoor"
+	"github.com/mushroomyuan/vpp-backend/platform/authz"
 	"github.com/mushroomyuan/vpp-backend/platform/metrics"
+	"github.com/mushroomyuan/vpp-backend/platform/middleware/grpcauth"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 )
@@ -37,6 +41,10 @@ type dispatchServer struct {
 	eventPublisher        *kafkapub.EventPublisher
 	commandResultConsumer *kafkasub.CommandResultConsumer
 	timeoutScanner        *command.TimeoutScanner
+	authzSyncer           *authz.Syncer
+	authzAdmin            authz.PermissionAdmin
+	authzCatalog          authz.Catalog
+	authzRegisterCatalog  bool
 }
 
 type preparedServer struct {
@@ -110,8 +118,40 @@ func createServer(
 		app.Commands.HandleCommandResult,
 	)
 
+	var (
+		permissionChecker    authz.PermissionChecker
+		authzSyncer          *authz.Syncer
+		authzAdmin           authz.PermissionAdmin
+		authzCatalog         authz.Catalog
+		authzRegisterCatalog bool
+	)
+	if cfg.Authz.Enabled {
+		wired, err := wireAuthz(cfg.Authz, cfg.ServiceName, metricsClient)
+		if err != nil {
+			metricsCancel()
+			_ = gatewayClient.Close()
+			return nil, fmt.Errorf("wire authz: %w", err)
+		}
+		permissionChecker = wired.checker
+		authzSyncer = wired.syncer
+		authzAdmin = wired.admin
+		authzCatalog = wired.catalog
+		authzRegisterCatalog = cfg.Authz.RegisterCatalog
+	}
+
 	dispatchSvc := grpcpkg.NewServer(app)
-	grpcSrv := platformserver.NewGRPCServer()
+
+	var extraUnary []googlegrpc.UnaryServerInterceptor
+	if cfg.TrustProxyHeaders {
+		extraUnary = append(extraUnary, grpcauth.UnaryServerInterceptor(
+			grpcauth.Config{TrustProxyHeaders: true},
+			casdoor.ParseUserinfo,
+			permissionChecker,
+			grpcpkg.CatalogOf,
+			grpcauth.ProtoTenantID,
+		))
+	}
+	grpcSrv := platformserver.NewGRPCServer(extraUnary...)
 	reflection.Register(grpcSrv)
 	dispatchpb.RegisterDispatchServiceServer(grpcSrv, dispatchSvc)
 
@@ -124,7 +164,68 @@ func createServer(
 		eventPublisher:        eventPublisher,
 		commandResultConsumer: commandResultConsumer,
 		timeoutScanner:        app.TimeoutScanner,
+		authzSyncer:           authzSyncer,
+		authzAdmin:            authzAdmin,
+		authzCatalog:          authzCatalog,
+		authzRegisterCatalog:  authzRegisterCatalog,
 	}, nil
+}
+
+type authzWiring struct {
+	checker *authz.Checker
+	syncer  *authz.Syncer
+	admin   authz.PermissionAdmin
+	catalog authz.Catalog
+}
+
+func wireAuthz(cfg config.AuthzConfig, serviceName string, metricsClient *metrics.Client) (authzWiring, error) {
+	var out authzWiring
+	authzMetrics := authz.NewMetrics(serviceName)
+	if metricsClient != nil {
+		if err := metricsClient.RegisterCollector(authzMetrics.Collector()); err != nil {
+			return out, fmt.Errorf("register authz metrics: %w", err)
+		}
+	}
+
+	authzCfg := authz.Config{
+		HealthyAfter:         cfg.HealthyAfter,
+		StaleAfter:           cfg.StaleAfter,
+		AllowReadWhenInvalid: cfg.AllowReadWhenInvalid,
+		DenyWritesWhenStale:  cfg.DenyWritesWhenStale,
+		SnapshotPath:         cfg.SnapshotPath,
+		SyncInterval:         cfg.SyncInterval,
+		Owner:                cfg.Owner,
+		ModelFilter:          cfg.ModelFilter,
+	}
+	checker, err := authz.NewCheckerWithMetrics(authzCfg, authzMetrics)
+	if err != nil {
+		return out, err
+	}
+	out.checker = checker
+	out.catalog = grpcpkg.AuthzCatalog(cfg.Owner, cfg.ModelFilter)
+
+	if cfg.Sync || cfg.RegisterCatalog {
+		client, err := authz.NewCasdoorClient(authz.CasdoorClientConfig{
+			BaseURL:      cfg.CasdoorURL,
+			Organization: cfg.CasdoorOrg,
+			Application:  cfg.CasdoorApp,
+			Username:     cfg.CasdoorUsername,
+			Password:     cfg.CasdoorPassword,
+		})
+		if err != nil {
+			return out, err
+		}
+		out.admin = client
+		if cfg.Sync {
+			out.syncer = authz.NewSyncerWithMetrics(client, checker, authzCfg, authzMetrics)
+			logrus.Infof("authz syncer configured (casdoor=%s owner=%s interval=%s healthy=%s stale=%s deny-writes-when-stale=%v)",
+				cfg.CasdoorURL, cfg.Owner, cfg.SyncInterval, cfg.HealthyAfter, cfg.StaleAfter, cfg.DenyWritesWhenStale)
+		}
+	}
+	if out.syncer == nil {
+		logrus.Warn("authz checker enabled without syncer — using snapshot/safety-net only")
+	}
+	return out, nil
 }
 
 func (s *dispatchServer) PrepareRun() *preparedServer {
@@ -171,6 +272,28 @@ func (s *preparedServer) Run() error {
 		}
 		return nil
 	})
+
+	if s.authzSyncer != nil || (s.authzRegisterCatalog && s.authzAdmin != nil) {
+		eg.Go(func() error {
+			if s.authzRegisterCatalog && s.authzAdmin != nil {
+				res, err := authz.RegisterCatalog(egCtx, s.authzAdmin, s.authzCatalog)
+				if err != nil {
+					logrus.WithError(err).Warn("authz catalog register failed (continuing with sync)")
+				} else {
+					logrus.Infof("authz catalog registered: added=%d updated=%d skipped=%d",
+						res.Added, res.Updated, res.Skipped)
+				}
+			}
+			if s.authzSyncer == nil {
+				return nil
+			}
+			err := s.authzSyncer.Run(egCtx)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				logrus.WithError(err).Warn("authz syncer stopped")
+			}
+			return nil
+		})
+	}
 
 	eg.Go(func() error {
 		quit := make(chan os.Signal, 1)

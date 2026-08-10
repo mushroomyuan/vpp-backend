@@ -16,6 +16,7 @@ import (
 	googlegrpc "google.golang.org/grpc"
 
 	resourcepb "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
+	"github.com/mushroomyuan/vpp-backend/platform/authn/casdoor"
 	"github.com/mushroomyuan/vpp-backend/platform/authz"
 	"github.com/mushroomyuan/vpp-backend/platform/metrics"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
@@ -36,17 +37,17 @@ import (
 // ─── server structs ───────────────────────────────────────────────────────────
 
 type resourceServer struct {
-	grpcSrv        *googlegrpc.Server
-	httpSrv        *http.Server
-	app            application.Application
-	cfg            *config.Config
-	metricsClient  *metrics.Client
-	metricsCancel  context.CancelFunc
-	redisClient    *platformredis.Client
-	eventPublisher *kafka.EventPublisher
-	authzSyncer         *authz.Syncer
-	authzAdmin          authz.PermissionAdmin
-	authzCatalog        authz.Catalog
+	grpcSrv              *googlegrpc.Server
+	httpSrv              *http.Server
+	app                  application.Application
+	cfg                  *config.Config
+	metricsClient        *metrics.Client
+	metricsCancel        context.CancelFunc
+	redisClient          *platformredis.Client
+	eventPublisher       *kafka.EventPublisher
+	authzSyncer          *authz.Syncer
+	authzAdmin           authz.PermissionAdmin
+	authzCatalog         authz.Catalog
 	authzRegisterCatalog bool
 }
 
@@ -171,7 +172,7 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 
 	ginEngine.Use(gatewaypkg.AuthMiddleware(gatewaypkg.AuthConfig{
 		TrustProxyHeaders: cfg.TrustProxyHeaders,
-	}, permissionChecker))
+	}, casdoor.ParseUserinfo, permissionChecker))
 
 	if err := gatewaypkg.MountGateway(context.Background(), ginEngine, resourceSvc); err != nil {
 		metricsCancel()

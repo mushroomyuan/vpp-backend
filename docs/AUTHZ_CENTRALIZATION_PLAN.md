@@ -1,6 +1,6 @@
 # 权限架构改造计划书：从服务内硬编码 RBAC 到 Casdoor 集中式权限管理
 
-> **状态：** 🚧 实施中 — **C5–C9 已完成**；C10+ 未开始  
+> **状态：** 🚧 实施中 — **C5–C10 已完成**（C10a/b/c）；C11（B1′）可选  
 > **动机：** `[auth.go](../internal/resource/adapter/inbound/http/auth.go)` 的 `allowRBAC` 把"角色 → 权限"的绑定关系硬编码在 Go `switch` 里，且这套逻辑将随着服务数量增长（resource / gateway / dispatch / telemetry）在每个服务重复一份，用户中心（Casdoor）角色一旦变化，多处代码需要同步改动。
 > **目标：** 让 Casdoor 承担 PAP（策略管理）+ PDP（策略决策），各服务只保留 PEP（策略执行点），且不因此让业务请求的关键路径同步依赖 Casdoor 的可用性。
 >
@@ -27,14 +27,14 @@
 ## 二、现状问题
 
 ```88:108:internal/resource/adapter/inbound/http/auth.go
-func allowRBAC(id middleware.Identity, method, path string) bool {
-	if id.HasRole("admin") {
+func allowRBAC(principal identity.Principal, method, path string) bool {
+	if principal.HasRole("admin") {
 		return true
 	}
 	destructive := method == http.MethodDelete || isChangeLifecycle(path)
 	switch method {
 	case http.MethodGet, http.MethodHead:
-		return id.HasRole("viewer") || id.HasRole("operator")
+		return principal.HasRole("viewer") || principal.HasRole("operator")
 	...
 ```
 
@@ -379,17 +379,19 @@ m = g(r.sub, p.sub) && keyMatch2(r.obj, p.obj) && r.act == p.act
 
 ### 8.1 新增 Port：`PermissionChecker`
 
-延续现有 `platform/middleware` 防腐层思路（`Identity` 是稳定契约，`casdoor_userinfo.go` 是可替换 ACL），授权判断同样应该走一个可替换的端口，而不是让 `auth.go` 直接依赖 Casbin/Casdoor 具体实现：
+延续现有身份防腐层思路（`platform/identity.Principal` 是稳定契约，`authn/casdoor/userinfo.go` 是可替换 ACL），授权判断同样应该走一个可替换的端口，而不是让 `auth.go` 直接依赖 Casbin/Casdoor 具体实现：
 
 ```go
 // platform/authz/checker.go
 package authz
 
+type Decision struct {
+    Allowed  bool
+    Degraded bool
+}
+
 type PermissionChecker interface {
-    // Allow 返回 (allowed, degraded, err)。
-    // degraded=true 表示本次判断基于降级模式（策略过期或冷启动安全网），
-    // 供 PEP 决定是否需要额外记录审计日志 / 告警。
-    Allow(ctx context.Context, id middleware.Identity, resource string, action string) (allowed bool, degraded bool, err error)
+    Allow(ctx context.Context, principal identity.Principal, resource string, action string) (Decision, error)
 }
 ```
 
@@ -401,12 +403,12 @@ type PermissionChecker interface {
 func AuthMiddleware(cfg AuthConfig, checker authz.PermissionChecker) gin.HandlerFunc {
     return func(c *gin.Context) {
         ...
-        allowed, degraded, err := checker.Allow(c.Request.Context(), id, resourceOf(c), actionOf(c))
-        if err != nil || !allowed {
+        decision, err := checker.Allow(c.Request.Context(), principal, resourceOf(c), actionOf(c))
+        if err != nil || !decision.Allowed {
             c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
             return
         }
-        if degraded {
+        if decision.Degraded {
             logrus.WithFields(...).Warn("authz decision made in degraded mode")
         }
         ...
@@ -438,8 +440,8 @@ func (s *CasdoorSyncer) Degraded() bool                  // staleness >= staleAf
 
 ### 8.4 不变的部分
 
-- `middleware.Identity` / `ParseXUserinfo`：身份解析链路完全不受影响，本方案只动"角色确定之后如何判断权限"这一段。
-- 租户路径校验（`pathTenant != id.TenantID`）：继续留在服务本地，不进 Casbin 策略表（资源实例级校验依赖请求数据，不适合做成静态策略）。
+- `identity.Principal` / `casdoor.ParseUserinfo`：身份解析链路完全不受影响，本方案只动"角色确定之后如何判断权限"这一段。
+- 租户路径校验（`pathTenant != principal.TenantID`）：继续留在服务本地，不进 Casbin 策略表（资源实例级校验依赖请求数据，不适合做成静态策略）。
 
 ---
 
@@ -455,7 +457,7 @@ func (s *CasdoorSyncer) Degraded() bool                  // staleness >= staleAf
 | **C7**  | resource 服务作为首个 PoC：`allowRBAC` 替换为 `PermissionChecker`；补充降级模式的单测（模拟 Casdoor 不可达、策略过期、冷启动三种场景） | C6                       | ✅   |
 | **C8**  | 观测性落地：`authz_policy_sync_`* 指标 + 告警规则；明确写进 runbook（同步失败时运维该做什么）                                | C7                       | ✅   |
 | **C9**  | 权限目录自动化注册（服务启动/CI upsert 到 Casdoor），替代手工维护                                                     | C7                       | ✅   |
-| **C10** | 推广到 gateway / dispatch / telemetry；dispatch 侧按 §6.2 收紧健康阈值                                     | C7-C9 完成后逐服务接入           | 未开始 |
+| **C10** | 推广到 gateway / dispatch / telemetry；dispatch 侧按 §6.2 收紧健康阈值                                     | C7-C9 完成后逐服务接入           | ✅ C10a/b/c |
 | **C11** | 服务数量/轮询负载成为问题时，把 B1 演进为 B1′（集中 `PolicySyncer` + Kafka `vpp.authz.policy.updated` 广播）           | C10（视实际负载情况决定是否需要，非必须阶段） | 未开始 |
 
 
@@ -566,6 +568,45 @@ C6 **未**改 resource `auth.go`（接入属 C7）。
 - 新建时 **Roles 为空**；更新时只改 Resources/Actions/Model/文案，**不覆盖** Roles/Users/Groups
 - 角色绑定仍由种子 `vpp-resource-*` 或 Casdoor UI 管理；空 Roles 的 catalog 条目不进入本地 Casbin p-rule
 
+### C10a 交付物（dispatch 控制面）
+
+| 产物 | 路径 |
+| --- | --- |
+| gRPC PEP interceptor（`x-userinfo` metadata） | [`internal/platform/middleware/grpcauth/auth.go`](../internal/platform/middleware/grpcauth/auth.go) |
+| `NewGRPCServer(...extraUnary)` | [`internal/platform/server/grpc.go`](../internal/platform/server/grpc.go) |
+| `DenyWritesWhenStale`（stale 档拒绝非 read） | [`authz/config.go`](../internal/platform/authz/config.go) / `casbin_checker.go` |
+| method → catalog | [`dispatch/.../catalog.go`](../internal/dispatch/adapter/inbound/grpc/catalog.go) |
+| AuthzCatalog + 接线 | `authz_catalog.go` / [`server.go`](../internal/dispatch/server.go) |
+| 控制类默认阈值 | [`config/dispatch.yaml`](../config/dispatch.yaml) `healthy-after: 1m` / `stale-after: 5m` / `deny-writes-when-stale: true` |
+| 种子角色绑定 | `vpp-dispatch-read/submit/cancel` in [`init_data.json`](../deploy/casdoor/conf/init_data.json) |
+
+身份契约：gRPC metadata `x-userinfo`，载荷与 HTTP `X-Userinfo` 相同。联调可用 `grpcurl -H 'x-userinfo: …'`；生产级 APISIX gRPC 路由留待后续。
+
+### C10b 交付物（gateway mappings 人管）
+
+| 产物 | 路径 |
+| --- | --- |
+| Gin PEP（仅 mappings） | [`gateway/.../http/auth.go`](../internal/gateway/adapter/inbound/http/auth.go) |
+| catalog / AuthzCatalog | `catalog.go` / `authz_catalog.go`（`gateway:mappings` × read/write/delete） |
+| 路由分组（ingest 不挂用户 PEP） | [`router.go`](../internal/gateway/adapter/inbound/http/router.go) |
+| 配置 + wireAuthz | [`config/gateway.yaml`](../config/gateway.yaml) / [`server.go`](../internal/gateway/server.go) |
+| APISIX 拆分 | `gateway-proxy` key-auth（priority 0）；`gateway-mappings` OIDC（priority 100）— [`init.sh`](../deploy/apisix/init.sh) / [`gateway-mappings.yaml`](../deploy/apisix/routes/gateway-mappings.yaml) |
+| 种子角色绑定 | `vpp-gateway-mappings-read/write/delete` |
+
+刻意不做：`telemetry:ingest` 用户 RBAC；`ExecuteCommand` 用户 RBAC。
+
+### C10c 交付物（telemetry 只读）
+
+| 产物 | 路径 |
+| --- | --- |
+| method → catalog + Ingest bypass | [`telemetry/.../catalog.go`](../internal/telemetry/adapter/inbound/grpc/catalog.go) / `auth_bypass.go` |
+| AuthzCatalog（3 个 read 对象） | [`authz_catalog.go`](../internal/telemetry/adapter/inbound/grpc/authz_catalog.go) |
+| gRPC PEP 接线 | [`server.go`](../internal/telemetry/server.go)（`WithMachineBypass` + `grpcauth`） |
+| 配置（管理类阈值 5m/30m） | [`config/telemetry.yaml`](../config/telemetry.yaml) |
+| 种子角色绑定 | `vpp-telemetry-read`（`telemetry:telemetry|snapshots|aggregation` × `read`） |
+
+身份：gRPC metadata `x-userinfo`（与 dispatch 相同）。`IngestTelemetry` 跳过用户 PEP（gateway→telemetry 机机）。默认 `trust-proxy-headers: false` 便于本地旁路。
+
 ---
 
 ## 十、风险与开放问题
@@ -592,7 +633,9 @@ C6 **未**改 resource `auth.go`（接入属 C7）。
 - [x] 单测覆盖：健康态 / 过期态 / 失效态(降级) / 冷启动安全网 四种场景下的判断行为（platform/authz + resource PEP）
 - [x] `authz_policy_sync_last_success_timestamp` 等指标可在 `/metrics` 观察到 — **C8**
 - [x] 同步失败 / 档位降级有告警规则与 runbook — [`AUTHZ_RUNBOOK.md`](AUTHZ_RUNBOOK.md)、[`prometheus-authz-alerts.yaml`](../config/prometheus-authz-alerts.yaml)
-- [ ] 断开 Casdoor 网络后，dispatch 类接口（如后续接入）表现为 fail-closed，不出现"网络故障导致误放行"的情况 — **C10**；resource 侧冷启动/失效 fail-closed 已由单测覆盖
+- [x] 断开 Casdoor 网络后，dispatch 类接口表现为 fail-closed（冷启动安全网仅 admin；stale 时 `DenyWritesWhenStale` 拒绝 submit/cancel）— **C10a 单测**
+- [x] gateway mappings 人管 OIDC + 本地 Casbin；EMS ingest 仍 key-auth — **C10b**
+- [x] telemetry 只读接入（read PEP；Ingest 机机旁路）— **C10c**
 
 ---
 
@@ -603,8 +646,8 @@ C6 **未**改 resource `auth.go`（接入属 C7）。
 - `[docs/CASDOOR.md](CASDOOR.md)` §6.1、§7.6 — 现有 RBAC 矩阵与身份契约分层原则
 - `[docs/AUTHZ_TEST.md](AUTHZ_TEST.md)` — Casdoor ↔ Resource 联调测试指南（C5–C7）
 - `[docs/AUTHZ_RUNBOOK.md](AUTHZ_RUNBOOK.md)` — 策略同步失败 / 降级运维手册（C8）
-- `[internal/platform/middleware/identity.go](../internal/platform/middleware/identity.go)` — `Identity` 稳定契约
-- `[internal/platform/middleware/casdoor_userinfo.go](../internal/platform/middleware/casdoor_userinfo.go)` — Casdoor claim → `Identity` 防腐层范例（本方案 `PermissionChecker` 延续同一思路）
+- `[internal/platform/identity/identity.go](../internal/platform/identity/identity.go)` — `Principal` 稳定契约
+- `[internal/platform/authn/casdoor/userinfo.go](../internal/platform/authn/casdoor/userinfo.go)` — Casdoor claim → `Principal` 防腐层范例（本方案 `PermissionChecker` 延续同一思路）
 - `[internal/resource/adapter/inbound/http/auth.go](../internal/resource/adapter/inbound/http/auth.go)` — PEP（C7 已接 PermissionChecker）
 - `[internal/resource/docs/DECISIONS.md](../internal/resource/docs/DECISIONS.md)` — ADR 记录风格参考
 - Casdoor 官方文档：Permission Overview（Model / Policy / Adapter / Exposed Casbin APIs）

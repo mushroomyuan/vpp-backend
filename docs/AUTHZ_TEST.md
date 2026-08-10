@@ -1,6 +1,6 @@
-# 授权联调测试指南（Casdoor ↔ Resource）
+# 授权联调测试指南（Casdoor ↔ Resource / Dispatch / Gateway / Telemetry）
 
-> 对应阶段：**C5–C9**（权限目录 / 本地 Casbin PDP / resource PEP / 观测 / 目录自动注册）。  
+> 对应阶段：**C5–C10**（含 resource HTTP PEP、dispatch/telemetry gRPC PEP、gateway mappings OIDC）。  
 > 架构说明见 [`AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md)；Casdoor 部署见 [`CASDOOR.md`](CASDOOR.md)。
 
 ---
@@ -10,8 +10,11 @@
 | 链路 | 谁连 Casdoor | 干什么 | 何时发生 |
 |------|--------------|--------|----------|
 | **A. 认证（OIDC）** | APISIX | 校验 Bearer JWT，注入 `X-Userinfo` | **每个**业务请求 |
-| **B. 授权同步（B1）** | resource 的 `Syncer` | session 登录 + `get-permissions`，刷新本地 Casbin | 启动时 + 默认每 **30s** |
-| **C. 目录注册（C9）** | resource 启动 | `add-permission` / `update-permission` upsert 目录条目 | **启动一次**（先于 sync） |
+| **B. 授权同步（B1）** | 各服务 `Syncer` | session 登录 + `get-permissions`，刷新本地 Casbin | 启动时 + 默认每 **30s** |
+| **C. 目录注册（C9）** | 服务启动 | `add-permission` / `update-permission` upsert 目录条目 | **启动一次**（先于 sync） |
+| **D. dispatch gRPC（C10a）** | 调用方 | metadata `x-userinfo` → 本地 Casbin（`dispatch:tasks`） | **每个**受保护 RPC |
+| **E. gateway mappings（C10b）** | APISIX OIDC | Bearer → `X-Userinfo` → `gateway:mappings` Casbin | mappings HTTP；ingest 仍 key-auth |
+| **F. telemetry gRPC（C10c）** | 调用方 | metadata `x-userinfo` → 只读 Casbin；`IngestTelemetry` 旁路 | 读 RPC；ingest 机机 |
 
 要点：
 
@@ -243,6 +246,100 @@ curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
 
 ---
 
+## 7.5 Dispatch gRPC（C10a）
+
+配置：[`config/dispatch.yaml`](../config/dispatch.yaml) 将 `auth.trust-proxy-headers: true`（默认 false 便于本地旁路）。
+
+控制类阈值：`healthy-after: 1m`、`stale-after: 5m`、`deny-writes-when-stale: true`（stale 时拒绝 `submit`/`cancel`，`read` 仍可走缓存）。
+
+种子角色绑定：`vpp-dispatch-read` / `vpp-dispatch-submit` / `vpp-dispatch-cancel`（重灌 Casdoor 后生效）。
+
+`x-userinfo` 载荷与 APISIX `X-Userinfo` 相同（JSON 或 Base64 JSON）。示例（Base64）：
+
+```bash
+# 构造与 resource 联调相同的 userinfo，放入 metadata
+USERINFO_B64='...'   # {"sub":"...","owner":"default","name":"operator","roles":[{"name":"operator","owner":"default"}]}
+
+grpcurl -plaintext \
+  -H "x-userinfo: ${USERINFO_B64}" \
+  -d '{"TenantID":"default","Name":"demo","TaskType":"control","TriggerType":"manual","Actions":[]}' \
+  127.0.0.1:5006 dispatchpb.DispatchService/SubmitTask
+```
+
+预期：`viewer` → PermissionDenied；`operator`/`admin` → 进入业务（Actions 空可能业务层报错，但鉴权已通过）。
+
+指标：`curl -s http://127.0.0.1:9105/metrics | grep '^authz_'`。
+
+---
+
+## 7.6 Gateway mappings（C10b）
+
+配置：[`config/gateway.yaml`](../config/gateway.yaml) 将 `auth.trust-proxy-headers: true`。
+
+APISIX（`make apisix-init`）：
+
+- `/gateway/api/v1/tenants/*/mappings*` → **OIDC**（`gateway-mappings`，priority 100）
+- `/gateway/*`（含 `telemetry:ingest`）→ **key-auth**（`gateway-proxy`，priority 0）
+
+```bash
+# mappings 无 Bearer → 401
+curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
+  http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings
+
+# mappings + Casdoor token
+curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
+  -H "Authorization: Bearer $(make -s casdoor-token)" \
+  http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings
+
+# ingest 仍要 API Key（不是 OIDC）
+curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
+  -H "X-API-KEY: vpp-dev-simulator-key" \
+  -X POST http://127.0.0.1:9080/gateway/api/v1/tenants/default/telemetry:ingest
+```
+
+种子：`vpp-gateway-mappings-read/write/delete`。指标：`:9104/metrics`。
+
+---
+
+## 7.7 Telemetry 只读（C10c）
+
+配置：[`config/telemetry.yaml`](../config/telemetry.yaml) 将 `auth.trust-proxy-headers: true`（默认 false 便于本地旁路）。
+
+阈值：`healthy-after: 5m`、`stale-after: 30m`（与 resource 同类管理面）。
+
+| RPC | Catalog | 用户 PEP |
+|-----|---------|----------|
+| `QueryTelemetry` | `telemetry:telemetry` + `read` | 是 |
+| `GetSnapshot` / `GetFleetSnapshot` | `telemetry:snapshots` + `read` | 是 |
+| `QueryAggregation` | `telemetry:aggregation` + `read` | 是 |
+| `IngestTelemetry` | — | **否**（gateway→telemetry 机机） |
+
+种子：`vpp-telemetry-read`（重灌 Casdoor 后生效）。
+
+```bash
+USERINFO_B64='...'   # 同 §7.5；viewer/operator/admin 均可 read
+
+# 无 x-userinfo → Unauthenticated
+grpcurl -plaintext \
+  -d '{"TenantID":"default"}' \
+  127.0.0.1:5003 telemetrypb.TelemetryService/QueryTelemetry
+
+# 有 userinfo → 进入业务（租户需匹配）
+grpcurl -plaintext \
+  -H "x-userinfo: ${USERINFO_B64}" \
+  -d '{"TenantID":"default"}' \
+  127.0.0.1:5003 telemetrypb.TelemetryService/GetFleetSnapshot
+
+# Ingest 不需要 userinfo（机机旁路）
+grpcurl -plaintext \
+  -d '{"TenantID":"default","CUCode":"cu1","Metrics":[]}' \
+  127.0.0.1:5003 telemetrypb.TelemetryService/IngestTelemetry
+```
+
+指标：`curl -s http://127.0.0.1:9103/metrics | grep '^authz_'`。
+
+---
+
 ## 8. 常见问题
 
 | 现象 | 原因 / 处理 |
@@ -264,6 +361,13 @@ curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
 | 改造计划 | [`AUTHZ_CENTRALIZATION_PLAN.md`](AUTHZ_CENTRALIZATION_PLAN.md) |
 | Casdoor 部署 / C4 清单 | [`CASDOOR.md`](CASDOOR.md) §11 |
 | Resource 配置 | [`config/resource.yaml`](../config/resource.yaml) |
-| PEP + 目录映射 | `internal/resource/adapter/inbound/http/{auth,catalog}.go` |
+| Dispatch 配置 | [`config/dispatch.yaml`](../config/dispatch.yaml) |
+| Gateway 配置 | [`config/gateway.yaml`](../config/gateway.yaml) |
+| Telemetry 配置 | [`config/telemetry.yaml`](../config/telemetry.yaml) |
+| Resource PEP + 目录 | `internal/resource/adapter/inbound/http/{auth,catalog}.go` |
+| Dispatch gRPC PEP + 目录 | `internal/dispatch/adapter/inbound/grpc/{catalog,authz_catalog}.go` |
+| Gateway mappings PEP | `internal/gateway/adapter/inbound/http/{auth,catalog,authz_catalog,router}.go` |
+| Telemetry gRPC PEP + 目录 | `internal/telemetry/adapter/inbound/grpc/{catalog,authz_catalog,auth_bypass}.go` |
+| gRPC 身份拦截器 | `internal/platform/middleware/grpcauth/auth.go` |
 | 本地 PDP / Syncer | `internal/platform/authz/` |
-| 策略快照（运行时） | `./data/resource-authz-snapshot.json` |
+| 策略快照（运行时） | `./data/*-authz-snapshot.json` |

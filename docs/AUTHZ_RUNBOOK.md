@@ -4,7 +4,7 @@
 
 ---
 
-## 1. 关键指标（resource `:9102/metrics`）
+## 1. 关键指标（resource `:9102/metrics`；dispatch `:9105/metrics`）
 
 | 指标 | 含义 |
 |------|------|
@@ -24,7 +24,10 @@ curl -s http://127.0.0.1:9102/metrics | grep '^authz_'
 
 Prometheus 告警规则：[`config/prometheus-authz-alerts.yaml`](../config/prometheus-authz-alerts.yaml)（由 `config/prometheus.yaml` 的 `rule_files` 加载）。
 
-默认档位阈值（resource `auth.authz`）：**健康 &lt; 5m ≤ 过期 &lt; 30m ≤ 失效**。
+默认档位阈值：
+
+- **resource**（`auth.authz`）：健康 &lt; **5m** ≤ 过期 &lt; **30m** ≤ 失效  
+- **dispatch**（控制类，C10a）：健康 &lt; **1m** ≤ 过期 &lt; **5m** ≤ 失效；且 `deny-writes-when-stale: true`（过期档拒绝 `submit`/`cancel`）
 
 ---
 

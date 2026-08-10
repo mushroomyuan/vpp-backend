@@ -9,7 +9,7 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
-	"github.com/mushroomyuan/vpp-backend/platform/middleware"
+	"github.com/mushroomyuan/vpp-backend/platform/identity"
 	"github.com/sirupsen/logrus"
 )
 
@@ -27,6 +27,8 @@ type Checker struct {
 	now         func() time.Time // test hook
 	metrics     *Metrics
 }
+
+var _ PermissionChecker = (*Checker)(nil)
 
 // NewCheckerWithMetrics builds an empty enforcer, optionally loads a disk snapshot,
 // and attaches C8 observability when metrics is non-nil.
@@ -66,7 +68,7 @@ func (c *Checker) SetMetrics(m *Metrics) {
 }
 
 // Allow implements PermissionChecker.
-func (c *Checker) Allow(_ context.Context, id middleware.Identity, resource, action string) (bool, bool, error) {
+func (c *Checker) Allow(_ context.Context, principal identity.Principal, resource, action string) (Decision, error) {
 	c.mu.RLock()
 	tier := c.tierLocked()
 	degraded := tier != TierHealthy
@@ -76,13 +78,19 @@ func (c *Checker) Allow(_ context.Context, id middleware.Identity, resource, act
 	)
 
 	switch tier {
-	case TierHealthy, TierStale:
-		ok, err = c.enforceLocked(id, resource, action)
+	case TierHealthy:
+		ok, err = c.enforceLocked(principal, resource, action)
+	case TierStale:
+		if c.cfg.DenyWritesWhenStale && action != "read" {
+			ok = false
+		} else {
+			ok, err = c.enforceLocked(principal, resource, action)
+		}
 	default: // TierInvalid
 		if !c.hasPolicies {
-			ok = id.HasRole(c.cfg.SafetyNetRole)
+			ok = principal.HasRole(c.cfg.SafetyNetRole)
 		} else if action == "read" && c.cfg.AllowReadWhenInvalid {
-			ok, err = c.enforceLocked(id, resource, action)
+			ok, err = c.enforceLocked(principal, resource, action)
 		} else {
 			ok = false
 		}
@@ -93,12 +101,12 @@ func (c *Checker) Allow(_ context.Context, id middleware.Identity, resource, act
 		prev, cur := c.metrics.RefreshFromChecker(c)
 		if prev != cur && (cur == TierStale || cur == TierInvalid) {
 			logrus.WithFields(logrus.Fields{
-				"component":   "authz",
-				"service":     c.metrics.service,
-				"from_tier":   prev.String(),
-				"to_tier":     cur.String(),
+				"component":    "authz",
+				"service":      c.metrics.service,
+				"from_tier":    prev.String(),
+				"to_tier":      cur.String(),
 				"last_success": c.LastSuccess(),
-				"staleness":   c.Staleness().String(),
+				"staleness":    c.Staleness().String(),
 				"has_policies": c.HasPolicies(),
 			}).Error("authz policy sync tier degraded")
 		}
@@ -106,7 +114,7 @@ func (c *Checker) Allow(_ context.Context, id middleware.Identity, resource, act
 			c.metrics.ObserveDecision(ok, degraded)
 		}
 	}
-	return ok, degraded, err
+	return Decision{Allowed: ok, Degraded: degraded}, err
 }
 
 // Tier reports the current sync health band.
@@ -206,11 +214,11 @@ func (c *Checker) tierLocked() Tier {
 	return TierInvalid
 }
 
-func (c *Checker) enforceLocked(id middleware.Identity, resource, action string) (bool, error) {
+func (c *Checker) enforceLocked(principal identity.Principal, resource, action string) (bool, error) {
 	if resource == "" || action == "" {
 		return false, nil
 	}
-	for _, role := range id.Roles {
+	for _, role := range principal.Roles {
 		ok, err := c.enforcer.Enforce(role, resource, action)
 		if err != nil {
 			return false, err

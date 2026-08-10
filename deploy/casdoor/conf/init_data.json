@@ -410,6 +410,212 @@
       "approver": "admin",
       "approveTime": "2026-01-01T00:00:00Z",
       "state": "Approved"
+    },
+    {
+      "owner": "default",
+      "name": "vpp-dispatch-read",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Dispatch Read",
+      "description": "viewer/operator/admin: GetTask",
+      "users": [],
+      "groups": [],
+      "roles": [
+        "default/viewer",
+        "default/operator",
+        "default/admin"
+      ],
+      "domains": [],
+      "model": "default/vpp-rbac",
+      "adapter": "",
+      "resourceType": "Custom",
+      "resources": [
+        "dispatch:tasks"
+      ],
+      "actions": [
+        "read"
+      ],
+      "effect": "Allow",
+      "isEnabled": true,
+      "submitter": "admin",
+      "approver": "admin",
+      "approveTime": "2026-01-01T00:00:00Z",
+      "state": "Approved"
+    },
+    {
+      "owner": "default",
+      "name": "vpp-dispatch-submit",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Dispatch Submit",
+      "description": "operator/admin: SubmitTask (control commands)",
+      "users": [],
+      "groups": [],
+      "roles": [
+        "default/operator",
+        "default/admin"
+      ],
+      "domains": [],
+      "model": "default/vpp-rbac",
+      "adapter": "",
+      "resourceType": "Custom",
+      "resources": [
+        "dispatch:tasks"
+      ],
+      "actions": [
+        "submit"
+      ],
+      "effect": "Allow",
+      "isEnabled": true,
+      "submitter": "admin",
+      "approver": "admin",
+      "approveTime": "2026-01-01T00:00:00Z",
+      "state": "Approved"
+    },
+    {
+      "owner": "default",
+      "name": "vpp-dispatch-cancel",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Dispatch Cancel",
+      "description": "admin only: CancelTask",
+      "users": [],
+      "groups": [],
+      "roles": [
+        "default/admin"
+      ],
+      "domains": [],
+      "model": "default/vpp-rbac",
+      "adapter": "",
+      "resourceType": "Custom",
+      "resources": [
+        "dispatch:tasks"
+      ],
+      "actions": [
+        "cancel"
+      ],
+      "effect": "Allow",
+      "isEnabled": true,
+      "submitter": "admin",
+      "approver": "admin",
+      "approveTime": "2026-01-01T00:00:00Z",
+      "state": "Approved"
+    },
+    {
+      "owner": "default",
+      "name": "vpp-gateway-mappings-read",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Gateway Mappings Read",
+      "description": "viewer/operator/admin: list mappings",
+      "users": [],
+      "groups": [],
+      "roles": [
+        "default/viewer",
+        "default/operator",
+        "default/admin"
+      ],
+      "domains": [],
+      "model": "default/vpp-rbac",
+      "adapter": "",
+      "resourceType": "Custom",
+      "resources": [
+        "gateway:mappings"
+      ],
+      "actions": [
+        "read"
+      ],
+      "effect": "Allow",
+      "isEnabled": true,
+      "submitter": "admin",
+      "approver": "admin",
+      "approveTime": "2026-01-01T00:00:00Z",
+      "state": "Approved"
+    },
+    {
+      "owner": "default",
+      "name": "vpp-gateway-mappings-write",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Gateway Mappings Write",
+      "description": "operator/admin: create/disable mappings",
+      "users": [],
+      "groups": [],
+      "roles": [
+        "default/operator",
+        "default/admin"
+      ],
+      "domains": [],
+      "model": "default/vpp-rbac",
+      "adapter": "",
+      "resourceType": "Custom",
+      "resources": [
+        "gateway:mappings"
+      ],
+      "actions": [
+        "write"
+      ],
+      "effect": "Allow",
+      "isEnabled": true,
+      "submitter": "admin",
+      "approver": "admin",
+      "approveTime": "2026-01-01T00:00:00Z",
+      "state": "Approved"
+    },
+    {
+      "owner": "default",
+      "name": "vpp-gateway-mappings-delete",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Gateway Mappings Delete",
+      "description": "admin only: delete mappings",
+      "users": [],
+      "groups": [],
+      "roles": [
+        "default/admin"
+      ],
+      "domains": [],
+      "model": "default/vpp-rbac",
+      "adapter": "",
+      "resourceType": "Custom",
+      "resources": [
+        "gateway:mappings"
+      ],
+      "actions": [
+        "delete"
+      ],
+      "effect": "Allow",
+      "isEnabled": true,
+      "submitter": "admin",
+      "approver": "admin",
+      "approveTime": "2026-01-01T00:00:00Z",
+      "state": "Approved"
+    },
+    {
+      "owner": "default",
+      "name": "vpp-telemetry-read",
+      "createdTime": "2026-01-01T00:00:00Z",
+      "displayName": "VPP Telemetry Read",
+      "description": "viewer/operator/admin: QueryTelemetry/GetSnapshot/GetFleetSnapshot/QueryAggregation",
+      "users": [],
+      "groups": [],
+      "roles": [
+        "default/viewer",
+        "default/operator",
+        "default/admin"
+      ],
+      "domains": [],
+      "model": "default/vpp-rbac",
+      "adapter": "",
+      "resourceType": "Custom",
+      "resources": [
+        "telemetry:telemetry",
+        "telemetry:snapshots",
+        "telemetry:aggregation"
+      ],
+      "actions": [
+        "read"
+      ],
+      "effect": "Allow",
+      "isEnabled": true,
+      "submitter": "admin",
+      "approver": "admin",
+      "approveTime": "2026-01-01T00:00:00Z",
+      "state": "Approved"
     }
   ],
   "payments": [],

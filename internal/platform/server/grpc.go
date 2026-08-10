@@ -20,15 +20,17 @@ func init() {
 // NewGRPCServer returns a *grpc.Server pre-configured with the standard
 // interceptor stack: OpenTelemetry tracing, grpc_tags, structured logging.
 // The caller registers services and owns the Serve / GracefulStop lifecycle.
-func NewGRPCServer() *grpc.Server {
+func NewGRPCServer(extraUnary ...grpc.UnaryServerInterceptor) *grpc.Server {
 	logrusEntry := logrus.NewEntry(logrus.StandardLogger())
+	unary := []grpc.UnaryServerInterceptor{
+		grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
+		grpc_logrus.UnaryServerInterceptor(logrusEntry),
+		logging.GRPCUnaryInterceptor,
+	}
+	unary = append(unary, extraUnary...)
 	return grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		grpc.ChainUnaryInterceptor(
-			grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
-			grpc_logrus.UnaryServerInterceptor(logrusEntry),
-			logging.GRPCUnaryInterceptor,
-		),
+		grpc.ChainUnaryInterceptor(unary...),
 		grpc.ChainStreamInterceptor(
 			grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 			grpc_logrus.StreamServerInterceptor(logrusEntry),

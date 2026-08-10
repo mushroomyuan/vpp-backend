@@ -11,6 +11,26 @@ dispatch:
   default-command-timeout: 30s
   default-max-retries: 3
 
+  # When true: require x-userinfo metadata + local Casbin PDP (AUTHZ C10a).
+  # When false: auth bypass for local direct :5006 debugging.
+  auth:
+    trust-proxy-headers: false
+    authz:
+      casdoor-url: http://127.0.0.1:8000
+      casdoor-organization: built-in
+      casdoor-application: app-built-in
+      casdoor-username: admin
+      casdoor-password: "123"
+      owner: default
+      model-filter: default/vpp-rbac
+      snapshot-path: ./data/dispatch-authz-snapshot.json
+      sync-interval: 30s
+      # Control-class thresholds (stricter than resource 5m/30m).
+      healthy-after: 1m
+      stale-after: 5m
+      allow-read-when-invalid: false
+      deny-writes-when-stale: true
+
 database:
   driver: postgres
   host: 127.0.0.1

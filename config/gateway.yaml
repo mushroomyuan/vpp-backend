@@ -9,6 +9,25 @@ gateway:
   metrics-addr: 127.0.0.1:9104
   consul-addr: 127.0.0.1:8500
 
+  # When true: require X-Userinfo + Casbin on mappings routes (AUTHZ C10b).
+  # EMS telemetry:ingest stays on APISIX key-auth and is not covered by this PEP.
+  # When false: auth bypass for local direct :8083 debugging.
+  auth:
+    trust-proxy-headers: false
+    authz:
+      casdoor-url: http://127.0.0.1:8000
+      casdoor-organization: built-in
+      casdoor-application: app-built-in
+      casdoor-username: admin
+      casdoor-password: "123"
+      owner: default
+      model-filter: default/vpp-rbac
+      snapshot-path: ./data/gateway-authz-snapshot.json
+      sync-interval: 30s
+      healthy-after: 5m
+      stale-after: 30m
+      allow-read-when-invalid: false
+
 database:
   driver: postgres
   host: 127.0.0.1

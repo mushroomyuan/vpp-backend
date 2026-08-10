@@ -29,6 +29,8 @@ import (
 	"github.com/mushroomyuan/vpp-backend/gateway/application"
 	"github.com/mushroomyuan/vpp-backend/gateway/config"
 	infrapg "github.com/mushroomyuan/vpp-backend/gateway/infrastructure/persistent/postgres"
+	"github.com/mushroomyuan/vpp-backend/platform/authn/casdoor"
+	"github.com/mushroomyuan/vpp-backend/platform/authz"
 	"github.com/mushroomyuan/vpp-backend/platform/metrics"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
@@ -43,6 +45,10 @@ type gatewayServer struct {
 	telemetryClient       *telemetrygrpc.TelemetryGRPCClient
 	lifecycleConsumer     *kafkasub.LifecycleConsumer
 	commandEventPublisher *kafkapub.CommandEventPublisher
+	authzSyncer           *authz.Syncer
+	authzAdmin            authz.PermissionAdmin
+	authzCatalog          authz.Catalog
+	authzRegisterCatalog  bool
 }
 
 type preparedServer struct {
@@ -126,9 +132,33 @@ func createServer(
 	reflection.Register(grpcSrv)
 	gatewaypb.RegisterGatewayServiceServer(grpcSrv, gatewaySvc)
 
+	var (
+		permissionChecker    authz.PermissionChecker
+		authzSyncer          *authz.Syncer
+		authzAdmin           authz.PermissionAdmin
+		authzCatalog         authz.Catalog
+		authzRegisterCatalog bool
+	)
+	if cfg.Authz.Enabled {
+		wired, err := wireAuthz(cfg.Authz, cfg.ServiceName, metricsClient)
+		if err != nil {
+			metricsCancel()
+			_ = telemetryClient.Close()
+			return nil, fmt.Errorf("wire authz: %w", err)
+		}
+		permissionChecker = wired.checker
+		authzSyncer = wired.syncer
+		authzAdmin = wired.admin
+		authzCatalog = wired.catalog
+		authzRegisterCatalog = cfg.Authz.RegisterCatalog
+	}
+
 	logger := logrus.NewEntry(logrus.StandardLogger())
 	ginEngine := platformserver.NewGinEngine(cfg.ServiceName, logger)
-	httppkg.RegisterRoutes(ginEngine, app)
+	authMW := httppkg.AuthMiddleware(httppkg.AuthConfig{
+		TrustProxyHeaders: cfg.TrustProxyHeaders,
+	}, casdoor.ParseUserinfo, permissionChecker)
+	httppkg.RegisterRoutes(ginEngine, app, authMW)
 
 	httpSrv := &http.Server{
 		Addr:    cfg.HTTPAddr,
@@ -144,7 +174,69 @@ func createServer(
 		telemetryClient:       telemetryClient,
 		lifecycleConsumer:     lifecycleConsumer,
 		commandEventPublisher: commandEventPublisher,
+		authzSyncer:           authzSyncer,
+		authzAdmin:            authzAdmin,
+		authzCatalog:          authzCatalog,
+		authzRegisterCatalog:  authzRegisterCatalog,
 	}, nil
+}
+
+type authzWiring struct {
+	checker *authz.Checker
+	syncer  *authz.Syncer
+	admin   authz.PermissionAdmin
+	catalog authz.Catalog
+}
+
+func wireAuthz(cfg config.AuthzConfig, serviceName string, metricsClient *metrics.Client) (authzWiring, error) {
+	var out authzWiring
+	authzMetrics := authz.NewMetrics(serviceName)
+	if metricsClient != nil {
+		if err := metricsClient.RegisterCollector(authzMetrics.Collector()); err != nil {
+			return out, fmt.Errorf("register authz metrics: %w", err)
+		}
+	}
+
+	authzCfg := authz.Config{
+		HealthyAfter:         cfg.HealthyAfter,
+		StaleAfter:           cfg.StaleAfter,
+		AllowReadWhenInvalid: cfg.AllowReadWhenInvalid,
+		SnapshotPath:         cfg.SnapshotPath,
+		SyncInterval:         cfg.SyncInterval,
+		Owner:                cfg.Owner,
+		ModelFilter:          cfg.ModelFilter,
+	}
+	checker, err := authz.NewCheckerWithMetrics(authzCfg, authzMetrics)
+	if err != nil {
+		return out, err
+	}
+	out.checker = checker
+	out.catalog = httppkg.AuthzCatalog(cfg.Owner, cfg.ModelFilter)
+
+	if cfg.Sync || cfg.RegisterCatalog {
+		client, err := authz.NewCasdoorClient(authz.CasdoorClientConfig{
+			BaseURL:      cfg.CasdoorURL,
+			Organization: cfg.CasdoorOrg,
+			Application:  cfg.CasdoorApp,
+			Username:     cfg.CasdoorUsername,
+			Password:     cfg.CasdoorPassword,
+		})
+		if err != nil {
+			return out, err
+		}
+		out.admin = client
+		if cfg.Sync {
+			out.syncer = authz.NewSyncerWithMetrics(client, checker, authzCfg, authzMetrics)
+			logrus.Infof("authz syncer configured (casdoor=%s owner=%s interval=%s register-catalog=%v)",
+				cfg.CasdoorURL, cfg.Owner, cfg.SyncInterval, cfg.RegisterCatalog)
+		} else {
+			logrus.Infof("authz catalog register enabled without syncer (casdoor=%s)", cfg.CasdoorURL)
+		}
+	}
+	if out.syncer == nil {
+		logrus.Warn("authz checker enabled without syncer — using snapshot/safety-net only")
+	}
+	return out, nil
 }
 
 func (s *gatewayServer) PrepareRun() *preparedServer {
@@ -192,6 +284,28 @@ func (s *preparedServer) Run() error {
 		}
 		return nil
 	})
+
+	if s.authzSyncer != nil || (s.authzRegisterCatalog && s.authzAdmin != nil) {
+		eg.Go(func() error {
+			if s.authzRegisterCatalog && s.authzAdmin != nil {
+				res, err := authz.RegisterCatalog(egCtx, s.authzAdmin, s.authzCatalog)
+				if err != nil {
+					logrus.WithError(err).Warn("authz catalog register failed (continuing with sync)")
+				} else {
+					logrus.Infof("authz catalog registered: added=%d updated=%d skipped=%d",
+						res.Added, res.Updated, res.Skipped)
+				}
+			}
+			if s.authzSyncer == nil {
+				return nil
+			}
+			err := s.authzSyncer.Run(egCtx)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				logrus.WithError(err).Warn("authz syncer stopped")
+			}
+			return nil
+		})
+	}
 
 	eg.Go(func() error {
 		quit := make(chan os.Signal, 1)

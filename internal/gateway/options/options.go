@@ -18,6 +18,40 @@ type GatewayOptions struct {
 	MetricsAddr string `mapstructure:"metrics-addr"`
 	ServiceName string `mapstructure:"service-name"`
 	ConsulAddr  string `mapstructure:"consul-addr"`
+
+	// Auth configures HTTP identity middleware for mappings (C10b).
+	Auth AuthOptions `mapstructure:"auth"`
+}
+
+// AuthOptions configures Gateway HTTP identity middleware (APISIX X-Userinfo / Casdoor).
+type AuthOptions struct {
+	// TrustProxyHeaders requires valid X-Userinfo when true (mappings via APISIX OIDC).
+	// When false, auth is bypassed for local direct :8083 debugging.
+	TrustProxyHeaders bool `mapstructure:"trust-proxy-headers"`
+	// Authz configures local Casbin PDP + Casdoor policy sync (C10b).
+	Authz AuthzOptions `mapstructure:"authz"`
+}
+
+// AuthzOptions is the gateway-service wiring for platform/authz.
+type AuthzOptions struct {
+	Disabled bool `mapstructure:"disabled"`
+
+	CasdoorURL      string `mapstructure:"casdoor-url"`
+	CasdoorOrg      string `mapstructure:"casdoor-organization"`
+	CasdoorApp      string `mapstructure:"casdoor-application"`
+	CasdoorUsername string `mapstructure:"casdoor-username"`
+	CasdoorPassword string `mapstructure:"casdoor-password"`
+
+	Owner        string `mapstructure:"owner"`
+	ModelFilter  string `mapstructure:"model-filter"`
+	SnapshotPath string `mapstructure:"snapshot-path"`
+
+	SyncInterval         string `mapstructure:"sync-interval"`
+	HealthyAfter         string `mapstructure:"healthy-after"`
+	StaleAfter           string `mapstructure:"stale-after"`
+	AllowReadWhenInvalid bool   `mapstructure:"allow-read-when-invalid"`
+
+	DisableRegisterCatalog bool `mapstructure:"disable-register-catalog"`
 }
 
 type TracingOptions struct {

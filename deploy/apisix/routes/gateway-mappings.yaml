@@ -1,0 +1,38 @@
+# Gateway mappings route (C10b — Casdoor OIDC for human-managed ID mapping).
+# Applied by deploy/apisix/init.sh via Admin API.
+#
+# Higher priority than gateway-proxy so /mappings* uses OIDC + X-Userinfo,
+# while EMS telemetry:ingest continues on key-auth (/gateway/*).
+
+upstream_id: gateway-backend
+upstream:
+  type: roundrobin
+  nodes:
+    host.docker.internal:8083: 1
+
+route:
+  name: gateway-mappings
+  uri: /gateway/api/v1/tenants/*/mappings*
+  priority: 100
+  plugins:
+    proxy-rewrite:
+      regex_uri:
+        - "^/gateway/(.*)"
+        - "/$1"
+    openid-connect:
+      client_id: vpp-resource-dev-client
+      client_secret: vpp-resource-dev-secret
+      discovery: http://host.docker.internal:8000/.well-known/openid-configuration
+      bearer_only: true
+      realm: vpp
+      use_jwks: true
+      ssl_verify: false
+      set_userinfo_header: true
+      set_access_token_header: true
+      access_token_in_authorization_header: true
+      set_id_token_header: false
+    limit-req:
+      rate: 30
+      burst: 50
+      key: remote_addr
+      rejected_code: 429
