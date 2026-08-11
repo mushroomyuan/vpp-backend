@@ -1,0 +1,40 @@
+# Telemetry gRPC *read* RPCs via APISIX :9081 (reference; applied by init.sh).
+#
+# IngestTelemetry is intentionally omitted — gateway→telemetry stays on
+# 127.0.0.1:5003 with SkipUserAuth (machine path).
+#
+# Same Path C OIDC as /resource/*; do not proxy-rewrite-remove x-userinfo.
+
+upstream_id: telemetry-grpc
+upstream:
+  type: roundrobin
+  scheme: grpc
+  nodes:
+    host.docker.internal:5003: 1
+
+route:
+  name: telemetry-grpc-read
+  uris:
+    - /telemetrypb.TelemetryService/QueryTelemetry
+    - /telemetrypb.TelemetryService/GetSnapshot
+    - /telemetrypb.TelemetryService/GetFleetSnapshot
+    - /telemetrypb.TelemetryService/QueryAggregation
+  methods: [POST, GET]
+  plugins:
+    openid-connect:
+      client_id: vpp-resource-dev-client
+      client_secret: vpp-resource-dev-secret
+      discovery: http://host.docker.internal:8000/.well-known/openid-configuration
+      bearer_only: true
+      realm: vpp
+      use_jwks: true
+      ssl_verify: false
+      set_userinfo_header: true
+      set_access_token_header: true
+      access_token_in_authorization_header: true
+      set_id_token_header: false
+    limit-req:
+      rate: 30
+      burst: 50
+      key: remote_addr
+      rejected_code: 429

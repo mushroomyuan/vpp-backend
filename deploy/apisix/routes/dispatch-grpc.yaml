@@ -1,0 +1,41 @@
+# Dispatch gRPC northbound via APISIX :9081 (reference; applied by init.sh).
+#
+# Path C: openid-connect bearer_only + set_userinfo_header (same as /resource/*).
+# Do NOT add proxy-rewrite.headers.remove for x-userinfo — openid-connect and
+# proxy-rewrite share the rewrite phase; openid-connect (priority 2599) runs
+# first, and a later remove would delete the trusted header it just injected.
+#
+# Client (localhost only — Bearer is plaintext on :9081):
+#   grpcurl -plaintext -H "authorization: Bearer <token>" \
+#     -d '{"TenantID":"default","TaskID":"x"}' \
+#     127.0.0.1:9081 dispatchpb.DispatchService/GetTask
+
+upstream_id: dispatch-grpc
+upstream:
+  type: roundrobin
+  scheme: grpc
+  nodes:
+    host.docker.internal:5006: 1
+
+route:
+  name: dispatch-grpc
+  uri: /dispatchpb.DispatchService/*
+  methods: [POST, GET]
+  plugins:
+    openid-connect:
+      client_id: vpp-resource-dev-client
+      client_secret: vpp-resource-dev-secret
+      discovery: http://host.docker.internal:8000/.well-known/openid-configuration
+      bearer_only: true
+      realm: vpp
+      use_jwks: true
+      ssl_verify: false
+      set_userinfo_header: true
+      set_access_token_header: true
+      access_token_in_authorization_header: true
+      set_id_token_header: false
+    limit-req:
+      rate: 30
+      burst: 50
+      key: remote_addr
+      rejected_code: 429

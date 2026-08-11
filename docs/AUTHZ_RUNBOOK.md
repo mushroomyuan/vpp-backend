@@ -120,3 +120,19 @@ curl -X POST http://127.0.0.1:9090/-/reload   # 若开启了 lifecycle
 ```
 
 确认容器内存在 `/etc/prometheus/prometheus-authz-alerts.yaml`，且 Rules 页能看到 `vpp-authz` 组。
+
+---
+
+## 6. 启用 `trust-proxy-headers` 前置清单（gRPC / HTTP）
+
+打开 dispatch / telemetry / resource 的 `auth.trust-proxy-headers: true`（或 `make run-*-secured`）之前确认：
+
+1. **APISIX 路由已灌入**：`make apisix-init`；`:9080`（HTTP）与 `:9081`（gRPC h2c）在听
+2. **业务口仅本机**：`grpc-addr` / `http-addr` 仍为 `127.0.0.1:...`，不要改成 `0.0.0.0`
+3. **身份只从网关来**：客户端带 Casdoor Bearer；**不要**依赖自造 `x-userinfo` / `X-Userinfo`
+4. **不要**在 APISIX 上用 `proxy-rewrite` 删除 `x-userinfo`（会与 `openid-connect` 同阶段后跑，误删可信值）
+5. **IngestTelemetry 不走用户 OIDC**：gateway → `127.0.0.1:5003` 直连
+6. **:9081 明文**：仅 localhost；跨机先配 `:9443` TLS
+7. Gate 0 探针曾通过：`make apisix-gate0-probe`
+
+未满足以上条件就打开开关 = 假安全感（直连可自签身份）或误杀合法请求。

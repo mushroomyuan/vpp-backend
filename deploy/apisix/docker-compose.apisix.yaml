@@ -35,7 +35,8 @@ services:
       - apisix_logs:/usr/local/apisix/logs
     ports:
       - "9080:9080"   # HTTP proxy (northbound entry)
-      - "9443:9443"   # HTTPS (unused in Phase 0)
+      - "9081:9081"   # plaintext HTTP/2 (h2c) gRPC northbound
+      - "9443:9443"   # HTTPS / gRPCS (cross-host; do not send Bearer over plaintext LAN)
       - "9181:9180"   # Admin API (host 9181 — avoids local port/proxy conflicts)
       - "9091:9091"   # Prometheus metrics (Phase 3)
     extra_hosts:

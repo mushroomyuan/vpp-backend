@@ -13,21 +13,23 @@ APISIX 是**另一层**，做基础设施级治理，两者不冲突：
 
 | 层次 | 组件 | 职责 |
 |------|------|------|
-| 基础设施网关 | **APISIX** `:9080` | TLS、认证、限流、统一入口 |
+| 基础设施网关 | **APISIX** `:9080` / `:9081` | TLS、认证、限流、HTTP + gRPC 统一入口 |
 | 业务网关 | **vpp-gateway** `:8083` | ID 映射、遥测归一、ExecuteCommand |
 
 ```
 外部客户端
     │
-    ▼
-APISIX :9080          ← 北向唯一入口（Phase 0 仅反代）
+    ├─ HTTP ──────────────────────────▶ APISIX :9080
+    │                                      ├── /gateway/*  → vpp-gateway  :8083
+    │                                      └── /resource/* → vpp-resource :8082
     │
-    ├── /gateway/*  →  vpp-gateway  :8083  (Gin REST)
-    └── /resource/* →  vpp-resource :8082  (grpc-gateway)
+    └─ gRPC (h2c, localhost) ─────────▶ APISIX :9081
+                                           ├── /dispatchpb.DispatchService/* → :5006
+                                           └── TelemetryService 读 RPC → :5003
+                                               （Ingest 仍本机直连，不经 APISIX）
 
-内部 gRPC（dispatch→gateway 等）不经过 APISIX，走内网直连。
+内部 gRPC（dispatch→gateway、gateway→telemetry Ingest）不经过 APISIX，走本机直连。
 ```
-
 ---
 
 ## 2. 前置条件
@@ -82,17 +84,22 @@ deploy/apisix/
 ├── conf/
 │   └── config.yaml              # APISIX 引导配置（只挂载此文件）
 ├── init.sh                      # Admin API 初始化脚本（routes/upstreams）
+├── gate0/
+│   └── probe.sh                 # Gate 0：grpcurl + grpc-go 验收
 └── routes/
     ├── gateway.yaml             # 路由参考文档（权威来源是 init.sh）
-    └── resource.yaml
+    ├── resource.yaml
+    ├── dispatch-grpc.yaml
+    └── telemetry-grpc.yaml
 ```
 
 | 文件 | 作用 |
 |------|------|
 | `docker-compose.apisix.yaml` | 起 APISIX 3.11 + etcd；配置端口映射、healthcheck |
-| `conf/config.yaml` | APISIX 进程引导：监听端口、Admin Key、etcd 地址 |
+| `conf/config.yaml` | APISIX 进程引导：监听端口、Admin Key、etcd 地址、`enable_http2` |
 | `init.sh` | 通过 Admin API 创建 upstream 和 route（存在则覆盖） |
 | `routes/*.yaml` | 人类可读的参考，**不参与自动加载** |
+| `gate0/probe.sh` | Gate 0 可行性探针 |
 
 Makefile 命令：
 
@@ -100,7 +107,9 @@ Makefile 命令：
 |------|------|
 | `make apisix-up` | 启动 APISIX stack |
 | `make apisix-down` | 停止并移除容器 |
-| `make apisix-init` | 执行 `init.sh` 灌配置 |
+| `make apisix-init` | 执行 `init.sh` 灌配置（含 Gate 0 gRPC 路由） |
+| `make apisix-gate0-probe` | 跑 Gate 0 验收（需 Casdoor + secured dispatch） |
+| `make run-dispatch-secured` | 以 `trust-proxy-headers: true` 启动 dispatch |
 | `make apisix-status` | 检查端口与 routes 数量 |
 | `make apisix-logs` | 跟踪 APISIX 容器日志 |
 
@@ -111,9 +120,10 @@ Makefile 命令：
 | 宿主机端口 | 容器端口 | 用途 |
 |-----------|---------|------|
 | **9080** | 9080 | HTTP 北向入口（外部请求打这里） |
+| **9081** | 9081 | **明文 HTTP/2（h2c）gRPC 北向**（Gate 0+；仅限 localhost） |
 | **9181** | 9180 | Admin API（管理 routes/consumers） |
 | 9091 | 9091 | Prometheus metrics（Phase 3 接入） |
-| 9443 | 9443 | HTTPS（Phase 1+ 启用） |
+| 9443 | 9443 | HTTPS / gRPCS（跨机联调；不要在明文 :9081 上跨机器传 Bearer） |
 
 > Admin API 故意映射到宿主机 **9181** 而非 9180，避免与本机其他服务或 HTTP 代理冲突。
 
@@ -127,7 +137,10 @@ APISIX 3.x 的配置结构与 2.x 不同，`admin_key` 必须放在 `deployment.
 
 ```yaml
 apisix:
-  node_listen: 9080
+  node_listen:
+    - port: 9080
+    - port: 9081
+  enable_http2: true              # :9081 明文 gRPC（h2c）需要
   id: vpp-dev-apisix-1          # 固定 node id，避免回写 host 挂载文件
 
 deployment:
@@ -518,6 +531,30 @@ curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' \
 ```
 
 Casdoor `origin` 必须是 `host.docker.internal:8000`，否则 APISIX 容器无法拉 JWKS / userinfo（`127.0.0.1` 指向容器自身）。
+
+---
+
+## 11.7 gRPC + OIDC（dispatch + telemetry 读，明文 HTTP/2）
+
+Gate 0（2026-08）已实测通过：`openid-connect` 可在 gRPC-over-HTTP/2 上验 Bearer、注入 `x-userinfo`，且客户端伪造的 `x-userinfo` 会被覆盖。
+
+| 项 | 值 |
+|----|-----|
+| 入口 | `:9081` plaintext HTTP/2（h2c） |
+| Dispatch | `/dispatchpb.DispatchService/*` → `:5006` |
+| Telemetry 读 | `QueryTelemetry` / `GetSnapshot` / `GetFleetSnapshot` / `QueryAggregation` → `:5003` |
+| Telemetry 写 | **`IngestTelemetry` 不配用户 OIDC**（gateway 本机直连） |
+| 插件 | `openid-connect`（与 `/resource/*` 同参）；**不要** `proxy-rewrite` 删 `x-userinfo` |
+| 限制 | Bearer 明文；**仅 localhost**；跨机请用 `:9443` TLS |
+
+```bash
+make casdoor-up && make casdoor-init
+make apisix-up && make apisix-init
+make run-dispatch-secured          # 另开终端可再 make run-telemetry-secured
+make apisix-gate0-probe            # grpcurl + grpc-go
+```
+
+参考：[`deploy/apisix/routes/dispatch-grpc.yaml`](../deploy/apisix/routes/dispatch-grpc.yaml)、[`telemetry-grpc.yaml`](../deploy/apisix/routes/telemetry-grpc.yaml)、[`deploy/apisix/gate0/probe.sh`](../deploy/apisix/gate0/probe.sh)。启用开关前读 [`AUTHZ_RUNBOOK.md`](AUTHZ_RUNBOOK.md) §6。
 
 ---
 

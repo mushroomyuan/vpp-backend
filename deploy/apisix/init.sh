@@ -5,6 +5,7 @@
 # Phase 1: key-auth + limit-req on /gateway/* (EMS / simulator)
 # Phase 2: openid-connect bearer_only on /resource/* (Casdoor OIDC)
 # Phase 2b / C10b: openid-connect on /gateway/.../mappings* (human-managed mappings)
+# Gate 0: plaintext HTTP/2 :9081 + dispatch/telemetry-read gRPC + openid-connect
 #
 # Requires APISIX Admin API (default host :9181 → container :9180).
 # Casdoor should be reachable from the APISIX container at host.docker.internal:8000.
@@ -60,8 +61,10 @@ wait_for_admin() {
 put_upstream() {
   local id=$1
   local host_port=$2
+  local scheme=${3:-http}
   admin_curl -X PUT "${APISIX_ADMIN_URL}/apisix/admin/upstreams/${id}" -d "{
     \"type\": \"roundrobin\",
+    \"scheme\": \"${scheme}\",
     \"nodes\": {
       \"${host_port}\": 1
     },
@@ -72,7 +75,7 @@ put_upstream() {
     }
   }"
   echo
-  echo "Upstream ${id} -> ${host_port}"
+  echo "Upstream ${id} -> ${host_port} (scheme=${scheme})"
 }
 
 put_consumer_key_auth() {
@@ -206,20 +209,106 @@ PY
   echo "Route gateway-mappings: /gateway/.../mappings* -> gateway-backend (openid-connect, priority 100)"
 }
 
+put_oidc_plugins_json() {
+  # Shared Path C plugin block (no proxy-rewrite x-userinfo remove — see plan).
+  OIDC_CLIENT_ID="${OIDC_CLIENT_ID}" \
+    OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET}" \
+    OIDC_DISCOVERY="${OIDC_DISCOVERY}" \
+    python3 - <<'PY'
+import json, os
+print(json.dumps({
+  "openid-connect": {
+    "client_id": os.environ["OIDC_CLIENT_ID"],
+    "client_secret": os.environ["OIDC_CLIENT_SECRET"],
+    "discovery": os.environ["OIDC_DISCOVERY"],
+    "bearer_only": True,
+    "realm": "vpp",
+    "use_jwks": True,
+    "ssl_verify": False,
+    "set_userinfo_header": True,
+    "set_access_token_header": True,
+    "access_token_in_authorization_header": True,
+    "set_id_token_header": False,
+  },
+  "limit-req": {
+    "rate": 30,
+    "burst": 50,
+    "key": "remote_addr",
+    "rejected_code": 429,
+  },
+}))
+PY
+}
+
+put_dispatch_grpc_route() {
+  # Northbound DispatchService via plaintext HTTP/2 :9081.
+  # Relies on openid-connect set_userinfo_header overwrite (no proxy-rewrite remove).
+  local plugins body
+  plugins="$(put_oidc_plugins_json)"
+  body="$(PLUGINS="${plugins}" python3 - <<'PY'
+import json, os
+doc = {
+  "uri": "/dispatchpb.DispatchService/*",
+  "methods": ["POST", "GET"],
+  "upstream_id": "dispatch-grpc",
+  "plugins": json.loads(os.environ["PLUGINS"]),
+}
+print(json.dumps(doc))
+PY
+)"
+  admin_curl -X PUT "${APISIX_ADMIN_URL}/apisix/admin/routes/dispatch-grpc" -d "${body}"
+  echo
+  echo "Route dispatch-grpc: /dispatchpb.DispatchService/* -> dispatch-grpc (OIDC)"
+}
+
+put_telemetry_grpc_read_route() {
+  # User-facing read RPCs only. IngestTelemetry stays machine→:5003 (no OIDC route).
+  local plugins body
+  plugins="$(put_oidc_plugins_json)"
+  body="$(PLUGINS="${plugins}" python3 - <<'PY'
+import json, os
+doc = {
+  "uris": [
+    "/telemetrypb.TelemetryService/QueryTelemetry",
+    "/telemetrypb.TelemetryService/GetSnapshot",
+    "/telemetrypb.TelemetryService/GetFleetSnapshot",
+    "/telemetrypb.TelemetryService/QueryAggregation",
+  ],
+  "methods": ["POST", "GET"],
+  "upstream_id": "telemetry-grpc",
+  "plugins": json.loads(os.environ["PLUGINS"]),
+}
+print(json.dumps(doc))
+PY
+)"
+  admin_curl -X PUT "${APISIX_ADMIN_URL}/apisix/admin/routes/telemetry-grpc-read" -d "${body}"
+  echo
+  echo "Route telemetry-grpc-read: TelemetryService read RPCs -> telemetry-grpc (OIDC; Ingest excluded)"
+}
+
 main() {
   wait_for_admin
 
   put_upstream "gateway-backend" "host.docker.internal:8083"
   put_upstream "resource-backend" "host.docker.internal:8082"
+  put_upstream "dispatch-grpc" "host.docker.internal:5006" "grpc"
+  put_upstream "telemetry-grpc" "host.docker.internal:5003" "grpc"
 
   put_consumer_key_auth "${SIMULATOR_CONSUMER}" "${SIMULATOR_API_KEY}"
 
   put_gateway_route
   put_gateway_mappings_route
   put_resource_route
+  put_dispatch_grpc_route
+  put_telemetry_grpc_read_route
+
+  # Drop Gate 0 temporary route id if it still exists from earlier init.
+  "${CURL[@]}" -s -o /dev/null -w '' \
+    -X DELETE "${APISIX_ADMIN_URL}/apisix/admin/routes/dispatch-grpc-gate0" \
+    -H "X-API-KEY: ${APISIX_ADMIN_KEY}" || true
 
   echo ""
-  echo "Phase 0+1+2(+C10b mappings OIDC) routes installed."
+  echo "Phase 0+1+2(+C10b)+gRPC-OIDC routes installed."
   echo ""
   echo "Smoke test:"
   echo "  # EMS ingest still needs API key (not OIDC)"
@@ -235,6 +324,9 @@ main() {
   echo "  # resource 401 without Bearer"
   echo "  curl --noproxy '*' -s -o /dev/null -w '%{http_code}\\n' \\"
   echo "    http://127.0.0.1:9080/resource/api/tenants/default/sites"
+  echo "  # gRPC GetTask without Bearer (expect reject on :9081)"
+  echo "  grpcurl -plaintext 127.0.0.1:9081 dispatchpb.DispatchService/GetTask"
+  echo "  # Gate 0 / gRPC OIDC probe: make apisix-gate0-probe"
 }
 
 main "$@"

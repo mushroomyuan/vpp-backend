@@ -340,6 +340,46 @@ grpcurl -plaintext \
 
 ---
 
+## 7.8 APISIX gRPC 北向（dispatch + telemetry 读）
+
+前提：`make apisix-up && make apisix-init`；`:9081` 为明文 h2c（**仅 localhost**）。
+
+| 路由 | Upstream | OIDC |
+|------|----------|------|
+| `/dispatchpb.DispatchService/*` | `:5006` | 是 |
+| `QueryTelemetry` / `GetSnapshot` / `GetFleetSnapshot` / `QueryAggregation` | `:5003` | 是 |
+| `IngestTelemetry` | **不经 APISIX** | 机机直连 `:5003` |
+
+后端 PEP：`make run-dispatch-secured` / `make run-telemetry-secured`（临时把 `trust-proxy-headers` 改成 `true`）。默认 yaml 仍为 `false` 便于直连调试。
+
+```bash
+# 无 Bearer → APISIX 拒绝（grpc-go / grpcurl 常见为 Unauthenticated + HTTP 401 文案）
+grpcurl -plaintext \
+  -d '{"TenantID":"default","TaskID":"x"}' \
+  127.0.0.1:9081 dispatchpb.DispatchService/GetTask
+
+# 合法 token（业务 NotFound 也算鉴权通过）
+grpcurl -plaintext \
+  -H "authorization: Bearer $(make -s casdoor-token USER=admin)" \
+  -d '{"TenantID":"default","TaskID":"missing"}' \
+  127.0.0.1:9081 dispatchpb.DispatchService/GetTask
+
+# 伪造 x-userinfo 不能抬权（viewer + forged admin → PermissionDenied）
+# 见 make apisix-gate0-probe
+
+# telemetry 读
+grpcurl -plaintext \
+  -H "authorization: Bearer $(make -s casdoor-token USER=viewer)" \
+  -d '{"TenantID":"default"}' \
+  127.0.0.1:9081 telemetrypb.TelemetryService/GetFleetSnapshot
+```
+
+完整探针：`make apisix-gate0-probe`（需 secured dispatch）。
+
+**已知**：OIDC 拒无 token 时返回 HTTP 401 + HTML/JSON，不是标准 gRPC status frame；`grpc-go` 仍映射为 `Unauthenticated`，可接受。跨机联调请用 `:9443` TLS，勿明文暴露 Bearer。
+
+---
+
 ## 8. 常见问题
 
 | 现象 | 原因 / 处理 |

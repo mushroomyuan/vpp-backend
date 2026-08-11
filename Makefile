@@ -3,7 +3,8 @@
 # Common targets:
 #   make help | infra-up | build-all | run-all | stop-all | restart
 #   make status | logs | logs SERVICE=gateway
-#   make apisix-up | apisix-init | apisix-down | apisix-status
+#   make apisix-up | apisix-init | apisix-gate0-probe | apisix-down | apisix-status
+#   make run-dispatch-secured run-telemetry-secured  # trust-proxy-headers=true
 #   make casdoor-up | casdoor-init | casdoor-down | casdoor-status | casdoor-token
 #   make tidy | gen | fmt | lint
 #   make clean | clean-logs | clean-telemetry | clean-all
@@ -37,8 +38,11 @@ help:
 	@echo "  Infra"
 	@echo "    make infra-up / infra-down     Start/stop docker compose stack"
 	@echo "    make apisix-up / apisix-down   Start/stop APISIX edge gateway"
-	@echo "    make apisix-init               Install Phase 0+1 proxy routes"
+	@echo "    make apisix-init               Install HTTP + Gate 0 gRPC routes"
+	@echo "    make apisix-gate0-probe        Verify gRPC OIDC on :9081 (grpcurl + grpc-go)"
 	@echo "    make apisix-status             APISIX + backend port health"
+	@echo "    make run-dispatch-secured      Dispatch with trust-proxy-headers=true"
+	@echo "    make run-telemetry-secured     Telemetry with trust-proxy-headers=true"
 	@echo "    make casdoor-up / casdoor-down Start/stop Casdoor IdP"
 	@echo "    make casdoor-init             Ensure casdoor DB + verify seed"
 	@echo "    make casdoor-status           Casdoor port / OIDC discovery"
@@ -101,11 +105,12 @@ infra-down:
 
 # ── APISIX northbound edge (Phase 0) ──────────────────────────────────────────
 
-.PHONY: apisix-up apisix-down apisix-init apisix-status apisix-logs
+.PHONY: apisix-up apisix-down apisix-init apisix-status apisix-logs apisix-gate0-probe
 apisix-up:
 	$(DOCKER_COMPOSE) -f $(APISIX_COMPOSE) up -d
-	@echo "APISIX starting. Proxy :9080 | Admin :9181 | Metrics :9091"
+	@echo "APISIX starting. HTTP :9080 | gRPC-h2c :9081 | Admin :9181 | Metrics :9091"
 	@echo "Next: make run-all && make apisix-init"
+	@echo "Gate 0: DISPATCH_AUTH via run-dispatch-secured + make apisix-gate0-probe"
 
 apisix-down:
 	$(DOCKER_COMPOSE) -f $(APISIX_COMPOSE) down
@@ -115,6 +120,9 @@ apisix-init:
 
 apisix-logs:
 	$(DOCKER_COMPOSE) -f $(APISIX_COMPOSE) logs -f apisix
+
+apisix-gate0-probe:
+	@bash deploy/apisix/gate0/probe.sh
 
 apisix-status:
 	@printf "%-14s %-8s %-s\n" "COMPONENT" "PORT" "STATUS"
@@ -127,10 +135,12 @@ apisix-status:
 			printf "%-14s %-8s %-s\n" $$name $$port "DOWN"; \
 		fi; \
 	}; \
-	check_port apisix-proxy 9080; \
+	check_port apisix-http 9080; \
+	check_port apisix-grpc 9081; \
 	check_port apisix-admin 9181; \
 	check_port gateway-http 8083; \
 	check_port resource-http 8082; \
+	check_port dispatch-grpc 5006; \
 	if curl --noproxy '*' -sf http://127.0.0.1:9181/apisix/admin/routes \
 		-H "X-API-KEY: $$(awk '/key:/{print $$2; exit}' deploy/apisix/conf/config.yaml)" >/dev/null 2>&1; then \
 		routes=$$(curl --noproxy '*' -sf http://127.0.0.1:9181/apisix/admin/routes \
@@ -141,6 +151,19 @@ apisix-status:
 		echo "routes-configured: admin-unreachable"; \
 	fi
 
+# Dispatch / telemetry with auth.trust-proxy-headers=true (APISIX gRPC northbound).
+.PHONY: run-dispatch-secured run-telemetry-secured
+run-dispatch-secured:
+	@tmp=$$(mktemp /tmp/dispatch.secured.XXXXXX.yaml); \
+	sed 's/trust-proxy-headers: false/trust-proxy-headers: true/' config/dispatch.yaml > "$$tmp"; \
+	echo "Using secured config: $$tmp"; \
+	cd internal/dispatch && go run ./cmd/main.go -c "$$tmp"
+
+run-telemetry-secured:
+	@tmp=$$(mktemp /tmp/telemetry.secured.XXXXXX.yaml); \
+	sed 's/trust-proxy-headers: false/trust-proxy-headers: true/' config/telemetry.yaml > "$$tmp"; \
+	echo "Using secured config: $$tmp"; \
+	cd internal/telemetry && go run ./cmd/main.go -c "$$tmp"
 # ── Casdoor IdP (Phase 2 OIDC) ────────────────────────────────────────────────
 
 .PHONY: casdoor-up casdoor-down casdoor-init casdoor-status casdoor-logs casdoor-db casdoor-token
