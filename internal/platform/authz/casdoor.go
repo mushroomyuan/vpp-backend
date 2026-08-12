@@ -177,7 +177,7 @@ func (c *CasdoorClient) roundTrip(ctx context.Context, method, endpoint string, 
 	if err != nil {
 		return nil, 0, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, res.StatusCode, err
@@ -231,7 +231,7 @@ func (c *CasdoorClient) login(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return err

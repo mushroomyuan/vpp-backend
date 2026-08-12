@@ -114,7 +114,7 @@ func scrape(t *testing.T, reg *prometheus.Registry) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)

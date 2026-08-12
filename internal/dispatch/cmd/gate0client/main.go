@@ -33,7 +33,7 @@ func main() {
 	if err != nil {
 		fail("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	client := dispatchpb.NewDispatchServiceClient(conn)
 
 	switch *mode {

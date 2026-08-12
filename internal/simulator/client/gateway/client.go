@@ -97,7 +97,7 @@ func (c *Client) IngestTelemetry(
 	if err != nil {
 		return fmt.Errorf("ingest telemetry: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("ingest telemetry status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))

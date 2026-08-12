@@ -23,7 +23,7 @@ type AssetItem struct {
 
 func (a AssetItem) Validate() error {
 	if a.Name == "" {
-		return errors.New("Name is required")
+		return errors.New("Name is required") //nolint:staticcheck
 	}
 	if a.SubType != nil && *a.SubType == "" {
 		return errors.New("SubType cannot be empty string")
@@ -38,7 +38,7 @@ func (a AssetItem) Validate() error {
 		return errors.New("OwnerType cannot be empty string")
 	}
 	if a.Description != nil && *a.Description == "" {
-		return errors.New("Description cannot be empty string")
+		return errors.New("Description cannot be empty string") //nolint:staticcheck
 	}
 	if a.RatedCapacityKW != nil && *a.RatedCapacityKW < 0 {
 		return errors.New("RatedCapacityKW must be non-negative")

@@ -1,0 +1,23 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - unused
+    - ineffassign
+
+formatters:
+  enable:
+    - goimports
+
+issues:
+  # First introduction of lint on a codebase with no prior baseline: surface
+  # everything rather than silently capping output.
+  max-issues-per-linter: 0
+  max-same-issues: 0

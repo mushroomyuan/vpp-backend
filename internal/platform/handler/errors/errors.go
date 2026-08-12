@@ -14,11 +14,10 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	var msg string
+	msg := consts.ErrMsg[e.code]
 	if e.msg != "" {
 		msg = e.msg
 	}
-	msg = consts.ErrMsg[e.code]
 	return msg + "->" + e.err.Error()
 }
 

@@ -107,7 +107,7 @@ func (s *TelemetryStore) Query(
 	if err != nil {
 		return nil, fmt.Errorf("influxdb query: %w", err)
 	}
-	defer result.Close()
+	defer func() { _ = result.Close() }()
 
 	type key struct {
 		ts     time.Time
@@ -166,7 +166,7 @@ func (s *AggregationStore) Query(
 	if err != nil {
 		return nil, fmt.Errorf("influxdb agg query: %w", err)
 	}
-	defer result.Close()
+	defer func() { _ = result.Close() }()
 
 	requested := make(map[model.AggFunction]bool, len(q.Functions))
 	for _, fn := range q.Functions {

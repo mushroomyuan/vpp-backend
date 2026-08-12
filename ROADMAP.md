@@ -33,13 +33,15 @@
 | 业务端口直接监听在 host 网络 | `trust-proxy-headers:false` 时直连完全绕过鉴权，当前用于本地调试 | K8s 阶段用 ClusterIP 收紧，作为该阶段的验收项之一 |
 | 内部服务间 gRPC（dispatch→gateway、gateway→telemetry）无鉴权/mTLS | 依赖同网络可信假设，perimeter security 模型 | 暂不处理，作为已知设计取舍；长期可在 K8s + service mesh 阶段一并解决东西向身份问题 |
 | 角色模型（admin/operator/viewer）为占位 | 真实业务角色/权限模型尚未确定 | 不阻塞现有架构，等业务角色明确后在 Casdoor 侧调整 Permission 绑定即可，不需要改代码 |
+| CI 已构建并推送镜像到 GHCR，但镜像本身尚不能直接部署 | 容器内仍是 `-c /etc/vpp/config.yaml` 固定路径的 YAML 配置，中间件地址（Postgres/Redis/Kafka/Casdoor）仍写的是本机 host 网络地址；没有健康检查探针 | 配置外部化（env 覆盖 YAML）、健康检查探针留给 K8s 基础部署阶段一起做，避免"镜像已构建"被误解为"已经容器化部署" |
+| golangci-lint 是第一次接入，历史代码尚未跑过全量 lint | CI 的 `lint` job 在 PR 上用 `only-new-issues` 只挡新增代码问题，push 到 `main` 才跑全量（不阻塞，仅可见） | 建议找一个空档本地跑一次 `make lint` 摸底历史债务规模，决定是否要专门排期清理 |
 
 ---
 
 ## Phase A · 基建 + 补缺口
 
 - [x] 认证鉴权 / 用户中心（Casdoor + APISIX + 本地 Casbin，深度超出原计划的 scoped 版本）
-- [ ] CI/CD（GitHub Actions：build + vet + test；docker build 作为容器化的第一步产出）
+- [x] CI/CD（GitHub Actions：`.github/workflows/ci.yml` 三个 job——`lint`/`test` 按 6 模块矩阵跑，`docker` 构建 5 个服务镜像并推送 GHCR；`Makefile` 补齐 `test`/`vet`/`docker-build`，修复 `make lint`）
 - [ ] 集成测试（testcontainers 起 Postgres/Kafka，覆盖 SubmitTask→ExecuteCommand→Kafka 回调主链路；完成后补进 CI）
 - [ ] Alarm 服务（消费 `vpp.dispatch.events` / `vpp.soe.events`，工作量小、闭环价值高，可随时插入）
 - [ ] `CancelTask`（dispatch，独立功能补齐，可随时插入）

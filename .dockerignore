@@ -1,0 +1,28 @@
+# Keep the build context small — only Go source (internal/, api/) and the
+# config/*.yaml consumed by deploy/docker/Dockerfile actually need to travel
+# into the image build. Everything below is infra tooling, docs, or local
+# state, not needed to compile/run a service binary.
+
+.git
+.github
+
+bin/
+data/
+*.log
+
+docs/
+discussion/
+advices/
+*.md
+
+# Infra/gateway stacks — not part of any service's own image.
+deploy/apisix
+deploy/casdoor
+
+# Postgres/Timescale init scripts — consumed by the postgres container only.
+migrations/
+
+# Local editor/dev files.
+.idea/
+.vscode/
+.gobincache/

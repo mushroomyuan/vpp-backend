@@ -6,7 +6,8 @@
 #   make apisix-up | apisix-init | apisix-gate0-probe | apisix-down | apisix-status
 #   make run-dispatch-secured run-telemetry-secured  # trust-proxy-headers=true
 #   make casdoor-up | casdoor-init | casdoor-down | casdoor-status | casdoor-token
-#   make tidy | gen | fmt | lint
+#   make tidy | gen | fmt | lint | test | vet
+#   make docker-build SERVICE=resource
 #   make clean | clean-logs | clean-telemetry | clean-all
 #
 # ─────────────────────────────────────────────────────────────────────────────
@@ -68,6 +69,11 @@ help:
 	@echo "  Codegen / lint / modules"
 	@echo "    make tidy                     go mod tidy in internal/{platform,services}"
 	@echo "    make gen | fmt | lint"
+	@echo "    make test                     go test ./... -race in all 6 modules"
+	@echo "    make vet                      go vet ./... in all 6 modules"
+	@echo ""
+	@echo "  Docker"
+	@echo "    make docker-build SERVICE=resource   Build one service image locally"
 
 # ── single-service foreground run ─────────────────────────────────────────────
 
@@ -220,7 +226,7 @@ casdoor-token:
 
 # ── codegen / lint / modules ──────────────────────────────────────────────────
 
-.PHONY: gen genproto gengateway fmt lint tidy
+.PHONY: gen genproto gengateway fmt lint tidy test vet
 gen: genproto gengateway
 
 genproto:
@@ -251,9 +257,43 @@ tidy:
 	echo "tidy done (6 modules)"; \
 	exit $$failed
 
+# Run go vet ./... for the six internal modules. Mirrors the CI `test` job so
+# a local `make vet` failure predicts a CI failure.
+vet:
+	@failed=0; \
+	for dir in internal/platform internal/resource internal/telemetry \
+		internal/gateway internal/dispatch internal/simulator; do \
+		echo "==> go vet ($$dir)"; \
+		if ( cd "$$dir" && go vet ./... ); then \
+			:; \
+		else \
+			echo "FAILED: $$dir"; \
+			failed=1; \
+		fi; \
+	done; \
+	echo "vet done (6 modules)"; \
+	exit $$failed
+
+# Run go test ./... -race for the six internal modules. Mirrors the CI `test`
+# job's matrix so a local `make test` failure predicts a CI failure.
+test:
+	@failed=0; \
+	for dir in internal/platform internal/resource internal/telemetry \
+		internal/gateway internal/dispatch internal/simulator; do \
+		echo "==> go test ($$dir)"; \
+		if ( cd "$$dir" && go test ./... -race -count=1 ); then \
+			:; \
+		else \
+			echo "FAILED: $$dir"; \
+			failed=1; \
+		fi; \
+	done; \
+	echo "test done (6 modules)"; \
+	exit $$failed
+
 # ── build / run / stop / restart ──────────────────────────────────────────────
 
-.PHONY: build-all run-all stop-all restart status logs
+.PHONY: build-all docker-build run-all stop-all restart status logs
 
 build-all:
 	@mkdir -p $(BIN_DIR)
@@ -263,6 +303,20 @@ build-all:
 	@cd internal/dispatch && go build -o ../../$(BIN_DIR)/dispatch ./cmd
 	@cd internal/simulator && go build -o ../../$(BIN_DIR)/simulator ./cmd
 	@echo "Build completed → $(BIN_DIR)/"
+
+# Build one service's container image locally, mirroring the CI docker job.
+# Usage: make docker-build SERVICE=resource
+DOCKER_SERVICES := resource telemetry gateway dispatch simulator
+docker-build:
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "Usage: make docker-build SERVICE=<$(DOCKER_SERVICES)>"; \
+		exit 1; \
+	fi
+	@case " $(DOCKER_SERVICES) " in \
+		*" $(SERVICE) "*) ;; \
+		*) echo "Unknown SERVICE=$(SERVICE). Must be one of: $(DOCKER_SERVICES)"; exit 1 ;; \
+	esac
+	docker build -f deploy/docker/Dockerfile --build-arg SERVICE=$(SERVICE) -t vpp-$(SERVICE):local .
 
 # Start all services in background. Simulator waits for resource+gateway ports.
 # - setsid: new session so services survive the make/shell process-group cleanup

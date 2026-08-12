@@ -1,6 +1,6 @@
 module github.com/mushroomyuan/vpp-backend/platform
 
-go 1.24.0
+go 1.26.0
 
 require (
 	github.com/casbin/casbin/v2 v2.128.0

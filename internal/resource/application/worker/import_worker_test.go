@@ -56,14 +56,24 @@ func (r *stubJobRepo) lastSaved() *model.Job {
 }
 
 type stubExecutor struct {
+	mu sync.Mutex
+
 	result []byte
 	err    error
 	calls  int
 }
 
 func (e *stubExecutor) Execute(context.Context, *model.Job) ([]byte, error) {
+	e.mu.Lock()
 	e.calls++
+	e.mu.Unlock()
 	return e.result, e.err
+}
+
+func (e *stubExecutor) callCount() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.calls
 }
 
 func runningJob(op model.JobOperationType, target model.JobTargetType) *model.Job {
@@ -279,10 +289,7 @@ func TestStart_ProcessesClaimedJob(t *testing.T) {
 	go w.Start(ctx)
 
 	deadline := time.After(2 * time.Second)
-	for {
-		if exec.calls >= 1 && repo.lastSaved() != nil {
-			break
-		}
+	for exec.callCount() < 1 || repo.lastSaved() == nil {
 		select {
 		case <-deadline:
 			t.Fatal("timed out waiting for job processing")

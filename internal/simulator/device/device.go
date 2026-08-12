@@ -323,7 +323,8 @@ func (d *pv) Tick(delta time.Duration) {
 	_ = delta
 	hour := float64(time.Now().Hour()) + float64(time.Now().Minute())/60
 	// Simple bell curve peaking at ~13:00 local time.
-	factor := math.Exp(-0.5 * math.Pow((hour-13)/3.5, 2))
+	normalized := (hour - 13) / 3.5
+	factor := math.Exp(-0.5 * normalized * normalized)
 	if hour < 6 || hour > 19 {
 		factor = 0
 	}

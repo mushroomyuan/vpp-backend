@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -12,18 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mushroomyuan/vpp-backend/platform/authn/casdoor"
 	"github.com/mushroomyuan/vpp-backend/platform/authz"
-	"github.com/mushroomyuan/vpp-backend/platform/identity"
 )
-
-type stubChecker struct {
-	allowed  bool
-	degraded bool
-	err      error
-}
-
-func (s stubChecker) Allow(context.Context, identity.Principal, string, string) (authz.Decision, error) {
-	return authz.Decision{Allowed: s.allowed, Degraded: s.degraded}, s.err
-}
 
 func encodeUserinfo(t *testing.T, tenant, role string) string {
 	t.Helper()

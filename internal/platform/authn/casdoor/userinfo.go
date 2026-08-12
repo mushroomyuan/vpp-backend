@@ -49,7 +49,7 @@ func ParseUserinfo(value string) (identity.Principal, error) {
 		userID = wire.ID
 	}
 	if userID == "" || wire.Owner == "" {
-		return identity.Principal{}, fmt.Errorf("Casdoor userinfo missing sub/id or owner")
+		return identity.Principal{}, fmt.Errorf("casdoor userinfo missing sub/id or owner")
 	}
 
 	return identity.Principal{
@@ -75,7 +75,7 @@ func decode(value string) ([]byte, error) {
 			return decoded, nil
 		}
 	}
-	return nil, fmt.Errorf("Casdoor userinfo is not JSON or Base64 JSON")
+	return nil, fmt.Errorf("casdoor userinfo is not JSON or Base64 JSON")
 }
 
 func parseRoleNames(raw json.RawMessage) ([]string, error) {
@@ -106,5 +106,5 @@ func parseRoleNames(raw json.RawMessage) ([]string, error) {
 	if err := json.Unmarshal(raw, &names); err == nil {
 		return names, nil
 	}
-	return nil, fmt.Errorf("Casdoor roles must be an object array or string array")
+	return nil, fmt.Errorf("casdoor roles must be an object array or string array")
 }

@@ -88,9 +88,3 @@ func (h receiveTelemetryHandler) Handle(ctx context.Context, cmd ReceiveTelemetr
 	}
 	return &ReceiveTelemetryResult{}, nil
 }
-
-func (h receiveTelemetryHandler) countMetric(action, status string) {
-	if h.metrics != nil {
-		h.metrics.Count("receive_telemetry", action, status)
-	}
-}

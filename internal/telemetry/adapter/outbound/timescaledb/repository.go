@@ -46,14 +46,14 @@ func (s *TelemetryStore) SaveBatch(ctx context.Context, records []*model.Telemet
 	}
 
 	results := s.pool.SendBatch(ctx, batch)
-	defer results.Close()
+	defer func() { _ = results.Close() }()
 
 	for range rows {
 		if _, err := results.Exec(); err != nil {
 			return fmt.Errorf("timescaledb SaveBatch: %w", err)
 		}
 	}
-	return results.Close()
+	return nil
 }
 
 const querySQL = `

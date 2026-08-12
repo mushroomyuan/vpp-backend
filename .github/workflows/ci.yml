@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.x"
+  GOLANGCI_LINT_VERSION: "v2.12.2"
+
+jobs:
+  # ── lint ──────────────────────────────────────────────────────────────────
+  # PRs only fail on newly introduced issues (no history to compare against
+  # yet, so we don't want the first CI run to be blocked by pre-existing
+  # debt). Pushes to main run the full ruleset so debt is at least visible.
+  lint:
+    name: lint (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [platform, resource, telemetry, gateway, dispatch, simulator]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: internal/${{ matrix.module }}/go.sum
+
+      - uses: golangci/golangci-lint-action@v6
+        # PRs: only-new-issues=true blocks the PR on newly introduced problems.
+        # Push to main: full-repo scan, but continue-on-error so pre-existing
+        # debt is visible in the log without ever failing the pipeline.
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          working-directory: internal/${{ matrix.module }}
+          args: --config=${{ github.workspace }}/.golangci.yml --timeout=5m
+          only-new-issues: ${{ github.event_name == 'pull_request' }}
+
+  # ── test ──────────────────────────────────────────────────────────────────
+  test:
+    name: test (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [platform, resource, telemetry, gateway, dispatch, simulator]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: internal/${{ matrix.module }}/go.sum
+
+      - name: go vet
+        working-directory: internal/${{ matrix.module }}
+        run: go vet ./...
+
+      - name: go build
+        working-directory: internal/${{ matrix.module }}
+        run: go build ./...
+
+      - name: go test
+        working-directory: internal/${{ matrix.module }}
+        run: go test ./... -race -count=1 -coverprofile=coverage.out
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-${{ matrix.module }}
+          path: internal/${{ matrix.module }}/coverage.out
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ── docker ────────────────────────────────────────────────────────────────
+  # Builds all 5 service images on every push/PR to catch Dockerfile
+  # breakage early. Only pushes to GHCR on push to main or a v* tag — PRs
+  # build for validation only, they never publish.
+  docker:
+    name: docker (${{ matrix.service }})
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [resource, telemetry, gateway, dispatch, simulator]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/vpp-backend/${{ matrix.service }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          build-args: |
+            SERVICE=${{ matrix.service }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
