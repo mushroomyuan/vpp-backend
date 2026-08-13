@@ -1,15 +1,23 @@
-// Package integration exercises the SubmitTask -> ExecuteCommand -> Kafka
-// callback chain across the real dispatch and gateway application layers,
-// wired to ephemeral Postgres + Kafka containers. Dispatch talks to gateway
-// over a real gRPC server bound to an in-memory bufconn listener (no host
-// ports, no network flakiness).
+// Package integration exercises three chains across the real application
+// layers of dispatch, gateway, resource, and telemetry, wired to ephemeral
+// Postgres/TimescaleDB/Redis/Kafka containers:
 //
-// Both tests in this package share a single environment (one Kafka
-// container, one Postgres container per service) built once in TestMain:
-// each container takes tens of seconds to become fully usable, so per-test
-// containers would make the suite several times slower and needlessly
-// contend for the local Docker daemon's resources. Isolation between tests
-// is achieved via distinct TenantID/CUCode values, not distinct containers.
+//  1. SubmitTask -> ExecuteCommand -> Kafka callback (dispatch <-> gateway).
+//  2. TimeoutScanner circuit-breaking a stuck Sending command.
+//  3. Resource lifecycle event -> gateway mapping disable (resource -> gateway).
+//  4. ReceiveTelemetry -> IngestTelemetry -> TimescaleDB/Redis (gateway <-> telemetry).
+//
+// Dispatch talks to gateway, and gateway talks to telemetry, over real gRPC
+// servers bound to in-memory bufconn listeners (no host ports, no network
+// flakiness).
+//
+// All tests in this package share a single environment (one Kafka container,
+// one Postgres/TimescaleDB container per service, one Redis container) built
+// once in TestMain: each container takes tens of seconds to become fully
+// usable, so per-test containers would make the suite several times slower
+// and needlessly contend for the local Docker daemon's resources. Isolation
+// between tests is achieved via distinct TenantID/CUCode values, not
+// distinct containers.
 package integration
 
 import (
@@ -22,11 +30,13 @@ import (
 	"testing"
 	"time"
 
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	tckafka "github.com/testcontainers/testcontainers-go/modules/kafka"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 
@@ -35,17 +45,30 @@ import (
 	dispatchkafkaout "github.com/mushroomyuan/vpp-backend/dispatch/adapter/outbound/kafka"
 	dispatchpg "github.com/mushroomyuan/vpp-backend/dispatch/adapter/outbound/postgres"
 	dispatchapp "github.com/mushroomyuan/vpp-backend/dispatch/application"
+	dispatchport "github.com/mushroomyuan/vpp-backend/dispatch/domain/port"
 	dispatchinfrapg "github.com/mushroomyuan/vpp-backend/dispatch/infrastructure/persistent/postgres"
 
 	gatewaypb "github.com/mushroomyuan/vpp-backend/api/gateway/proto/gen"
 	gatewayinboundgrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/inbound/grpc"
+	gatewaylifecyclekafka "github.com/mushroomyuan/vpp-backend/gateway/adapter/inbound/kafka"
 	gatewayemslog "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/ems_log"
 	gatewaykafkaout "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/kafka"
 	gatewaypg "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/postgres"
+	gatewaytelemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
 	gatewayapp "github.com/mushroomyuan/vpp-backend/gateway/application"
-	gatewaymodel "github.com/mushroomyuan/vpp-backend/gateway/domain/model"
 	gatewayinfrapg "github.com/mushroomyuan/vpp-backend/gateway/infrastructure/persistent/postgres"
 
+	resourcekafkaout "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/kafka"
+	resourceport "github.com/mushroomyuan/vpp-backend/resource/domain/port"
+
+	telemetrypb "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen"
+	telemetryinboundgrpc "github.com/mushroomyuan/vpp-backend/telemetry/adapter/inbound/grpc"
+	telemetrykafkaout "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/kafka"
+	telemetryredis "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/redis"
+	telemetrytimescaledb "github.com/mushroomyuan/vpp-backend/telemetry/adapter/outbound/timescaledb"
+	telemetryapp "github.com/mushroomyuan/vpp-backend/telemetry/application"
+
+	resourceEventConst "github.com/mushroomyuan/vpp-backend/platform/event/resource"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 )
@@ -53,8 +76,8 @@ import (
 const bufSize = 1024 * 1024
 
 // noopMetrics satisfies decorator.MetricsClient without a running HTTP/
-// prometheus server, which would otherwise collide across the two
-// applications wired into the same test process.
+// prometheus server, which would otherwise collide across the applications
+// wired into the same test process.
 type noopMetrics struct{}
 
 func (noopMetrics) Count(string, string, string)           {}
@@ -62,23 +85,25 @@ func (noopMetrics) CountN(string, string, string, float64) {}
 func (noopMetrics) Observe(string, string, time.Duration)  {}
 func (noopMetrics) TrackInFlight(string, string) func()    { return func() {} }
 
-// stubTelemetryClient satisfies gateway's port.TelemetryClient. The SubmitTask
-// -> ExecuteCommand -> CommandCompleted chain exercised here never calls
-// ReceiveTelemetry, so this is never invoked; it only exists to satisfy
-// gatewayapp.NewApplication's non-nil dependency check.
-type stubTelemetryClient struct{}
-
-func (stubTelemetryClient) Ingest(context.Context, *gatewaymodel.StandardTelemetry) error {
-	return nil
-}
-
-// env wires real dispatch + gateway application layers on top of ephemeral
-// Postgres/Kafka containers, mirroring the composition roots in
-// internal/dispatch/server.go and internal/gateway/server.go as closely as
-// possible so the integration test exercises production wiring, not test doubles.
+// env wires real dispatch + gateway + resource(publisher-only) + telemetry
+// application layers on top of ephemeral Postgres/TimescaleDB/Redis/Kafka
+// containers, mirroring the composition roots in each service's server.go as
+// closely as possible so the integration tests exercise production wiring,
+// not test doubles.
 type env struct {
-	Dispatch dispatchapp.Application
-	Gateway  gatewayapp.Application
+	Dispatch  dispatchapp.Application
+	Gateway   gatewayapp.Application
+	Telemetry telemetryapp.Application
+
+	// TaskRepo is exposed so tests can seed a task tree directly (bypassing
+	// SubmitTask) for scenarios that require pre-existing state, e.g. a
+	// command already stuck in Sending past its deadline.
+	TaskRepo dispatchport.TaskRepository
+
+	// ResourceEvents lets tests act as the resource service and publish real
+	// lifecycle events onto vpp.resource.events without standing up
+	// resource's full domain/hierarchy.
+	ResourceEvents resourceport.ResourceEventPublisher
 }
 
 var sharedEnv *env
@@ -109,17 +134,32 @@ func buildEnv() (*env, func(), error) {
 		return nil, nil, err
 	}
 
-	dispatchDSN, dispatchClose, err := startPostgres(ctx, "dispatch", "../../migrations/dispatch/000001_init.up.sql")
+	dispatchDSN, dispatchClose, err := startPostgres(ctx, "postgres:16-alpine", "dispatch", "../../migrations/dispatch/000001_init.up.sql")
 	if err != nil {
 		return fail(fmt.Errorf("start dispatch postgres: %w", err))
 	}
 	closers = append(closers, dispatchClose)
 
-	gatewayDSN, gatewayClose, err := startPostgres(ctx, "gateway", "../../migrations/gateway/000001_init.up.sql")
+	gatewayDSN, gatewayClose, err := startPostgres(ctx, "postgres:16-alpine", "gateway", "../../migrations/gateway/000001_init.up.sql")
 	if err != nil {
 		return fail(fmt.Errorf("start gateway postgres: %w", err))
 	}
 	closers = append(closers, gatewayClose)
+
+	// TimescaleDB is a strict superset of Postgres; the same testcontainers
+	// module works, but the image is swapped and no init script is needed
+	// since telemetry.ApplySchema (real production code) creates the schema.
+	telemetryDSN, telemetryClose, err := startPostgres(ctx, "timescale/timescaledb:latest-pg16", "telemetry", "")
+	if err != nil {
+		return fail(fmt.Errorf("start telemetry timescaledb: %w", err))
+	}
+	closers = append(closers, telemetryClose)
+
+	redisAddr, redisClose, err := startRedis(ctx)
+	if err != nil {
+		return fail(fmt.Errorf("start telemetry redis: %w", err))
+	}
+	closers = append(closers, redisClose)
 
 	brokers, kafkaClose, err := startKafka(ctx)
 	if err != nil {
@@ -131,14 +171,69 @@ func buildEnv() (*env, func(), error) {
 	// testcontainers' wait strategy succeeds) slightly before it can service
 	// admin/metadata requests for topic creation and consumer group
 	// coordination. Retrying CreateTopics rides out that window instead of
-	// racing PublishTaskStarted's first write against broker readiness.
+	// racing the first publish against broker readiness.
 	commandTopic := "vpp.command.events"
 	dispatchTopic := "vpp.dispatch.events"
-	if err := ensureKafkaTopics(ctx, brokers, commandTopic, dispatchTopic); err != nil {
+	resourceTopic := resourceEventConst.TopicResourceEvents
+	soeTopic := "vpp.soe.events"
+	if err := ensureKafkaTopics(ctx, brokers, commandTopic, dispatchTopic, resourceTopic, soeTopic); err != nil {
 		return fail(fmt.Errorf("create kafka topics: %w", err))
 	}
 
-	// --- Gateway application (mapping repo + log-only EMS + real Kafka publisher) ---
+	// --- Telemetry application (TimescaleDB + Redis + Kafka SOE publisher) ---
+	tsPool, err := telemetrytimescaledb.NewPool(ctx, telemetrytimescaledb.Config{DSN: telemetryDSN})
+	if err != nil {
+		return fail(fmt.Errorf("connect telemetry timescaledb pool: %w", err))
+	}
+	closers = append(closers, tsPool.Close)
+
+	if _, err := tsPool.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS timescaledb"); err != nil {
+		return fail(fmt.Errorf("enable timescaledb extension: %w", err))
+	}
+	if err := telemetrytimescaledb.ApplySchema(ctx, tsPool); err != nil {
+		return fail(fmt.Errorf("apply telemetry schema: %w", err))
+	}
+	telemetryStore, aggregationStore := telemetrytimescaledb.NewStores(tsPool)
+
+	redisOpts, err := goredis.ParseURL(redisAddr)
+	if err != nil {
+		return fail(fmt.Errorf("parse redis connection string: %w", err))
+	}
+	redisClient := goredis.NewClient(redisOpts)
+	closers = append(closers, func() { _ = redisClient.Close() })
+	snapshotStore := telemetryredis.NewSnapshotStore(redisClient, 0)
+
+	soeEvents := telemetrykafkaout.NewEventPublisher(telemetrykafkaout.Config{Brokers: brokers, Topic: soeTopic})
+	closers = append(closers, func() { _ = soeEvents.Close() })
+
+	telemetryApplication := telemetryapp.NewApplication(telemetryapp.Dependencies{
+		TelemetryRepo:   telemetryStore,
+		SnapshotRepo:    snapshotStore,
+		AggregationRepo: aggregationStore,
+		EventPublisher:  soeEvents,
+		Metrics:         noopMetrics{},
+	})
+
+	// --- Telemetry gRPC server, served over an in-memory bufconn listener ---
+	telemetryLis := bufconn.Listen(bufSize)
+	telemetryGRPCSrv := platformserver.NewGRPCServer()
+	telemetrypb.RegisterTelemetryServiceServer(telemetryGRPCSrv, telemetryinboundgrpc.NewServer(telemetryApplication))
+	go func() { _ = telemetryGRPCSrv.Serve(telemetryLis) }()
+	closers = append(closers, telemetryGRPCSrv.Stop)
+
+	telemetryBufDialer := func(ctx context.Context, _ string) (net.Conn, error) {
+		return telemetryLis.DialContext(ctx)
+	}
+	telemetryClient, err := gatewaytelemetrygrpc.NewTelemetryGRPCClient(gatewaytelemetrygrpc.Config{
+		Addr:        "passthrough:///buftelemetry",
+		DialOptions: []grpc.DialOption{grpc.WithContextDialer(telemetryBufDialer)},
+	})
+	if err != nil {
+		return fail(fmt.Errorf("dial telemetry over bufconn: %w", err))
+	}
+	closers = append(closers, func() { _ = telemetryClient.Close() })
+
+	// --- Gateway application (mapping repo + log-only EMS + real telemetry gRPC client + real Kafka publisher) ---
 	gwPG := gatewayinfrapg.NewPostgres(platformpostgres.Config{DSN: gatewayDSN})
 	mappingRepo := gatewaypg.NewMappingRepositoryPostgres(gatewayinfrapg.NewMappingRepository(gwPG))
 	commandEvents := gatewaykafkaout.NewCommandEventPublisher(gatewaykafkaout.CommandEventPublisherConfig{
@@ -149,11 +244,28 @@ func buildEnv() (*env, func(), error) {
 
 	gatewayApplication := gatewayapp.NewApplication(gatewayapp.Dependencies{
 		MappingRepo:     mappingRepo,
-		TelemetryClient: stubTelemetryClient{},
+		TelemetryClient: telemetryClient,
 		EMSClient:       gatewayemslog.NewEMSLogClient(),
 		CommandEvents:   commandEvents,
 		Metrics:         noopMetrics{},
 	})
+
+	// --- Gateway's lifecycle consumer, driving DisableMappingByCUCode from resource's events ---
+	lifecycleConsumer := gatewaylifecyclekafka.NewLifecycleConsumer(
+		gatewaylifecyclekafka.LifecycleConsumerConfig{Brokers: brokers, Topic: resourceTopic, GroupID: "it-gateway-lifecycle"},
+		gatewayApplication.Commands.DisableMappingByCUCode,
+	)
+	lifecycleCtx, cancelLifecycle := context.WithCancel(context.Background())
+	go func() { _ = lifecycleConsumer.Run(lifecycleCtx) }()
+	closers = append(closers, func() {
+		cancelLifecycle()
+		_ = lifecycleConsumer.Close()
+	})
+
+	// resourceEvents lets tests act as the resource service's real Kafka
+	// producer adapter, without needing resource's full domain/hierarchy.
+	resourceEvents := resourcekafkaout.NewEventPublisher(resourcekafkaout.Config{Brokers: brokers, Topic: resourceTopic})
+	closers = append(closers, func() { _ = resourceEvents.Close() })
 
 	// --- Gateway gRPC server, served over an in-memory bufconn listener ---
 	lis := bufconn.Listen(bufSize)
@@ -190,6 +302,11 @@ func buildEnv() (*env, func(), error) {
 		Gateway:     gatewayClient,
 		Publisher:   taskEvents,
 		Metrics:     noopMetrics{},
+		// Short interval so TestTimeoutScanner_* observes expired commands
+		// quickly without slowing down the whole suite; safe to run
+		// continuously alongside the other tests since FindExpiredSending
+		// only matches commands whose deadline has already passed.
+		TimeoutScanInterval: 500 * time.Millisecond,
 	})
 
 	// --- Dispatch's Kafka consumer, driving HandleCommandResult from gateway's callback ---
@@ -204,25 +321,39 @@ func buildEnv() (*env, func(), error) {
 		_ = consumer.Close()
 	})
 
-	return &env{Dispatch: dispatchApplication, Gateway: gatewayApplication}, teardown, nil
+	// --- Dispatch's TimeoutScanner, driving OnCommandTimeout for stuck Sending commands ---
+	scannerCtx, cancelScanner := context.WithCancel(context.Background())
+	go func() { _ = dispatchApplication.TimeoutScanner.Run(scannerCtx) }()
+	closers = append(closers, cancelScanner)
+
+	return &env{
+		Dispatch:       dispatchApplication,
+		Gateway:        gatewayApplication,
+		Telemetry:      telemetryApplication,
+		TaskRepo:       taskRepo,
+		ResourceEvents: resourceEvents,
+	}, teardown, nil
 }
 
-// startPostgres runs a fresh Postgres container seeded with the given
-// migration file and returns a DSN string usable by gorm.io/driver/postgres.
-func startPostgres(ctx context.Context, dbName, migrationFile string) (string, func(), error) {
-	abs, err := filepath.Abs(migrationFile)
-	if err != nil {
-		return "", nil, err
-	}
-
-	c, err := tcpostgres.Run(ctx,
-		"postgres:16-alpine",
+// startPostgres runs a fresh Postgres-compatible container seeded with the
+// given migration file (skipped when empty) and returns a DSN string usable
+// by gorm.io/driver/postgres and pgxpool alike.
+func startPostgres(ctx context.Context, image, dbName, migrationFile string) (string, func(), error) {
+	opts := []testcontainers.ContainerCustomizer{
 		tcpostgres.WithDatabase(dbName),
 		tcpostgres.WithUsername("postgres"),
 		tcpostgres.WithPassword("postgres123"),
-		tcpostgres.WithInitScripts(abs),
 		tcpostgres.BasicWaitStrategies(),
-	)
+	}
+	if migrationFile != "" {
+		abs, err := filepath.Abs(migrationFile)
+		if err != nil {
+			return "", nil, err
+		}
+		opts = append(opts, tcpostgres.WithInitScripts(abs))
+	}
+
+	c, err := tcpostgres.Run(ctx, image, opts...)
 	if err != nil {
 		return "", nil, fmt.Errorf("start postgres container for %s: %w", dbName, err)
 	}
@@ -238,6 +369,26 @@ func startPostgres(ctx context.Context, dbName, migrationFile string) (string, f
 		return "", nil, err
 	}
 	return dsn, closeFn, nil
+}
+
+// startRedis runs a fresh Redis container and returns its redis:// connection URI.
+func startRedis(ctx context.Context) (string, func(), error) {
+	c, err := tcredis.Run(ctx, "redis:7-alpine")
+	if err != nil {
+		return "", nil, fmt.Errorf("start redis container: %w", err)
+	}
+	closeFn := func() {
+		if err := testcontainers.TerminateContainer(c); err != nil {
+			fmt.Fprintf(os.Stderr, "terminate redis container: %v\n", err)
+		}
+	}
+
+	uri, err := c.ConnectionString(ctx)
+	if err != nil {
+		closeFn()
+		return "", nil, err
+	}
+	return uri, closeFn, nil
 }
 
 // startKafka runs a single-broker KRaft Kafka container and returns the

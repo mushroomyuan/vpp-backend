@@ -17,6 +17,10 @@ import (
 // Config holds the connection parameters for the upstream telemetry gRPC service.
 type Config struct {
 	Addr string // e.g. "127.0.0.1:5003"
+
+	// DialOptions lets callers inject extra grpc.DialOptions (e.g. a bufconn
+	// dialer for tests). Production callers leave this nil.
+	DialOptions []grpc.DialOption
 }
 
 // TelemetryGRPCClient implements port.TelemetryClient by forwarding to the
@@ -36,7 +40,7 @@ func NewTelemetryGRPCClient(cfg Config) (*TelemetryGRPCClient, error) {
 	if cfg.Addr == "" {
 		return nil, fmt.Errorf("telemetry_grpc: addr is required")
 	}
-	conn, err := platformserver.DialGRPC(cfg.Addr)
+	conn, err := platformserver.DialGRPC(cfg.Addr, cfg.DialOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("telemetry_grpc: %w", err)
 	}
