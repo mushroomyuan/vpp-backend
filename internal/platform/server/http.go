@@ -1,6 +1,9 @@
 package server
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mushroomyuan/vpp-backend/platform/middleware"
 	"github.com/sirupsen/logrus"
@@ -10,12 +13,19 @@ import (
 // NewGinEngine returns a *gin.Engine pre-configured with the standard middleware
 // stack: structured logging, recovery, request logging, OpenTelemetry tracing.
 // The caller mounts routes and owns the http.Server lifecycle.
+//
+// A GET /healthz route is registered up front for K8s liveness/readiness
+// probes on services that expose an HTTP surface. Callers must not register
+// their own /healthz — Gin panics on duplicate route registration.
 func NewGinEngine(serviceName string, logger *logrus.Entry) *gin.Engine {
 	r := gin.New()
 	r.Use(middleware.StructuredLog(logger))
 	r.Use(gin.Recovery())
 	r.Use(middleware.RequestLog(logger))
 	r.Use(otelgin.Middleware(serviceName))
+	r.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "time": time.Now().UTC()})
+	})
 	return r
 }
 

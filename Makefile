@@ -71,6 +71,7 @@ help:
 	@echo "    make gen | fmt | lint"
 	@echo "    make test                     go test ./... -race in all 6 modules"
 	@echo "    make vet                      go vet ./... in all 6 modules"
+	@echo "    make test-integration         tests/integration (testcontainers, needs Docker)"
 	@echo ""
 	@echo "  Docker"
 	@echo "    make docker-build SERVICE=resource   Build one service image locally"
@@ -226,7 +227,7 @@ casdoor-token:
 
 # ── codegen / lint / modules ──────────────────────────────────────────────────
 
-.PHONY: gen genproto gengateway fmt lint tidy test vet
+.PHONY: gen genproto gengateway fmt lint tidy test vet test-integration
 gen: genproto gengateway
 
 genproto:
@@ -290,6 +291,11 @@ test:
 	done; \
 	echo "test done (6 modules)"; \
 	exit $$failed
+
+# Real dispatch/gateway application layers wired to ephemeral Postgres+Kafka
+# containers (testcontainers-go) — requires a running Docker daemon.
+test-integration:
+	cd tests/integration && go test ./... -v -timeout=8m -count=1
 
 # ── build / run / stop / restart ──────────────────────────────────────────────
 

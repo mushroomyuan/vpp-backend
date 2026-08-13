@@ -18,6 +18,11 @@ import (
 // Config holds the connection parameters for the upstream gateway gRPC service.
 type Config struct {
 	Addr string // e.g. "127.0.0.1:5005"
+
+	// DialOptions carries additional grpc.DialOption values appended after the
+	// platform defaults (insecure creds, otel stats handler). Production callers
+	// leave this nil; tests use it to inject grpc.WithContextDialer for bufconn.
+	DialOptions []grpc.DialOption
 }
 
 // Client implements application/port.GatewayPort by calling GatewayService.ExecuteCommand.
@@ -35,7 +40,7 @@ func NewClient(cfg Config) (*Client, error) {
 	if cfg.Addr == "" {
 		return nil, fmt.Errorf("gateway_grpc: addr is required")
 	}
-	conn, err := platformserver.DialGRPC(cfg.Addr)
+	conn, err := platformserver.DialGRPC(cfg.Addr, cfg.DialOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("gateway_grpc: %w", err)
 	}

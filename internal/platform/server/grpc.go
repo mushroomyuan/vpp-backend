@@ -9,6 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func init() {
@@ -20,6 +22,14 @@ func init() {
 // NewGRPCServer returns a *grpc.Server pre-configured with the standard
 // interceptor stack: OpenTelemetry tracing, grpc_tags, structured logging.
 // The caller registers services and owns the Serve / GracefulStop lifecycle.
+//
+// The standard gRPC health checking protocol (grpc.health.v1.Health) is
+// registered and reported SERVING as soon as the server is constructed —
+// this process is up and its interceptor chain is wired, which is all a
+// liveness probe should assert. Readiness (e.g. degraded-but-serving states
+// under authz fail-closed tiers) is intentionally out of scope for now; add
+// per-service status transitions via health.NewServer().SetServingStatus if
+// that granularity becomes necessary.
 func NewGRPCServer(extraUnary ...grpc.UnaryServerInterceptor) *grpc.Server {
 	logrusEntry := logrus.NewEntry(logrus.StandardLogger())
 	unary := []grpc.UnaryServerInterceptor{
@@ -28,7 +38,7 @@ func NewGRPCServer(extraUnary ...grpc.UnaryServerInterceptor) *grpc.Server {
 		logging.GRPCUnaryInterceptor,
 	}
 	unary = append(unary, extraUnary...)
-	return grpc.NewServer(
+	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(unary...),
 		grpc.ChainStreamInterceptor(
@@ -36,6 +46,12 @@ func NewGRPCServer(extraUnary ...grpc.UnaryServerInterceptor) *grpc.Server {
 			grpc_logrus.StreamServerInterceptor(logrusEntry),
 		),
 	)
+
+	healthSrv := health.NewServer()
+	healthSrv.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+	healthpb.RegisterHealthServer(grpcServer, healthSrv)
+
+	return grpcServer
 }
 
 // RunGRPCServerOnAddr is a convenience wrapper for simple services that do not

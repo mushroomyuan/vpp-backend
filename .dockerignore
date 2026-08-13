@@ -22,6 +22,9 @@ deploy/casdoor
 # Postgres/Timescale init scripts — consumed by the postgres container only.
 migrations/
 
+# Separate Go module (testcontainers-go), not needed to build any service image.
+tests/
+
 # Local editor/dev files.
 .idea/
 .vscode/

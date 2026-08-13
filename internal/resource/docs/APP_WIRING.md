@@ -103,7 +103,7 @@ go build -o bin/vpp-resource ./cmd/
 
 ## 6. 后续改进点（非阻塞）
 
-- **健康检查**：`PrepareRun()` 中可以挂载 `/healthz`、`/readyz`。
+- ~~**健康检查**：`PrepareRun()` 中可以挂载 `/healthz`、`/readyz`。~~ **已解决**：`platform/server.NewGinEngine()` 现在统一注册 `GET /healthz`，resource 的 HTTP 引擎复用该工厂函数，无需在 resource 里单独实现。gRPC 侧同理，`NewGRPCServer()` 已注册标准 `grpc.health.v1.Health` 服务。
 - **配置 key 统一**：`database.*` 已通过 `options.Database` → `infrastructure/db` 注入；若仍有个别路径直读 viper，可再收敛到 composition root。
 - **示例配置**：仓库内补充 `config/resource.yaml.example`，与 `HANDOFF.md` 测试阶段 checklist 对齐。
 

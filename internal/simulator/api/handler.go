@@ -3,7 +3,6 @@ package api
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -38,9 +37,8 @@ func RegisterRoutes(r *gin.Engine, h *Handler) {
 		v1.POST("/faults", h.ApplyFault)
 		v1.GET("/faults", h.ListFaults)
 	}
-	r.GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok", "time": time.Now().UTC()})
-	})
+	// /healthz is registered by platform/server.NewGinEngine — do not duplicate
+	// it here, Gin panics on a second registration of the same route.
 }
 
 type commandRequest struct {
