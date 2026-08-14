@@ -8,6 +8,7 @@
 #   make casdoor-up | casdoor-init | casdoor-down | casdoor-status | casdoor-token
 #   make tidy | gen | fmt | lint | test | vet
 #   make docker-build SERVICE=resource
+#   make k8s-apply | k8s-delete
 #   make clean | clean-logs | clean-telemetry | clean-all
 #
 # ─────────────────────────────────────────────────────────────────────────────
@@ -74,7 +75,9 @@ help:
 	@echo "    make test-integration         tests/integration (testcontainers, needs Docker)"
 	@echo ""
 	@echo "  Docker"
-	@echo "    make docker-build SERVICE=resource   Build one service image locally"
+	@echo "    make docker-build SERVICE=resource   Build one service image locally (CI debug)"
+	@echo "    make k8s-apply                kubectl apply -k deploy/k8s/base (pulls GHCR :latest)"
+	@echo "    make k8s-delete               kubectl delete -k deploy/k8s/base"
 
 # ── single-service foreground run ─────────────────────────────────────────────
 
@@ -323,6 +326,13 @@ docker-build:
 		*) echo "Unknown SERVICE=$(SERVICE). Must be one of: $(DOCKER_SERVICES)"; exit 1 ;; \
 	esac
 	docker build -f deploy/docker/Dockerfile --build-arg SERVICE=$(SERVICE) -t vpp-$(SERVICE):local .
+
+.PHONY: k8s-apply k8s-delete
+k8s-apply:
+	kubectl apply -k deploy/k8s/base
+
+k8s-delete:
+	kubectl delete -k deploy/k8s/base
 
 # Start all services in background. Simulator waits for resource+gateway ports.
 # - setsid: new session so services survive the make/shell process-group cleanup

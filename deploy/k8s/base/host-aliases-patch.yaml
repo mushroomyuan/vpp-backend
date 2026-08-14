@@ -1,0 +1,18 @@
+# Applied to every Deployment. Docker Desktop puts host.docker.internal on the
+# kind NODE (we resolved 192.168.65.254) but Pods use CoreDNS and would not
+# see that name without this alias.
+#
+# If `getent hosts host.docker.internal` inside vpp-control-plane shows a
+# different IP after a Docker Desktop upgrade, update this value and
+# kubectl apply -k deploy/k8s/base.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: placeholder
+spec:
+  template:
+    spec:
+      hostAliases:
+        - ip: "192.168.65.254"
+          hostnames:
+            - host.docker.internal

@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource
+  labels:
+    app.kubernetes.io/name: resource
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: resource
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: resource
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: resource
+          image: ghcr.io/mushroomyuan/vpp-backend/resource:latest
+          imagePullPolicy: Always
+          args: ["-c", "/etc/vpp/config.yaml"]
+          ports:
+            - name: http
+              containerPort: 8082
+            - name: grpc
+              containerPort: 5002
+          envFrom:
+            - configMapRef:
+                name: vpp-infra
+            - configMapRef:
+                name: resource-config
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            # Consul rejects 0.0.0.0 as "Invalid service address"; bind the
+            # Pod IP so listen + registration use a real address. Kubelet
+            # probes and ClusterIP traffic also target the Pod IP.
+            - name: RESOURCE_HTTP_ADDR
+              value: "$(POD_IP):8082"
+            - name: RESOURCE_GRPC_ADDR
+              value: "$(POD_IP):5002"
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vpp-credentials
+                  key: postgres-password
+            - name: RESOURCE_AUTH_AUTHZ_CASDOOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vpp-credentials
+                  key: casdoor-password
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            # GHCR image is alpine without tzdata; GORM DSN TimeZone=Asia/Shanghai
+            # calls time.LoadLocation. kind node is Debian and has zoneinfo.
+            - name: tzdata
+              mountPath: /usr/share/zoneinfo
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: tzdata
+          hostPath:
+            path: /usr/share/zoneinfo
+            type: Directory

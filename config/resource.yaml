@@ -52,6 +52,13 @@ database:
   conn-max-lifetime-seconds: 1800
   conn-max-idle-time-seconds: 300
 
+kafka:
+  # Required in YAML so K8s can override via KAFKA_BROKERS (viper AutomaticEnv
+  # only overlays keys that already exist). Empty brokers → log-only publisher.
+  brokers:
+    - 127.0.0.1:9092
+  topic: vpp.resource.events
+
 redis:
   addr: 127.0.0.1:6379
   password: ""

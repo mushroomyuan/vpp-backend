@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: resource-config
+data:
+  RESOURCE_CONSUL_ADDR: host.docker.internal:8500
+  RESOURCE_AUTH_AUTHZ_CASDOOR_URL: http://host.docker.internal:8000
+  RESOURCE_AUTH_AUTHZ_SNAPSHOT_PATH: /tmp/resource-authz-snapshot.json
+  DATABASE_DBNAME: resource

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+data:
+  GATEWAY_CONSUL_ADDR: host.docker.internal:8500
+  GATEWAY_AUTH_AUTHZ_CASDOOR_URL: http://host.docker.internal:8000
+  GATEWAY_AUTH_AUTHZ_SNAPSHOT_PATH: /tmp/gateway-authz-snapshot.json
+  TELEMETRY_GRPC_ADDR: telemetry.vpp.svc.cluster.local:5003
+  SIMULATOR_ADDR: http://simulator.vpp.svc.cluster.local:8084
+  DATABASE_DBNAME: gateway

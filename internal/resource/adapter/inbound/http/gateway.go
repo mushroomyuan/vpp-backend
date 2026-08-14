@@ -18,7 +18,10 @@ func MountGateway(ctx context.Context, r *gin.Engine, grpcServer resourcepb.Reso
 	if err := resourcepb.RegisterResourceServiceHandlerServer(ctx, mux, grpcServer); err != nil {
 		return err
 	}
-	r.Any("/*any", gin.WrapH(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	// NoRoute, not /*any: NewGinEngine already registers GET /healthz, and
+	// Gin's radix tree panics if a catch-all wildcard shares a prefix with
+	// an existing segment.
+	r.NoRoute(gin.WrapH(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		mux.ServeHTTP(w, req)
 	})))
 	return nil

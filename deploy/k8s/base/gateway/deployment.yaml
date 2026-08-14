@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels:
+    app.kubernetes.io/name: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gateway
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: gateway
+          image: ghcr.io/mushroomyuan/vpp-backend/gateway:latest
+          imagePullPolicy: Always
+          args: ["-c", "/etc/vpp/config.yaml"]
+          ports:
+            - name: http
+              containerPort: 8083
+            - name: grpc
+              containerPort: 5005
+          envFrom:
+            - configMapRef:
+                name: vpp-infra
+            - configMapRef:
+                name: gateway-config
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: GATEWAY_HTTP_ADDR
+              value: "$(POD_IP):8083"
+            - name: GATEWAY_GRPC_ADDR
+              value: "$(POD_IP):5005"
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vpp-credentials
+                  key: postgres-password
+            - name: GATEWAY_AUTH_AUTHZ_CASDOOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vpp-credentials
+                  key: casdoor-password
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: tzdata
+              mountPath: /usr/share/zoneinfo
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: tzdata
+          hostPath:
+            path: /usr/share/zoneinfo
+            type: Directory

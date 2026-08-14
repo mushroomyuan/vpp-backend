@@ -1,0 +1,33 @@
+# Images come from CI (.github/workflows/ci.yml docker job), not a local build:
+#   ghcr.io/${{ github.repository_owner }}/vpp-backend/${{ matrix.service }}
+# repository_owner = mushroomyuan (origin git@github.com:mushroomyuan/vpp-backend.git)
+# tags on push to main:
+#   latest          type=raw,value=latest,enable={{is_default_branch}}
+#   sha-<7-char>    type=sha,prefix=sha-
+#   semver          type=semver,pattern={{version}}  (only on v* tags)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vpp
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: vpp-backend
+    includeSelectors: false
+
+resources:
+  - namespace.yaml
+  - secret.yaml
+  - configmap-infra.yaml
+  - resource
+  - telemetry
+  - gateway
+  - dispatch
+  - simulator
+
+patches:
+  - path: host-aliases-patch.yaml
+    target:
+      kind: Deployment
+      group: apps
+      version: v1

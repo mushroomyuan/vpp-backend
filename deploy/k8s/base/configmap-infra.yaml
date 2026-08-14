@@ -1,0 +1,18 @@
+# Addresses of compose infrastructure, reached from kind Pods via
+# host.docker.internal (injected by host-aliases-patch.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vpp-infra
+  labels:
+    app.kubernetes.io/part-of: vpp-backend
+data:
+  DATABASE_HOST: host.docker.internal
+  DATABASE_PORT: "5432"
+  DATABASE_USER: postgres
+  TIMESCALEDB_HOST: host.docker.internal
+  TIMESCALEDB_PORT: "5432"
+  TIMESCALEDB_USER: postgres
+  REDIS_ADDR: host.docker.internal:6379
+  KAFKA_BROKERS: host.docker.internal:9092
+  TRACING_ENDPOINT: host.docker.internal:4318

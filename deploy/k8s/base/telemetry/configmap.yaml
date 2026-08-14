@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telemetry-config
+data:
+  TELEMETRY_CONSUL_ADDR: host.docker.internal:8500
+  TELEMETRY_AUTH_AUTHZ_CASDOOR_URL: http://host.docker.internal:8000
+  TELEMETRY_AUTH_AUTHZ_SNAPSHOT_PATH: /tmp/telemetry-authz-snapshot.json
+  TIMESCALEDB_DBNAME: telemetry

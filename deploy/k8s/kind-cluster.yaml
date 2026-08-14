@@ -1,0 +1,44 @@
+# kind 单节点集群：本机学习 + 后续部署 5 个无状态服务。
+#
+# 创建：kind create cluster --config deploy/k8s/kind-cluster.yaml
+# 销毁：kind delete cluster --name vpp
+#
+# WSL 若设置了 HTTP_PROXY=http://127.0.0.1:7897（Clash 等），kind 会把它原样
+# 传进节点容器。节点里的 127.0.0.1 不是宿主机，containerd 拉 GHCR 会失败。
+# 建集群时改写成 Docker Desktop 的宿主机别名：
+#   HTTP_PROXY=http://host.docker.internal:7897 \
+#   HTTPS_PROXY=http://host.docker.internal:7897 \
+#   kind create cluster --config deploy/k8s/kind-cluster.yaml
+# 上下文名：kind-vpp（kubectl 自动写入 ~/.kube/config）
+#
+# extraPortMappings 是 kind 节点这个 Docker 容器的 -p 端口映射。
+# 后面给 Service 指定 nodePort: 30082 时，WSL host 的 :30082 才会通到集群里。
+# 现在还没有业务 Service，先把端口占位配好，避免以后为了加映射而重建集群。
+#
+# 对应关系（APISIX 仍在 compose，upstream 将从 host.docker.internal:808x 改到这些端口）：
+#   30082  resource HTTP   (现在是 :8082)
+#   30083  gateway HTTP    (现在是 :8083)
+#   30003  telemetry gRPC  (现在是 :5003)
+#   30006  dispatch gRPC   (现在是 :5006)
+# simulator 只被集群内 gateway 调用，不需要映射到 host。
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: vpp
+nodes:
+  - role: control-plane
+    # 钉在 1.34，和本机已装的 kubectl v1.34.1 对齐（kubectl 官方支持 ±1 minor）。
+    # digest 必须带上，kind 文档要求用 digest 才能保证拿到该 release 构建的 node 镜像。
+    image: kindest/node:v1.34.8@sha256:02722c2dedddcfc00febf5d27fbeb9b7b2c14294c82109ff4a85d89ac9ba3256
+    extraPortMappings:
+      - containerPort: 30082
+        hostPort: 30082
+        protocol: TCP
+      - containerPort: 30083
+        hostPort: 30083
+        protocol: TCP
+      - containerPort: 30003
+        hostPort: 30003
+        protocol: TCP
+      - containerPort: 30006
+        hostPort: 30006
+        protocol: TCP

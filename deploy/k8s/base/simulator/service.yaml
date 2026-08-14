@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: simulator
+  labels:
+    app.kubernetes.io/name: simulator
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: simulator
+  ports:
+    - name: http
+      port: 8084
+      targetPort: http
