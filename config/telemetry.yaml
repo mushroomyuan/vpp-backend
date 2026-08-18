@@ -6,7 +6,8 @@ telemetry:
   service-name: telemetry
   grpc-addr: 127.0.0.1:5003
   metrics-addr: 127.0.0.1:9103
-  consul-addr: 127.0.0.1:8500
+  # Empty: skip Consul. Discovery is YAML / K8s Service DNS.
+  consul-addr: ""
 
   # When true: require x-userinfo + Casbin on read RPCs (AUTHZ C10c).
   # IngestTelemetry stays machine-auth (gateway→telemetry) and skips user PEP.

@@ -3,7 +3,8 @@ kind: ConfigMap
 metadata:
   name: dispatch-config
 data:
-  DISPATCH_CONSUL_ADDR: host.docker.internal:8500
+  # Override GHCR baked yaml (still has 127.0.0.1:8500 until next image build).
+  DISPATCH_CONSUL_ADDR: ""
   DISPATCH_AUTH_AUTHZ_CASDOOR_URL: http://host.docker.internal:8000
   DISPATCH_AUTH_AUTHZ_SNAPSHOT_PATH: /tmp/dispatch-authz-snapshot.json
   GATEWAY_GRPC_ADDR: gateway.vpp.svc.cluster.local:5005

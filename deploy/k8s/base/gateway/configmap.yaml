@@ -3,7 +3,8 @@ kind: ConfigMap
 metadata:
   name: gateway-config
 data:
-  GATEWAY_CONSUL_ADDR: host.docker.internal:8500
+  # Override GHCR baked yaml (still has 127.0.0.1:8500 until next image build).
+  GATEWAY_CONSUL_ADDR: ""
   GATEWAY_AUTH_AUTHZ_CASDOOR_URL: http://host.docker.internal:8000
   GATEWAY_AUTH_AUTHZ_SNAPSHOT_PATH: /tmp/gateway-authz-snapshot.json
   TELEMETRY_GRPC_ADDR: telemetry.vpp.svc.cluster.local:5003

@@ -57,7 +57,7 @@ func Run(
 			}
 		}()
 	} else {
-		logrus.Warn("telemetry.consul-addr not configured, service discovery is disabled")
+		logrus.Info("consul-addr empty, skip Consul registration")
 	}
 
 	srv, err := createServer(appCfg, tsCfg, redisCfg, kafkaCfg)

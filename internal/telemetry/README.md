@@ -180,7 +180,7 @@ internal/telemetry/
 ├── cmd/
 │   └── main.go                     # 进程入口
 ├── app.go                          # cobra 命令 + viper 配置加载
-├── run.go                          # tracing + consul 注册 + 启动
+├── run.go                          # tracing + 启动
 ├── server.go                       # 组装根：接线所有层，生命周期管理
 ├── config/
 │   └── config.go                   # 应用级配置（地址、服务名）
@@ -233,7 +233,6 @@ internal/telemetry/
 | Kafka | — | SOE 事件发布（尚未部署） | — |
 | Jaeger | latest | 分布式链路追踪 | 16686 |
 | Prometheus | latest | 指标采集 | 9090 |
-| Consul | latest | 服务注册与发现 | 8500 |
 
 ---
 
@@ -260,7 +259,7 @@ make infra-up
 telemetry:
   grpc-addr: 127.0.0.1:5003      # gRPC 监听地址
   metrics-addr: 127.0.0.1:9103   # Prometheus /metrics 地址
-  consul-addr: 127.0.0.1:8500    # 服务发现（可选）
+  consul-addr: ""
 
 timescaledb:
   host: 127.0.0.1

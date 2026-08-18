@@ -14,5 +14,5 @@ data:
   TIMESCALEDB_PORT: "5432"
   TIMESCALEDB_USER: postgres
   REDIS_ADDR: host.docker.internal:6379
-  KAFKA_BROKERS: host.docker.internal:9092
+  KAFKA_BROKERS: host.docker.internal:29092
   TRACING_ENDPOINT: host.docker.internal:4318

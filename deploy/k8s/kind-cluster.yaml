@@ -12,15 +12,14 @@
 # 上下文名：kind-vpp（kubectl 自动写入 ~/.kube/config）
 #
 # extraPortMappings 是 kind 节点这个 Docker 容器的 -p 端口映射。
-# 后面给 Service 指定 nodePort: 30082 时，WSL host 的 :30082 才会通到集群里。
-# 现在还没有业务 Service，先把端口占位配好，避免以后为了加映射而重建集群。
+# Service nodePort 与这里一致时，WSL host 的 :300xx 才会通到集群里。
 #
-# 对应关系（APISIX 仍在 compose，upstream 将从 host.docker.internal:808x 改到这些端口）：
-#   30082  resource HTTP   (现在是 :8082)
-#   30083  gateway HTTP    (现在是 :8083)
-#   30003  telemetry gRPC  (现在是 :5003)
-#   30006  dispatch gRPC   (现在是 :5006)
-# simulator 只被集群内 gateway 调用，不需要映射到 host。
+# APISIX（compose）upstream 走 host.docker.internal:300xx，hairpin 进这些口：
+#   30082  resource HTTP
+#   30083  gateway HTTP
+#   30003  telemetry gRPC
+#   30006  dispatch gRPC
+# simulator 只被集群内 gateway 调用，不映射到 host。
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: vpp

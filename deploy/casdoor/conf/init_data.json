@@ -196,8 +196,14 @@
         "http://127.0.0.1:9080/resource/",
         "http://localhost:9080/resource/"
       ],
-      "tokenFormat": "JWT",
-      "tokenFields": [],
+      "tokenFormat": "JWT-Custom",
+      "tokenFields": [
+        "Owner",
+        "Name",
+        "Id",
+        "IsAdmin",
+        "Roles"
+      ],
       "expireInHours": 24,
       "refreshExpireInHours": 168,
       "failedSigninLimit": 20,

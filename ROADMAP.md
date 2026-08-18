@@ -30,11 +30,11 @@
 | dispatch/telemetry 的 gRPC PEP 缺少可信接入点 | 曾缺等价于 APISIX OIDC 的验签注入 | **已解决（2026-08 Gate 0+）**：`:9081` h2c + Path C OIDC；dispatch 全方法 + telemetry 读 RPC；Ingest 仍机机直连。默认 `trust-proxy-headers: false`；联调用 `make run-*-secured`。勿用 `proxy-rewrite` 删 `x-userinfo`。详见 `docs/APISIX.md` §11.7、`AUTHZ_RUNBOOK.md` §6 |
 | 是否要把 HTTP+gRPC 一起升级为服务自验签 JWT 的零信任模型 | 复审时讨论过「gRPC 单独自验签、HTTP 不变」会破坏架构一致性（两条协议对"后端信任什么"给出不同答案），因此否决了这个局部方案 | 列为独立的未来架构决策，如果要做必须 HTTP + gRPC 一起升级，不在当前 gRPC 补洞范围内 |
 | APISIX 是否覆盖客户端伪造的 `X-Userinfo` | 理论上 `ngx.req.set_header` 是覆盖语义，未实测验证 | 建议做一次实验：合法 Bearer + 伪造 `X-Userinfo` 同时发送，确认后者被覆盖 |
-| 业务端口直接监听在 host 网络 | `trust-proxy-headers:false` 时直连完全绕过鉴权，当前用于本地调试 | K8s 阶段用 ClusterIP 收紧，作为该阶段的验收项之一 |
+| 业务端口直接监听在 host 网络 | 旧 `:8082/:8083/:500x` 已离开 host（不再 `make run-*`）。kind extraPortMappings 仍把 NodePort `:30082/:30083/:30003/:30006` 映到 WSL，供 compose APISIX hairpin；直连这些口仍绕过 APISIX。simulator 仅 ClusterIP。 | **本轮已收口旧 host 口**（`make k8s-exposure-check`）。真正只经 APISIX 要等 APISIX 进集群后拿掉 extraPortMappings。 |
 | 内部服务间 gRPC（dispatch→gateway、gateway→telemetry）无鉴权/mTLS | 依赖同网络可信假设，perimeter security 模型 | 暂不处理，作为已知设计取舍；长期可在 K8s + service mesh 阶段一并解决东西向身份问题 |
 | 角色模型（admin/operator/viewer）为占位 | 真实业务角色/权限模型尚未确定 | 不阻塞现有架构，等业务角色明确后在 Casdoor 侧调整 Permission 绑定即可，不需要改代码 |
-| CI 已构建并推送镜像到 GHCR，但镜像本身尚不能直接部署 | ~~容器内仍是 `-c /etc/vpp/config.yaml` 固定路径的 YAML 配置~~、~~没有健康检查探针~~ ——**均已解决（2026-08 集成测试改造）**：配置外部化其实早已存在（viper `AutomaticEnv()` + `SetEnvKeyReplacer` 会覆盖 YAML 里已有的 key，之前的记录是误判，详见 `docs/CONFIG_ENV_OVERRIDE.md`）；`platform/server` 现已注册 gRPC health server（`grpc.health.v1.Health`）+ HTTP `GET /healthz`。真正剩下的是 K8s manifests 本身（Deployment/Service/ConfigMap/Secret、ClusterIP 收紧）——这部分本来就该在 K8s 基础部署阶段做，不是本轮改造范围 | K8s 基础部署阶段：编写 manifests，用 env 覆盖注入中间件地址，接上刚新增的 health probe |
-| golangci-lint 是第一次接入，历史代码尚未跑过全量 lint | CI 的 `lint` job 在 PR 上用 `only-new-issues` 只挡新增代码问题，push 到 `main` 才跑全量（不阻塞，仅可见） | 建议找一个空档本地跑一次 `make lint` 摸底历史债务规模，决定是否要专门排期清理 |
+| CI 已构建并推送镜像到 GHCR，但镜像本身尚不能直接部署 | manifests、探针、env 覆盖均已落地（本机 kind）。 | **已解决（2026-08）**：见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md) |
+| Consul 运行时 | compose 已删除；`consul-addr` 默认空，跳过注册。封装留在 `platform/discovery`。 | **已从运行时移除（2026-08）** |
 
 ---
 
@@ -45,9 +45,9 @@
 - [x] 集成测试（`tests/integration`：testcontainers 起 Postgres×2 + Kafka，bufconn 打通 dispatch↔gateway，覆盖 SubmitTask→ExecuteCommand→Kafka 回调主链路的正向 + mapping 缺失异常路径；`.github/workflows/ci.yml` 新增 `integration-test` job，`docker` job 依赖它；顺带补上 gRPC health server + HTTP `/healthz`，见上表）
 - [ ] Alarm 服务（消费 `vpp.dispatch.events` / `vpp.soe.events`，工作量小、闭环价值高，可随时插入）
 - [ ] `CancelTask`（dispatch，独立功能补齐，可随时插入）
-- [ ] K8s 基础部署（现有 6 服务容器化 + 最小 manifests；依赖 CI 的 docker build 产出镜像；顺带用 ClusterIP 收紧端口暴露面、重新评估 Consul/配置中心的必要性）
+- [x] K8s 基础部署（本机 kind：5 个无状态服务 GHCR manifests + NodePort 接 APISIX；旧 host `:808x/:500x` 已收口。Consul 已从运行时移除，发现走 Service DNS。用法见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md)）
 
-**建议顺序：** CI/CD → 集成测试（补进 CI）→ Alarm / CancelTask（穿插进行）→ K8s 基础部署。CI 排在最前是因为它是复利型投入；K8s 排在容器化之后是硬依赖，不只是优先级选择。Alarm 和 CancelTask 互相独立，顺序不影响其他项。
+**建议顺序：** CI/CD → 集成测试（补进 CI）→ **K8s 基础部署（已完成）** → Alarm / CancelTask（可随时插入）。
 
 ---
 

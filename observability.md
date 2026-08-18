@@ -56,7 +56,7 @@ mkdir -p ./data/vpp-logs   # Alloy 只读挂载该目录；run-all 也会创建
 make run-all             # 业务日志落到 ./data/vpp-logs/<service>.log
 ```
 
-会拉起 Consul、Jaeger、Prometheus、**Loki**、**Alloy**、Grafana、Postgres、Redis、Kafka 等。
+会拉起 Jaeger、Prometheus、**Loki**、**Alloy**、Grafana、Postgres、Redis、Kafka 等。
 
 > **采集器说明**：Promtail 已于 2026-03-02 EOL，本仓库使用 **Grafana Alloy**。应用只保证「JSON 行写 stdout」；换 Vector 等采集器时只需改 compose/配置，不必改业务代码。
 
@@ -71,7 +71,6 @@ make run-all             # 业务日志落到 ./data/vpp-logs/<service>.log
 | **Loki** | http://localhost:3100 | 无 | 日志存储 API（一般用 Grafana Explore） |
 | **Alloy UI** | http://localhost:12345 | 无 | 采集组件调试 / livedebugging |
 | **Grafana** | http://localhost:3000 | `admin` / `admin`（首次登录会要求改密） | 指标看板 + 日志 Explore |
-| **Consul UI** | http://localhost:8500 | 无 | 服务注册（非观测核心，但同属 infra） |
 
 ### Jaeger 快速用法
 

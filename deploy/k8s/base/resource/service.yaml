@@ -5,13 +5,20 @@ metadata:
   labels:
     app.kubernetes.io/name: resource
 spec:
-  type: ClusterIP
+  # NodePort so compose APISIX can hairpin via host.docker.internal:30082.
+  # ClusterIP is still allocated; in-cluster callers keep using
+  # resource.vpp.svc.cluster.local:8082 / :5002.
+  type: NodePort
   selector:
     app.kubernetes.io/name: resource
   ports:
     - name: http
       port: 8082
       targetPort: http
+      nodePort: 30082
     - name: grpc
       port: 5002
       targetPort: grpc
+      # Not in kind extraPortMappings; pinned so kube-proxy does not
+      # steal 30003/30006/30083 from the northbound services.
+      nodePort: 30502

@@ -241,12 +241,12 @@ internal/resource/
 | PostgreSQL | 资源树持久化 | `127.0.0.1:5432`，库 `resource` |
 | Redis db=0 | Asset / CU / Point 运行时热数据 | `127.0.0.1:6379` |
 | Kafka | 发布 `vpp.resource.events`（lifecycle 事件） | 配置项 `kafka.brokers` |
-| Consul | 服务注册与发现 | 配置项 `resource.consul-addr` |
+| Consul | 未使用（`consul-addr` 默认空；封装留在 `platform/discovery`） | — |
 | Jaeger / OTEL | 分布式 tracing | 配置项 `tracing.endpoint` |
 | Prometheus | 指标暴露 `/metrics` | `:9091`（默认） |
 
 > Kafka 未配置时（`kafka.brokers` 为空）服务正常启动，事件发布降级为 log-only，不影响 CRUD 功能。
-> Consul 和 tracing 同样可选，缺失时服务正常运行。
+> tracing 未配置时可降级启动。
 
 ---
 

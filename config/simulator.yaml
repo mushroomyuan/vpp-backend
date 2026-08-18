@@ -6,7 +6,8 @@ simulator:
   service-name: simulator
   http-addr: 127.0.0.1:8084
   metrics-addr: 127.0.0.1:9106
-  consul-addr: 127.0.0.1:8500
+  # Empty: skip Consul. Discovery is YAML / K8s Service DNS.
+  consul-addr: ""
   tenant-id: default
 
 resource:

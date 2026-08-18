@@ -1,5 +1,6 @@
 # Gateway EMS catch-all (Phase 1 key-auth).
 # Applied by deploy/apisix/init.sh via Admin API.
+# Upstream: kind NodePort 30083 (host.docker.internal from the APISIX container).
 #
 # Mappings human-admin traffic uses a higher-priority OIDC route
 # (see gateway-mappings.yaml). This route covers telemetry:ingest and
@@ -9,7 +10,7 @@ upstream_id: gateway-backend
 upstream:
   type: roundrobin
   nodes:
-    host.docker.internal:8083: 1
+    host.docker.internal:30083: 1
 
 consumer:
   username: simulator_default

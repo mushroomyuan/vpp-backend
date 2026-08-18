@@ -160,7 +160,7 @@ Protobuf 是边界语言；领域模型保持 Go 原生类型，避免生成代�
 | **ID** | `platform/idgen` 统一 UUIDv7（资源、命令、事件） |
 | **多租户** | 请求与表模型普遍带 `TenantID`；映射、遥测、任务均按租户隔离 |
 | **配置** | 每服务 `options`（Viper）→ `config`；`config/*.yaml` + 环境变量 |
-| **基础设施** | compose 提供 Postgres/Timescale、Redis、Kafka、Consul、Jaeger、Prometheus；未配置的可选组件应能降级启动 |
+| **基础设施** | compose 提供 Postgres/Timescale、Redis、Kafka、Jaeger、Prometheus；未配置的可选组件应能降级启动 |
 | **库表** | 一服务一库（或 telemetry 用 Timescale）；迁移在 `migrations/` |
 | **错误上浮** | 基础设施错误包装 `%w`；领域哨兵稳定；adapter 映射为 gRPC status / HTTP 码 |
 

@@ -1,5 +1,6 @@
 # Resource service route (Phase 2 — Casdoor OIDC).
 # Applied by deploy/apisix/init.sh via Admin API.
+# Upstream: kind NodePort 30082 (host.docker.internal from the APISIX container).
 #
 # Path C: openid-connect bearer_only + set_userinfo_header only
 # (no Lua; Resource parses X-Userinfo in C3).
@@ -8,7 +9,7 @@ upstream_id: resource-backend
 upstream:
   type: roundrobin
   nodes:
-    host.docker.internal:8082: 1
+    host.docker.internal:30082: 1
 
 route:
   name: resource-proxy

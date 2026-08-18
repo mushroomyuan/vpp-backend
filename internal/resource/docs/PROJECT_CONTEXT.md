@@ -14,7 +14,7 @@
 | 数据库 | PostgreSQL + GORM v1.31.1 |
 | 配置 | spf13/viper：`resource.*`、`tracing.*`、`database.*`（见 `options/options.go`） |
 | 日志 | logrus + `pkg/logging.WhenDB` |
-| 跨切面 | `vpp/platform`（decorator、telemetry、**Prometheus `/metrics`**、**Consul 注册**） |
+| 跨切面 | `vpp/platform`（decorator、telemetry、**Prometheus `/metrics`**） |
 | ID 生成 | `vpp/platform/idgen` |
 
 ---

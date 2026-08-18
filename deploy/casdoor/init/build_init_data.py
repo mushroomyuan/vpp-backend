@@ -282,8 +282,13 @@ def main() -> int:
                     "http://127.0.0.1:9080/resource/",
                     "http://localhost:9080/resource/",
                 ],
-                "tokenFormat": "JWT",
-                "tokenFields": [],
+                # JWT (default) embeds the whole User, including every Permission
+                # object. Admin tokens then exceed OpenResty 8KiB header buffers
+                # (APISIX 400 Request Header Or Cookie Too Large). JWT-Custom
+                # keeps only C3 claims; PAP stays on get-permissions (Syncer).
+                # tokenFields are Casdoor User Go field names (FieldByName).
+                "tokenFormat": "JWT-Custom",
+                "tokenFields": ["Owner", "Name", "Id", "IsAdmin", "Roles"],
                 "expireInHours": 24,
                 "refreshExpireInHours": 168,
                 "failedSigninLimit": 20,

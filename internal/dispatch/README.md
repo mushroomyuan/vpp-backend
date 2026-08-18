@@ -262,7 +262,6 @@ internal/dispatch/
 | PostgreSQL | 任务持久化（库名 `dispatch`） | `127.0.0.1:5432` |
 | Kafka | 命令结果消费 + 任务事件发布 | `127.0.0.1:9092` |
 | vpp-gateway | `ExecuteCommand` | gRPC `127.0.0.1:5005` |
-| Consul | 服务发现（可选） | `127.0.0.1:8500` |
 | Jaeger OTLP | Tracing（可选） | `127.0.0.1:4318` |
 | Prometheus | Metrics | `127.0.0.1:9105` |
 
@@ -278,7 +277,7 @@ internal/dispatch/
 # 仓库根目录
 make infra-up
 # 或
-docker compose up -d postgres kafka consul jaeger
+docker compose up -d postgres kafka jaeger
 ```
 
 确认 `dispatch` 库存在（已有数据卷时可能需手动初始化）：

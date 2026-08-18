@@ -22,8 +22,6 @@ flowchart TB
 
         Kafka[("Kafka :9092")]
 
-        Consul["Consul :8500"]
-
         Jaeger["Jaeger :4318"]
 
         Prom["Prometheus :9090"]
@@ -125,14 +123,6 @@ flowchart TB
     Kafka -->|consume: command.completed<br/>推进任务状态机| D_APP
 
     D_APP -->|produce<br/>topic: vpp.dispatch.events| Kafka
-
-    Resource --- Consul
-
-    Telemetry --- Consul
-
-    Gateway --- Consul
-
-    Dispatch --- Consul
 
     Resource --- Jaeger
 
@@ -409,7 +399,7 @@ Casdoor :8000 签发 JWT；APISIX 验签（详见 docs/CASDOOR.md、docs/APISIX.
 | **dispatch** | **`:5006`** | — | **`:9105`** |
 | **simulator** | — | **`:8084`** | **`:9106`** |
 
-北向鉴权：管理端 → `:9080/resource/*`（Casdoor OIDC）；EMS → `:9080/gateway/*`（`key-auth`）。详见 [`docs/CASDOOR.md`](docs/CASDOOR.md)、[`docs/APISIX.md`](docs/APISIX.md)。
+北向鉴权：管理端 → `:9080/resource/*`（Casdoor OIDC）；EMS → `:9080/gateway/*`（`key-auth`）。详见 [`docs/CASDOOR.md`](docs/CASDOOR.md)、[`docs/APISIX.md`](docs/APISIX.md)。本机 kind 部署见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md)。
 
 ---
 

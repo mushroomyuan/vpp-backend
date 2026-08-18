@@ -5,13 +5,19 @@ metadata:
   labels:
     app.kubernetes.io/name: gateway
 spec:
-  type: ClusterIP
+  # NodePort so compose APISIX can hairpin via host.docker.internal:30083.
+  # In-cluster: gateway.vpp.svc.cluster.local:8083 / :5005.
+  type: NodePort
   selector:
     app.kubernetes.io/name: gateway
   ports:
     - name: http
       port: 8083
       targetPort: http
+      nodePort: 30083
     - name: grpc
       port: 5005
       targetPort: grpc
+      # Dispatch→gateway stays ClusterIP. Pinned to avoid colliding with
+      # extraPortMappings (30003/30006/30082).
+      nodePort: 30505

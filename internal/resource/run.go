@@ -56,7 +56,7 @@ func Run(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg platform
 			}
 		}()
 	} else {
-		logrus.Warn("discovery.consul-addr not configured, service discovery is disabled")
+		logrus.Info("consul-addr empty, skip Consul registration")
 	}
 
 	srv, err := createServer(appCfg, dbCfg, redisCfg)

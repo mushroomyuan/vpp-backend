@@ -97,6 +97,7 @@ func loadViperConfig() {
 	}
 
 	viper.AutomaticEnv()
+	viper.AllowEmptyEnv(true)
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {

@@ -7,7 +7,8 @@ gateway:
   grpc-addr: 127.0.0.1:5005
   http-addr: 127.0.0.1:8083
   metrics-addr: 127.0.0.1:9104
-  consul-addr: 127.0.0.1:8500
+  # Empty: skip Consul. Discovery is YAML / K8s Service DNS.
+  consul-addr: ""
 
   # When true: require X-Userinfo + Casbin on mappings routes (AUTHZ C10b).
   # EMS telemetry:ingest stays on APISIX key-auth and is not covered by this PEP.

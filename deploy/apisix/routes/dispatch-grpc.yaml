@@ -1,4 +1,5 @@
 # Dispatch gRPC northbound via APISIX :9081 (reference; applied by init.sh).
+# Upstream: kind NodePort 30006.
 #
 # Path C: openid-connect bearer_only + set_userinfo_header (same as /resource/*).
 # Do NOT add proxy-rewrite.headers.remove for x-userinfo — openid-connect and
@@ -15,7 +16,7 @@ upstream:
   type: roundrobin
   scheme: grpc
   nodes:
-    host.docker.internal:5006: 1
+    host.docker.internal:30006: 1
 
 route:
   name: dispatch-grpc

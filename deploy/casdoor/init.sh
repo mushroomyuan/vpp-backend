@@ -6,7 +6,9 @@
 # - Verifies seed via Admin API (session login as built-in admin) and/or SQL.
 #
 # First-boot identity seed comes from conf/init_data.json (initDataNewOnly=true).
-# Re-running this script does NOT wipe the DB; it only verifies.
+# Re-running does not wipe the DB. It verifies seed and upserts vpp-resource
+# tokenFormat=JWT-Custom (slim C3 claims) so existing volumes pick up the
+# access_token size fix without drop/reimport.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -92,6 +94,50 @@ api_get() {
     "${CASDOOR_URL}${path}"
 }
 
+api_post_json() {
+  local path=$1
+  "${CURL[@]}" -sfS -b "${COOKIE_JAR}" -c "${COOKIE_JAR}" \
+    -X POST "${CASDOOR_URL}${path}" \
+    -H 'Content-Type: application/json' \
+    --data-binary @-
+}
+
+# initDataNewOnly=true will not reimport init_data.json. Patch the live
+# application so existing Postgres volumes get slim access_tokens.
+ensure_jwt_custom() {
+  local wrap payload status
+  echo "Ensuring vpp-resource tokenFormat=JWT-Custom..."
+  wrap="$(api_get "/api/get-application?id=admin/vpp-resource")"
+  payload="$(WRAP="${wrap}" python3 - <<'PY'
+import json, os, sys
+wrap = json.loads(os.environ["WRAP"])
+app = wrap.get("data") if isinstance(wrap, dict) and "data" in wrap else wrap
+if not isinstance(app, dict) or not app.get("name"):
+    sys.stderr.write("ERROR: unexpected get-application body\n")
+    sys.exit(1)
+wanted_format = "JWT-Custom"
+wanted_fields = ["Owner", "Name", "Id", "IsAdmin", "Roles"]
+if app.get("tokenFormat") == wanted_format and app.get("tokenFields") == wanted_fields:
+    print("UNCHANGED")
+    raise SystemExit(0)
+app["tokenFormat"] = wanted_format
+app["tokenFields"] = wanted_fields
+json.dump(app, sys.stdout)
+PY
+)"
+  if [[ "${payload}" == "UNCHANGED" ]]; then
+    echo "OK application already JWT-Custom (Owner/Name/Id/IsAdmin/Roles)"
+    return 0
+  fi
+  status="$(echo "${payload}" | api_post_json "/api/update-application?id=admin/vpp-resource" \
+    | python3 -c 'import sys,json; print(json.load(sys.stdin).get("status",""))' 2>/dev/null || true)"
+  if [[ "${status}" != "ok" ]]; then
+    echo "ERROR: update-application failed (status=${status:-none})" >&2
+    return 1
+  fi
+  echo "OK patched application tokenFormat=JWT-Custom"
+}
+
 verify_seed_api() {
   local body
   echo "Verifying seed via Admin API..."
@@ -114,6 +160,12 @@ verify_seed_api() {
     echo "OK grantTypes includes password"
   else
     echo "ERROR: grantTypes missing password — Password Grant will fail." >&2
+    return 1
+  fi
+  if echo "${body}" | grep -q '"JWT-Custom"'; then
+    echo "OK application tokenFormat=JWT-Custom"
+  else
+    echo "ERROR: application tokenFormat is not JWT-Custom (admin JWT will blow APISIX header buffers)." >&2
     return 1
   fi
 
@@ -148,7 +200,7 @@ verify_seed_sql() {
 }
 
 smoke_password_grant() {
-  local body
+  local body token
   echo "Smoke: Password Grant for default/admin..."
   body="$("${CURL[@]}" -sS -X POST "${CASDOOR_URL}/api/login/oauth/access_token" \
     -d 'grant_type=password' \
@@ -156,9 +208,7 @@ smoke_password_grant() {
     -d 'client_secret=vpp-resource-dev-secret' \
     -d 'username=admin' \
     -d 'password=vpp-admin-dev')"
-  if echo "${body}" | grep -q 'access_token'; then
-    echo "OK Password Grant returned access_token"
-  else
+  if ! echo "${body}" | grep -q 'access_token'; then
     # Casdoor sometimes requires org-qualified username.
     body="$("${CURL[@]}" -sS -X POST "${CASDOOR_URL}/api/login/oauth/access_token" \
       -d 'grant_type=password' \
@@ -167,12 +217,43 @@ smoke_password_grant() {
       -d 'username=admin' \
       -d 'password=vpp-admin-dev' \
       -d 'organization=default')"
-    if echo "${body}" | grep -q 'access_token'; then
-      echo "OK Password Grant returned access_token (with organization=default)"
-    else
-      echo "WARN: Password Grant failed (C1 will harden make casdoor-token): $(echo "${body}" | head -c 300)"
-    fi
   fi
+  if ! echo "${body}" | grep -q 'access_token'; then
+    echo "WARN: Password Grant failed (C1 will harden make casdoor-token): $(echo "${body}" | head -c 300)"
+    return 0
+  fi
+  echo "OK Password Grant returned access_token"
+  token="$(echo "${body}" | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+print(d.get("access_token") or d.get("accessToken") or "")
+')"
+  TOKEN="${token}" python3 - <<'PY'
+import base64, json, os, sys
+
+token = os.environ["TOKEN"]
+limit = 4096
+if len(token) > limit:
+    print(f"ERROR: admin access_token is {len(token)} bytes (limit {limit}). JWT-Custom not applied?", file=sys.stderr)
+    sys.exit(1)
+
+def b64url(s: str):
+    s += "=" * ((4 - len(s) % 4) % 4)
+    return json.loads(base64.urlsafe_b64decode(s.encode()))
+
+parts = token.split(".")
+if len(parts) < 2:
+    print("ERROR: access_token is not a JWT", file=sys.stderr)
+    sys.exit(1)
+payload = b64url(parts[1])
+if "permissions" in payload:
+    print("ERROR: access_token still embeds permissions (fat JWT)", file=sys.stderr)
+    sys.exit(1)
+if not payload.get("owner") or not payload.get("name") or payload.get("roles") is None:
+    print("ERROR: slim JWT missing owner/name/roles needed by C3", file=sys.stderr)
+    sys.exit(1)
+print(f"OK slim access_token ({len(token)} bytes, no permissions claim)")
+PY
 }
 
 print_next() {
@@ -191,6 +272,7 @@ main() {
   wait_for_casdoor
   verify_seed_sql
   login_admin
+  ensure_jwt_custom
   verify_seed_api
   smoke_password_grant
   print_next

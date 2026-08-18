@@ -1,12 +1,5 @@
 
 services:
-  consul:
-    image: hashicorp/consul
-    command: agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0
-    ports:
-      - 8500:8500
-      - 8600:8600/udp
-
   jaeger:
     image: "jaegertracing/all-in-one:latest"
     ports:
@@ -105,17 +98,17 @@ services:
     restart: on-failure
     ports:
       - "9092:9092"
+      # Kind Pods reach Kafka via host.docker.internal:29092 (EXTERNAL).
+      # :9092 stays advertised as 127.0.0.1 for host-side `make run-*`.
+      - "29092:29092"
     environment:
       # KRaft: this node is both controller and broker.
       - KAFKA_CFG_NODE_ID=0
       - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      # PLAINTEXT is used for both external (host → container) and
-      # inter-broker communication. CONTROLLER is internal only.
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      # Advertise 127.0.0.1 so that Go services running on the host can
-      # connect via localhost:9092.
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,EXTERNAL://:29092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092,EXTERNAL://host.docker.internal:29092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true

@@ -9,6 +9,11 @@
 #
 # Requires APISIX Admin API (default host :9181 → container :9180).
 # Casdoor should be reachable from the APISIX container at host.docker.internal:8000.
+#
+# Mixed topology (default): business services run in kind; APISIX stays in
+# compose and hairpins to kind extraPortMappings via host.docker.internal:300xx.
+# Host-side `make run-*` still listens on :8082/:8083/:5003/:5006 — override
+# the four UPSTREAM vars below and re-run this script to point APISIX back.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,6 +29,18 @@ OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-vpp-resource-dev-client}"
 OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-vpp-resource-dev-secret}"
 # Must be reachable FROM the APISIX container (not 127.0.0.1).
 OIDC_DISCOVERY="${OIDC_DISCOVERY:-http://host.docker.internal:8000/.well-known/openid-configuration}"
+
+# Kind NodePort hairpin (see deploy/k8s/kind-cluster.yaml extraPortMappings).
+# Host-side override example:
+#   GATEWAY_UPSTREAM=host.docker.internal:8083 \
+#   RESOURCE_UPSTREAM=host.docker.internal:8082 \
+#   DISPATCH_UPSTREAM=host.docker.internal:5006 \
+#   TELEMETRY_UPSTREAM=host.docker.internal:5003 \
+#   make apisix-init
+GATEWAY_UPSTREAM="${GATEWAY_UPSTREAM:-host.docker.internal:30083}"
+RESOURCE_UPSTREAM="${RESOURCE_UPSTREAM:-host.docker.internal:30082}"
+DISPATCH_UPSTREAM="${DISPATCH_UPSTREAM:-host.docker.internal:30006}"
+TELEMETRY_UPSTREAM="${TELEMETRY_UPSTREAM:-host.docker.internal:30003}"
 
 if [[ -z "${APISIX_ADMIN_KEY}" && -f "${SCRIPT_DIR}/conf/config.yaml" ]]; then
   APISIX_ADMIN_KEY="$(awk '/key:/{print $2; exit}' "${SCRIPT_DIR}/conf/config.yaml")"
@@ -289,10 +306,10 @@ PY
 main() {
   wait_for_admin
 
-  put_upstream "gateway-backend" "host.docker.internal:8083"
-  put_upstream "resource-backend" "host.docker.internal:8082"
-  put_upstream "dispatch-grpc" "host.docker.internal:5006" "grpc"
-  put_upstream "telemetry-grpc" "host.docker.internal:5003" "grpc"
+  put_upstream "gateway-backend" "${GATEWAY_UPSTREAM}"
+  put_upstream "resource-backend" "${RESOURCE_UPSTREAM}"
+  put_upstream "dispatch-grpc" "${DISPATCH_UPSTREAM}" "grpc"
+  put_upstream "telemetry-grpc" "${TELEMETRY_UPSTREAM}" "grpc"
 
   put_consumer_key_auth "${SIMULATOR_CONSUMER}" "${SIMULATOR_API_KEY}"
 

@@ -5,10 +5,13 @@ metadata:
   labels:
     app.kubernetes.io/name: dispatch
 spec:
-  type: ClusterIP
+  # NodePort so compose APISIX can hairpin gRPC via
+  # host.docker.internal:30006. In-cluster: dispatch.vpp.svc.cluster.local:5006.
+  type: NodePort
   selector:
     app.kubernetes.io/name: dispatch
   ports:
     - name: grpc
       port: 5006
       targetPort: grpc
+      nodePort: 30006

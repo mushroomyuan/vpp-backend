@@ -158,7 +158,7 @@ internal/gateway/
 ├── cmd/
 │   └── main.go                          # 进程入口
 ├── app.go                               # cobra 命令 + viper 配置加载
-├── run.go                               # tracing + consul 注册 + 启动
+├── run.go                               # tracing + 启动
 ├── server.go                            # 组装根：HTTP + gRPC 双服务器
 ├── config/
 │   └── config.go
@@ -206,7 +206,6 @@ internal/gateway/
 | vpp-telemetry | 遥测写入（gRPC `IngestTelemetry`） | 5003 |
 | Jaeger | 分布式链路追踪 | 4318 |
 | Prometheus | 指标采集 | 9104（本服务 `/metrics`） |
-| Consul | 服务注册与发现（可选） | 8500 |
 
 ### 服务端口一览
 
@@ -254,7 +253,7 @@ gateway:
   grpc-addr: 127.0.0.1:5005      # 内部 gRPC（dispatch 调用）
   http-addr: 127.0.0.1:8083      # 外部 EMS HTTP
   metrics-addr: 127.0.0.1:9104
-  consul-addr: 127.0.0.1:8500
+  consul-addr: ""
 
 database:
   host: 127.0.0.1

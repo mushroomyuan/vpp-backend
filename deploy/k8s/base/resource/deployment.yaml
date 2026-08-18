@@ -22,7 +22,13 @@ spec:
         - name: resource
           image: ghcr.io/mushroomyuan/vpp-backend/resource:latest
           imagePullPolicy: Always
-          args: ["-c", "/etc/vpp/config.yaml"]
+          # GHCR :latest still bakes consul-addr: 127.0.0.1:8500; viper on that
+          # image ignores empty *_CONSUL_ADDR. Blank it in /tmp until the next
+          # image build (repo YAML is already empty; then drop this command).
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              sed 's/^  consul-addr:.*/  consul-addr: ""/' /etc/vpp/config.yaml > /tmp/config.yaml && exec /app -c /tmp/config.yaml
           ports:
             - name: http
               containerPort: 8082
@@ -38,9 +44,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            # Consul rejects 0.0.0.0 as "Invalid service address"; bind the
-            # Pod IP so listen + registration use a real address. Kubelet
-            # probes and ClusterIP traffic also target the Pod IP.
+            # Bind the Pod IP so kubelet probes and ClusterIP traffic
+            # reach the process. 0.0.0.0 would listen, but readiness
+            # uses the Pod IP.
             - name: RESOURCE_HTTP_ADDR
               value: "$(POD_IP):8082"
             - name: RESOURCE_GRPC_ADDR

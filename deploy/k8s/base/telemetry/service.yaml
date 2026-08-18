@@ -5,10 +5,14 @@ metadata:
   labels:
     app.kubernetes.io/name: telemetry
 spec:
-  type: ClusterIP
+  # NodePort so compose APISIX can hairpin gRPC reads via
+  # host.docker.internal:30003. Ingest stays in-cluster
+  # (gateway → telemetry.vpp.svc.cluster.local:5003).
+  type: NodePort
   selector:
     app.kubernetes.io/name: telemetry
   ports:
     - name: grpc
       port: 5003
       targetPort: grpc
+      nodePort: 30003

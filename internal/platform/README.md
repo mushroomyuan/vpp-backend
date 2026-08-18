@@ -60,7 +60,7 @@ Logging → Metrics → Tracing → 业务 Handler
 
 ### 5. 服务发现 — `discovery`
 
-`Registry` 接口（注册 / 注销 / 发现 / 健康检查）；Consul 实现。可选：未配置时各服务可降级为直连地址。
+`Registry` 接口（注册 / 注销 / 发现 / 健康检查）；Consul 实现。运行时默认不连：`consul-addr` 为空则跳过注册。集群内发现走 K8s Service DNS。
 
 ### 6. 领域事件契约 — `event`
 
@@ -109,4 +109,4 @@ platform/
 1. **新服务**：优先接 `server` + `decorator` + `logging` / `telemetry` / `metrics`，可观测性默认一致。  
 2. **跨服务事件**：只改 `event/*` 常量与 payload，再改生产/消费方。  
 3. **不要**在 platform 里写某服务的领域逻辑或表访问；那属于 `internal/<service>`。  
-4. 基础设施（Kafka / Consul / tracing endpoint）未配置时，各服务应能降级启动——具体降级策略由各服务 wiring 决定，platform 提供可选实现。
+4. 基础设施（Kafka / tracing endpoint）未配置时，各服务应能降级启动——具体降级策略由各服务 wiring 决定，platform 提供可选实现。

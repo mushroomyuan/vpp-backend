@@ -6,7 +6,8 @@ dispatch:
   service-name: dispatch
   grpc-addr: 127.0.0.1:5006
   metrics-addr: 127.0.0.1:9105
-  consul-addr: 127.0.0.1:8500
+  # Empty: skip Consul. Discovery is YAML / K8s Service DNS.
+  consul-addr: ""
   timeout-scan-interval: 10s
   default-command-timeout: 30s
   default-max-retries: 3

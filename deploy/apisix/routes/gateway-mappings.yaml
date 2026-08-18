@@ -1,5 +1,6 @@
 # Gateway mappings route (C10b — Casdoor OIDC for human-managed ID mapping).
 # Applied by deploy/apisix/init.sh via Admin API.
+# Upstream: kind NodePort 30083.
 #
 # Higher priority than gateway-proxy so /mappings* uses OIDC + X-Userinfo,
 # while EMS telemetry:ingest continues on key-auth (/gateway/*).
@@ -8,7 +9,7 @@ upstream_id: gateway-backend
 upstream:
   type: roundrobin
   nodes:
-    host.docker.internal:8083: 1
+    host.docker.internal:30083: 1
 
 route:
   name: gateway-mappings

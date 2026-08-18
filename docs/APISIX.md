@@ -20,15 +20,15 @@ APISIX 是**另一层**，做基础设施级治理，两者不冲突：
 外部客户端
     │
     ├─ HTTP ──────────────────────────▶ APISIX :9080
-    │                                      ├── /gateway/*  → vpp-gateway  :8083
-    │                                      └── /resource/* → vpp-resource :8082
+    │                                      ├── /gateway/*  → kind NodePort :30083 (gateway HTTP)
+    │                                      └── /resource/* → kind NodePort :30082 (resource HTTP)
     │
     └─ gRPC (h2c, localhost) ─────────▶ APISIX :9081
-                                           ├── /dispatchpb.DispatchService/* → :5006
-                                           └── TelemetryService 读 RPC → :5003
-                                               （Ingest 仍本机直连，不经 APISIX）
+                                           ├── /dispatchpb.DispatchService/* → :30006
+                                           └── TelemetryService 读 RPC → :30003
+                                               （Ingest 仍集群内直连 telemetry Service，不经 APISIX）
 
-内部 gRPC（dispatch→gateway、gateway→telemetry Ingest）不经过 APISIX，走本机直连。
+内部 gRPC（dispatch→gateway、gateway→telemetry Ingest）不经过 APISIX，走 ClusterIP。
 ```
 ---
 
@@ -38,7 +38,7 @@ APISIX 是**另一层**，做基础设施级治理，两者不冲突：
 |----|------|
 | Docker | 已安装并运行 |
 | docker-compose | v1（`docker-compose`）或 v2（`docker compose`）；Makefile 自动检测 |
-| 业务服务 | APISIX 反代目标需在 **host** 上监听（`make run-all`） |
+| 业务服务 | 默认：kind 里跑，APISIX 打 NodePort `:30082` / `:30083` / `:30003` / `:30006`；本机 `make run-*` 需覆盖 `*_UPSTREAM` 再 `make apisix-init` |
 | 网络 | WSL2 / Docker Desktop 需支持 `host.docker.internal` |
 
 APISIX 与主 infra（Postgres/Kafka 等）**独立 compose**，生命周期分开：
@@ -56,8 +56,8 @@ make apisix-up     # APISIX 边缘网关（deploy/apisix/docker-compose.apisix.y
 # 1. 主基础设施
 make infra-up
 
-# 2. 业务服务（host 进程，监听 :8082 / :8083）
-make run-all
+# 2. 业务服务（kind NodePort；本机进程则覆盖 *_UPSTREAM 见 init.sh）
+make k8s-apply
 
 # 3. APISIX
 make apisix-up
@@ -181,7 +181,7 @@ services:
     ports:
       - "9181:9180"    # Admin：宿主机 9181 → 容器 9180
     extra_hosts:
-      - "host.docker.internal:host-gateway"   # 访问 host 上的 Go 服务
+      - "host.docker.internal:host-gateway"   # Casdoor :8000 + kind NodePort :300xx
 ```
 
 ### 6.3 `init.sh` — 路由初始化
@@ -190,8 +190,8 @@ services:
 
 | Route ID | 对外路径 | 剥离前缀后 | Upstream |
 |----------|---------|-----------|----------|
-| `gateway-proxy` | `/gateway/*` | `/*` | `host.docker.internal:8083` |
-| `resource-proxy` | `/resource/*` | `/*` | `host.docker.internal:8082` |
+| `gateway-proxy` | `/gateway/*` | `/*` | `host.docker.internal:30083`（kind NodePort） |
+| `resource-proxy` | `/resource/*` | `/*` | `host.docker.internal:30082`（kind NodePort） |
 
 `proxy-rewrite` 插件负责剥离前缀：
 
@@ -214,7 +214,7 @@ GET /gateway/api/v1/tenants/default/mappings
 | 概念 | 说明 | 本项目对应 |
 |------|------|-----------|
 | **Route** | 匹配 URI，决定转发规则 | `/gateway/*` → gateway upstream |
-| **Upstream** | 后端服务节点 | `host.docker.internal:8083` |
+| **Upstream** | 后端服务节点 | `host.docker.internal:30083`（kind NodePort；本机 `make run-*` 可覆盖） |
 | **Consumer** | 调用方身份（API Key 持有者） | Phase 1 为 EMS 厂商创建 |
 | **Plugin** | 横切能力链 | Phase 0 仅 `proxy-rewrite`；Phase 1+ 加 `key-auth` 等 |
 | **Admin API** | 动态管理 routes/consumers | 宿主机 `:9181`，Header `X-API-KEY` |
@@ -247,9 +247,9 @@ curl --noproxy '*' -s http://127.0.0.1:9181/apisix/admin/routes \
 curl --noproxy '*' -s http://127.0.0.1:9080/gateway/api/v1/tenants/default/mappings
 curl --noproxy '*' -s http://127.0.0.1:9080/resource/api/tenants/default/sites
 
-# 直连（开发调试仍可用）
-curl --noproxy '*' -s http://127.0.0.1:8083/api/v1/tenants/default/mappings
-curl --noproxy '*' -s http://127.0.0.1:8082/api/tenants/default/sites
+# 直连 kind NodePort（绕过 APISIX；resource/gateway /healthz 不需鉴权）
+curl --noproxy '*' -s http://127.0.0.1:30083/healthz
+curl --noproxy '*' -s http://127.0.0.1:30082/healthz
 ```
 
 Phase 0 无认证，两者 status/body 应一致。
@@ -257,7 +257,7 @@ Phase 0 无认证，两者 status/body 应一致。
 | 响应码 | 含义 |
 |--------|------|
 | 200 | 正常 |
-| 502 | APISIX 正常，但 upstream（8082/8083）未启动 → `make run-all` |
+| 502 | APISIX 正常，但 kind NodePort 未就绪 → `make k8s-apply`；确认 `:30082` / `:30083` |
 | 404 | route 未配置 → `make apisix-init` |
 
 ---
@@ -568,7 +568,7 @@ make apisix-gate0-probe            # grpcurl + grpc-go
 | **Phase 3** | APISIX metrics → Prometheus；access log → Loki | prometheus.yaml |
 | **Phase 4** | K8s APISIX Ingress Controller | K8s manifests |
 
-Phase 0 的 routes YAML 和 init.sh 逻辑可直接复用到 K8s 阶段，upstream 地址从 `host.docker.internal` 改为 K8s Service DNS 即可。
+当前混合拓扑：APISIX 仍在 compose，upstream 已是 kind NodePort（`host.docker.internal:300xx`）。APISIX 自己进集群后，再改成 `resource.vpp.svc.cluster.local:8082` 这类 Service DNS，NodePort 可以拿掉。
 
 ---
 
@@ -579,13 +579,14 @@ Phase 0 的 routes YAML 和 init.sh 逻辑可直接复用到 K8s 阶段，upstre
 | 容器反复 Restart | 挂载整个 conf/ 目录 | 只挂载 `conf/config.yaml` |
 | `empty Admin API` | admin_key 位置错误 | 移到 `deployment.admin.admin_key` |
 | `make apisix-init` 超时 | 代理拦截 / 9180 未映射 | 用 `--noproxy '*'`；确认 9181 监听 |
-| 502 Bad Gateway | 业务服务未启动 | `make run-all` |
+| 502 Bad Gateway | kind NodePort 未通 / 业务 Pod 未 Ready | `kubectl -n vpp get pods,svc`；`curl :30082/healthz` |
 | 404（经 APISIX） | routes 未灌入 | `make apisix-init` |
 | 转发路径不对 | proxy-rewrite `$1` 被 bash 吃掉 | 检查 init.sh 单引号拼接 |
 | etcd 镜像 pull 失败 | bitnami 下架 | 用 `bitnamilegacy/etcd` |
 | 401 经 APISIX `/resource` | 未带 / 无效 Bearer | `make -s casdoor-token`；检查 Casdoor origin 是否 `host.docker.internal` |
+| `400 Request Header Or Cookie Too Large` | admin JWT 仍是默认整包 User | `make casdoor-init`（JWT-Custom）后重新拿 token |
 | 有效 token 仍 401 | JWKS 不可达 / iss 不匹配 | APISIX 容器需能访问 `host.docker.internal:8000`；重启 Casdoor 后重拿 token |
-| 有效 token 502 | Resource 未启动 | `make run-resource` 或 `make run-all` |
+| 有效 token 502 | Resource 未 Ready | `kubectl -n vpp get pods`；`curl :30082/healthz` |
 | 403 经 APISIX `/resource` | 跨租户 path 或角色不够 | 见 [`docs/CASDOOR.md`](CASDOOR.md) §6.1 / §11 |
 | Resource 经 APISIX 仍无应用层鉴权 | `trust-proxy-headers: false` | 改为 `true` 并重启 Resource |
 
@@ -593,6 +594,7 @@ Phase 0 的 routes YAML 和 init.sh 逻辑可直接复用到 K8s 阶段，upstre
 
 ## 13. 相关文档
 
+- [`docs/K8S_DEPLOYMENT.md`](K8S_DEPLOYMENT.md) — 本机 kind 部署、暴露面、rollout / 自愈 / scale
 - [`docs/CASDOOR.md`](CASDOOR.md) — Casdoor IdP + Phase 2 OIDC / Resource RBAC 联调
 - [`internal/gateway/OVERVIEW.md`](../internal/gateway/OVERVIEW.md) — 业务网关职责
 - [`internal/gateway/README.md`](../internal/gateway/README.md) — Gateway HTTP API

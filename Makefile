@@ -8,7 +8,7 @@
 #   make casdoor-up | casdoor-init | casdoor-down | casdoor-status | casdoor-token
 #   make tidy | gen | fmt | lint | test | vet
 #   make docker-build SERVICE=resource
-#   make k8s-apply | k8s-delete
+#   make k8s-apply | k8s-delete | k8s-exposure-check
 #   make clean | clean-logs | clean-telemetry | clean-all
 #
 # ─────────────────────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ help:
 	@echo "    make run-dispatch-secured      Dispatch with trust-proxy-headers=true"
 	@echo "    make run-telemetry-secured     Telemetry with trust-proxy-headers=true"
 	@echo "    make casdoor-up / casdoor-down Start/stop Casdoor IdP"
-	@echo "    make casdoor-init             Ensure casdoor DB + verify seed"
+	@echo "    make casdoor-init             Ensure casdoor DB + verify seed + slim JWT-Custom"
 	@echo "    make casdoor-status           Casdoor port / OIDC discovery"
 	@echo "    make casdoor-token [USER=]    Password Grant access_token"
 	@echo "    make casdoor-token USER=admin DECODE=1   decode JWT claims"
@@ -78,6 +78,7 @@ help:
 	@echo "    make docker-build SERVICE=resource   Build one service image locally (CI debug)"
 	@echo "    make k8s-apply                kubectl apply -k deploy/k8s/base (pulls GHCR :latest)"
 	@echo "    make k8s-delete               kubectl delete -k deploy/k8s/base"
+	@echo "    make k8s-exposure-check       Host :808x/:500x gone; APISIX + NodePort still up"
 
 # ── single-service foreground run ─────────────────────────────────────────────
 
@@ -101,7 +102,7 @@ run-simulator:
 
 .PHONY: infra-up infra-down grafana-fix-perms
 infra-up: grafana-fix-perms
-	docker compose up -d
+	docker compose up -d --remove-orphans
 
 # Grafana image runs as UID 472; host bind-mount must be writable by that user.
 # Also normalize ./data/vpp-logs ownership so host processes (make run-all) can write.
@@ -119,7 +120,8 @@ infra-down:
 apisix-up:
 	$(DOCKER_COMPOSE) -f $(APISIX_COMPOSE) up -d
 	@echo "APISIX starting. HTTP :9080 | gRPC-h2c :9081 | Admin :9181 | Metrics :9091"
-	@echo "Next: make run-all && make apisix-init"
+	@echo "Next: make k8s-apply && make apisix-init  (kind NodePort :30082/:30083/:30003/:30006)"
+	@echo "Host-side make run-* : override GATEWAY_UPSTREAM=host.docker.internal:8083 (and the other three) then make apisix-init"
 	@echo "Gate 0: DISPATCH_AUTH via run-dispatch-secured + make apisix-gate0-probe"
 
 apisix-down:
@@ -148,9 +150,10 @@ apisix-status:
 	check_port apisix-http 9080; \
 	check_port apisix-grpc 9081; \
 	check_port apisix-admin 9181; \
-	check_port gateway-http 8083; \
-	check_port resource-http 8082; \
-	check_port dispatch-grpc 5006; \
+	check_port gateway-np 30083; \
+	check_port resource-np 30082; \
+	check_port telemetry-np 30003; \
+	check_port dispatch-np 30006; \
 	if curl --noproxy '*' -sf http://127.0.0.1:9181/apisix/admin/routes \
 		-H "X-API-KEY: $$(awk '/key:/{print $$2; exit}' deploy/apisix/conf/config.yaml)" >/dev/null 2>&1; then \
 		routes=$$(curl --noproxy '*' -sf http://127.0.0.1:9181/apisix/admin/routes \
@@ -327,12 +330,15 @@ docker-build:
 	esac
 	docker build -f deploy/docker/Dockerfile --build-arg SERVICE=$(SERVICE) -t vpp-$(SERVICE):local .
 
-.PHONY: k8s-apply k8s-delete
+.PHONY: k8s-apply k8s-delete k8s-exposure-check
 k8s-apply:
 	kubectl apply -k deploy/k8s/base
 
 k8s-delete:
 	kubectl delete -k deploy/k8s/base
+
+k8s-exposure-check:
+	@bash scripts/k8s_exposure_check.sh
 
 # Start all services in background. Simulator waits for resource+gateway ports.
 # - setsid: new session so services survive the make/shell process-group cleanup

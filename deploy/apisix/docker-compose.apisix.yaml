@@ -2,11 +2,15 @@
 #
 # Usage (from repo root):
 #   make apisix-up
-#   make run-all          # business services on host :8082 / :8083
+#   make k8s-apply        # kind NodePorts :30082 / :30083 / :30003 / :30006
 #   make apisix-init
 #
-# Upstreams target host.docker.internal so APISIX in Docker can reach
-# Go services started via `make run-*` on the WSL/host.
+# Default upstreams hairpin to kind extraPortMappings:
+#   host.docker.internal:30082 resource HTTP
+#   host.docker.internal:30083 gateway HTTP
+#   host.docker.internal:30003 telemetry gRPC
+#   host.docker.internal:30006 dispatch gRPC
+# Override GATEWAY_UPSTREAM etc. in init.sh for host-side `make run-*`.
 
 services:
   etcd:

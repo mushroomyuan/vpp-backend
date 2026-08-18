@@ -83,7 +83,7 @@ migrations/initdb/60-casdoor-db.sh   # 全新 Postgres volume 时 CREATE DATABAS
 | `build_init_data.py` | 否 | 生成 / 重写 `init_data.json`（换证或改种子结构时用；含 C5 authz Model/Permission） |
 | `init_data.json` | 间接 | 被 Casdoor **空库首次启动**读入并写入 Postgres |
 | `authz_model.conf` | 否 | C5 Casbin Model 源文件；由 `build_init_data.py` 嵌入 Model 种子 |
-| `init.sh` | 仅可能 `CREATE DATABASE` | **不灌业务种子**；等就绪、SQL/API 校验、Password Grant 冒烟 |
+| `init.sh` | 仅可能 `CREATE DATABASE`；并 upsert `vpp-resource` 的 `tokenFormat` | 等就绪、SQL/API 校验、Password Grant 冒烟、把已有库改成 JWT-Custom |
 | `app.conf` | 否 | 告诉 Casdoor 连哪、种子文件在哪、`initDataNewOnly` |
 | `credentials.yaml` | 否 | 文档用凭据清单 |
 
@@ -110,13 +110,13 @@ flowchart LR
 要点：
 
 1. **真正往表里写 org/user/app 的只有 Casdoor 进程**（读 `init_data.json`）。
-2. `initDataNewOnly = true`：库非空则**不再**导入；改种子后要生效 → drop 库再启（见 §7）。
+2. `initDataNewOnly = true`：库非空则**不再**导入 org/user/role。改种子结构通常要 drop 库再启（见 §7）。**例外：** `tokenFormat` / `tokenFields` 由 `make casdoor-init` 经 Admin API 热更新，不必 drop。
 3. `init.sh` 用 built-in `admin/123` 登控制台 API，并核对 `default` / `vpp-resource` / Password Grant。
 
 种子内容摘要：
 
 - Organization `default`（= VPP `tenant_id`）
-- Application `vpp-resource`：`grantTypes` **必须含** `password`（否则 C1 `casdoor-token` 报 `unsupported_grant_type`）
+- Application `vpp-resource`：`grantTypes` **必须含** `password`（否则 C1 `casdoor-token` 报 `unsupported_grant_type`）；`tokenFormat=JWT-Custom`，`tokenFields` 只含 C3 需要的 `Owner/Name/Id/IsAdmin/Roles`（默认 `JWT` 会把全部 Permission 对象打进 access_token，admin JWT ~10KB，APISIX 报 `400 Request Header Or Cookie Too Large`）
 - Cert `cert-vpp`：固定 PEM，避免每次重启 JWKS 漂移
 - Roles：`admin` / `operator` / `viewer`；用户同名绑定
 
@@ -155,7 +155,7 @@ flowchart LR
 
 经 APISIX 联调时请在 [`config/resource.yaml`](../config/resource.yaml) 设 `trust-proxy-headers: true` 并重启 Resource。
 
-K8s 后 Resource 仅 ClusterIP 时，伪造面自然缩小。
+K8s 后旧 `:8082` 已离开 host；集群内是 ClusterIP。compose APISIX 仍经 kind NodePort `:30082` hairpin，从 WSL 直连该口仍绕过 APISIX（见 `discussion/k8s网络拓扑.md` §5）。
 
 ---
 
@@ -246,6 +246,7 @@ curl --noproxy '*' -s \
 ## 7.5 JWT claim 实测格式（C1 门禁 · Casdoor 3.125.0）
 
 实测 Password Grant 签发的 access_token（`alg=RS256`, `kid=cert-vpp`）。  
+应用 `vpp-resource` 使用 **`JWT-Custom`**：payload 里只有 C3 需要的用户字段，**不含** `permissions`（策略由各服务 Syncer 拉 `get-permissions`，不进 JWT）。  
 **`authn/casdoor/userinfo.go` 必须按此结构解析，不要假设 `roles` 是 `string[]`。**
 
 ### Casdoor wire → VPP `Principal`
@@ -317,7 +318,7 @@ operator / viewer 同结构，仅 `name` 为 `operator` / `viewer`。
 | `make casdoor-up` 连不上库 | Postgres 未起 / 无 `casdoor` 库 | `make infra-up`；`make casdoor-db` |
 | 种子校验失败（无 org/app） | 库非空且从未导入；或 init_data 未挂载 | §7.2 drop 重灌；检查 compose volume |
 | `unsupported_grant_type` | Application 未开 Password Grant | 确认 `init_data` 的 `grantTypes` 含 `password` 后重灌 |
-| `make casdoor-token` 空 / unknown user | OS 的 `USER` 被当成 Casdoor 用户 | 用 `make casdoor-token USER=admin`；脚本读 `CASDOOR_USER` |
+| `400 Request Header Or Cookie Too Large`（经 APISIX） | access_token 仍是默认 `JWT`（整包 User + Permission） | `make casdoor-init` 会把 `vpp-resource` 改成 `JWT-Custom`；再重新 `make -s casdoor-token` |
 | OIDC / token 全 401（接 APISIX 后） | JWKS 缓存旧钥；或 DB 被 wipe 后钥变了 | 固定 cert + 重启 APISIX；`make apisix-init` |
 | 有效 token 仍 401 | discovery/JWKS 不可达 | Casdoor `origin` 必须是 `host.docker.internal:8000` |
 | 经 APISIX 200 但直连像没鉴权 | `trust-proxy-headers: false` | 预期（§6）；联调请改为 `true` |
@@ -354,6 +355,7 @@ operator / viewer 同结构，仅 `name` 为 `operator` / `viewer`。
 - [`internal/platform/authz/`](../internal/platform/authz/)（C6 · PermissionChecker / Casbin / Syncer）
 - [`internal/resource/adapter/inbound/http/auth.go`](../internal/resource/adapter/inbound/http/auth.go)（C7 · PEP）
 - [`config/resource.yaml`](../config/resource.yaml) — `auth.trust-proxy-headers` / `auth.authz.*`
+- [`docs/K8S_DEPLOYMENT.md`](K8S_DEPLOYMENT.md) — 本机 kind；Resource 经 APISIX NodePort
 - [`docs/AUTHZ_TEST.md`](AUTHZ_TEST.md)（C5–C7 联调测试）
 
 ---

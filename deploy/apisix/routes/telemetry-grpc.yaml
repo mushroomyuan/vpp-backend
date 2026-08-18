@@ -1,7 +1,8 @@
 # Telemetry gRPC *read* RPCs via APISIX :9081 (reference; applied by init.sh).
 #
-# IngestTelemetry is intentionally omitted — gateway→telemetry stays on
-# 127.0.0.1:5003 with SkipUserAuth (machine path).
+# IngestTelemetry is intentionally omitted — gateway→telemetry stays
+# in-cluster (telemetry.vpp.svc.cluster.local:5003) with SkipUserAuth.
+# Northbound reads hairpin to kind NodePort 30003.
 #
 # Same Path C OIDC as /resource/*; do not proxy-rewrite-remove x-userinfo.
 
@@ -10,7 +11,7 @@ upstream:
   type: roundrobin
   scheme: grpc
   nodes:
-    host.docker.internal:5003: 1
+    host.docker.internal:30003: 1
 
 route:
   name: telemetry-grpc-read
