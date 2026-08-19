@@ -102,9 +102,7 @@ env:
 
 ## 6. 空字符串也会覆盖 YAML
 
-viper 默认把「环境变量存在但值为空」当成未设置。各服务 `loadViperConfig` 已打开 `AllowEmptyEnv(true)`，所以 ConfigMap 里的 `RESOURCE_CONSUL_ADDR: ""` 会盖掉镜像里烤着的 `consul-addr`。
-
-**当前 GHCR `:latest` 还没有这次改动。** 镜像内 YAML 仍是 `127.0.0.1:8500`，空环境变量盖不掉，进程会在注册 Consul 时 fatal。Deployment 里用启动命令把该字段写成空（写到 `/tmp/config.yaml`），等下次镜像构建后可以删掉这段 command。
+viper 默认把「环境变量存在但值为空」当成未设置。各服务 `loadViperConfig` 已打开 `AllowEmptyEnv(true)`，ConfigMap 里写 `SOME_KEY: ""` 会盖掉 YAML 里的同名项。
 
 ## 7. 与本次集成测试改造的关系
 

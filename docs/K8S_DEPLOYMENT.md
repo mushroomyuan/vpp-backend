@@ -191,8 +191,6 @@ git 里的 `replicas: 1` 不会因为这次 scale 自动改回去。下次 `make
 
 集群内互调走 K8s Service DNS；`consul-addr` 默认空，进程不注册。compose 已无 Consul 服务。
 
-当前 GHCR `:latest` 仍烤着 `127.0.0.1:8500`，而且那版 viper **忽略空环境变量**，所以 ConfigMap 里的 `*_CONSUL_ADDR: ""` 盖不掉。四个 Deployment 启动时用 `sed` 把该字段写成空（写到 `/tmp/config.yaml`）。下次镜像带上空 YAML + `AllowEmptyEnv` 之后，这段 `command` 可以删。
-
 `platform/discovery` 的 Consul 封装还在，`run.go` 里 `if ConsulAddr != ""` 仍保留，填地址即可再连。配置中心如果以后要做，是 ConfigMap/Secret（以及现有 env 覆盖），不是把 Consul KV 请回来。
 
 ---

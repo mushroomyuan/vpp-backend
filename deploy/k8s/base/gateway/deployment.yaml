@@ -22,13 +22,7 @@ spec:
         - name: gateway
           image: ghcr.io/mushroomyuan/vpp-backend/gateway:latest
           imagePullPolicy: Always
-          # GHCR :latest still bakes consul-addr: 127.0.0.1:8500; viper on that
-          # image ignores empty *_CONSUL_ADDR. Blank it in /tmp until the next
-          # image build (repo YAML is already empty; then drop this command).
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              sed 's/^  consul-addr:.*/  consul-addr: ""/' /etc/vpp/config.yaml > /tmp/config.yaml && exec /app -c /tmp/config.yaml
+          args: ["-c", "/etc/vpp/config.yaml"]
           ports:
             - name: http
               containerPort: 8083

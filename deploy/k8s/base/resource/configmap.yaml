@@ -3,8 +3,6 @@ kind: ConfigMap
 metadata:
   name: resource-config
 data:
-  # Override GHCR baked yaml (still has 127.0.0.1:8500 until next image build).
-  RESOURCE_CONSUL_ADDR: ""
   RESOURCE_AUTH_AUTHZ_CASDOOR_URL: http://host.docker.internal:8000
   RESOURCE_AUTH_AUTHZ_SNAPSHOT_PATH: /tmp/resource-authz-snapshot.json
   DATABASE_DBNAME: resource

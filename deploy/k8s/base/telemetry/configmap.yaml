@@ -3,8 +3,6 @@ kind: ConfigMap
 metadata:
   name: telemetry-config
 data:
-  # Override GHCR baked yaml (still has 127.0.0.1:8500 until next image build).
-  TELEMETRY_CONSUL_ADDR: ""
   TELEMETRY_AUTH_AUTHZ_CASDOOR_URL: http://host.docker.internal:8000
   TELEMETRY_AUTH_AUTHZ_SNAPSHOT_PATH: /tmp/telemetry-authz-snapshot.json
   TIMESCALEDB_DBNAME: telemetry
