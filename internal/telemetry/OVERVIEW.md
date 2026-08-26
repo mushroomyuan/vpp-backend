@@ -94,7 +94,7 @@ flowchart LR
     Sim[Simulator] -->|遥测| GW[Gateway]
     EMS[EMS] -->|遥测| GW
     GW -->|IngestTelemetry| Tel[Telemetry]
-    Tel -.->|soe.events| Alert[告警等]
+    Tel -.->|soe.events| Alarm[vpp-alarm]
     Admin[管理端] -->|查询| Tel
 ```
 
@@ -103,4 +103,4 @@ flowchart LR
 | **Gateway** | 唯一常规写入方；完成外部→`CUCode` 后再 Ingest |
 | **Resource** | 不直连；身份约定共享 `CUCode` |
 | **Dispatch / Simulator** | 不写本服务；控制闭环靠 Telemetry 数据间接体现 |
-| **告警等** | 可消费 `vpp.soe.events`（平台侧消费者可按需接入） |
+| **Alarm** | 消费全部离散量变位；open 期间按测点合单 |

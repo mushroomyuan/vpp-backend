@@ -1,5 +1,5 @@
-# Parameterized Dockerfile shared by all 5 services (resource, telemetry,
-# gateway, dispatch, simulator). Build context MUST be the repo root: the
+# Parameterized Dockerfile shared by all 6 services (resource, telemetry,
+# gateway, dispatch, simulator, alarm). Build context MUST be the repo root: the
 # multi-module monorepo's `replace` directives point at ../../platform and
 # ../../api/*/proto/gen, which live outside any single internal/<service> dir.
 #
@@ -12,7 +12,7 @@ ARG SERVICE
 WORKDIR /src
 COPY . .
 WORKDIR /src/internal/${SERVICE}
-# No CGO deps in any of the 6 modules (Kafka client is pure-Go segmentio/kafka-go),
+# No CGO deps in any of the 7 modules (Kafka client is pure-Go segmentio/kafka-go),
 # so a static binary works and doesn't need a glibc/musl runtime match.
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/app ./cmd
 

@@ -63,10 +63,10 @@ func NewEventPublisher(cfg Config) *EventPublisher {
 	return p
 }
 
-// soePayload is the JSON-serialisable envelope sent to Kafka.
-// Using a dedicated struct (rather than marshalling model.SOEEvent directly)
-// decouples the wire format from the domain model so either can evolve
-// independently.
+// soePayload is the JSON body sent to Kafka. Tags must stay identical to
+// platform/event/telemetry.SOEPayload (the consumer-side contract). The
+// producer still marshals this local type so the wire format cannot drift
+// from a platform change without an explicit edit here.
 type soePayload struct {
 	TenantID   string    `json:"tenant_id"`
 	CUCode     string    `json:"cu_code"`

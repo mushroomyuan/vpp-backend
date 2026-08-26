@@ -71,8 +71,9 @@ Logging → Metrics → Tracing → 业务 Handler
 | `event/resource` | `vpp.resource.events` | CU/资源生命周期、导入完成等 |
 | `event/gateway` | `vpp.command.events` | `command.completed` |
 | `event/dispatch` | `vpp.dispatch.events` | task started / completed / failed |
+| `event/telemetry` | `vpp.soe.events` | 离散量变位（flat `SOEPayload`，无 Envelope） |
 
-通用包装：`event.Envelope[T]`（`event_id` / `event_type` / `version` / `tenant_id` / `occurred_at` / `payload`）。
+通用包装：`event.Envelope[T]`（`event_id` / `event_type` / `version` / `tenant_id` / `occurred_at` / `payload`）。**例外：** SOE 在 v1 仍是 telemetry 生产者发出的扁平 JSON，消费者直接解 `SOEPayload`，不要自行套 Envelope。
 
 ### 7. 标识与杂项
 

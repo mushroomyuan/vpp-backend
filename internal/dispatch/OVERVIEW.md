@@ -111,11 +111,11 @@ flowchart LR
     Admin[管理端] -->|gRPC| Dis[Dispatch]
     Dis -->|ExecuteCommand| GW[Gateway]
     GW -.->|command.completed| Dis
-    Dis -.->|dispatch.events| Obs[告警 / 监控]
+    Dis -.->|task.failed| Alarm[vpp-alarm]
 ```
 
 | 服务 | 关系 |
 |------|------|
 | **Gateway** | 唯一出站控制通道；受理走 gRPC，成功终态走 Kafka |
 | **Resource / Telemetry / Simulator** | 不直连；设备与映射由 Gateway 侧消化 |
-| **告警等** | 可选消费 `vpp.dispatch.events`（任务起止） |
+| **Alarm** | 消费 `task.failed` 开单；不消费 started / completed |

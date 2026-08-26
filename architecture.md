@@ -68,6 +68,14 @@ flowchart TB
 
     end
 
+    subgraph Alarm["vpp-alarm"]
+
+        A_HTTP["HTTP :8087<br/>List / Ack / Close"]
+
+        A_APP["规则 + 去重 + 原子 upsert"]
+
+    end
+
     PG -->|resource 库| Resource
 
     PG -->|telemetry 库| Telemetry
@@ -75,6 +83,8 @@ flowchart TB
     PG -->|gateway 库| Gateway
 
     PG -->|dispatch 库| Dispatch
+
+    PG -->|alarm 库| Alarm
 
     Redis -->|db=0 运行时缓存| Resource
 
@@ -124,6 +134,14 @@ flowchart TB
 
     D_APP -->|produce<br/>topic: vpp.dispatch.events| Kafka
 
+    Kafka -->|consume: task.failed| A_APP
+
+    Kafka -->|consume: vpp.soe.events| A_APP
+
+    A_HTTP --> A_APP
+
+    Admin -->|REST 直连 :8087<br/>APISIX /alarm 未接| A_HTTP
+
     Resource --- Jaeger
 
     Telemetry --- Jaeger
@@ -139,6 +157,10 @@ flowchart TB
     Gateway --- Prom
 
     Dispatch --- Prom
+
+    Alarm --- Jaeger
+
+    Alarm --- Prom
 
 ```
 
@@ -163,8 +185,10 @@ flowchart TB
 | gateway   | Kafka                    | 消费           | ✅ **v2 已通** | 订阅 resource 事件，自动 disable mapping             |
 | gateway   | Kafka                    | 生产           | ✅ **v2 已通** | 命令终态 → `vpp.command.events`（供 dispatch 消费）   |
 | dispatch  | Kafka                    | 消费           | ✅ **v2 已通** | 订阅 `command.completed`，推进 Task 状态机            |
-| dispatch  | Kafka                    | 生产           | ✅ **v2 已通** | 任务生命周期 → `vpp.dispatch.events`（下游告警可选）       |
-| **任意**    | Kafka SOE                | 消费           | ❌ 未实现       | 尚无服务消费 `vpp.soe.events`                       |
+| dispatch  | Kafka                    | 生产           | ✅ **v2 已通** | 任务生命周期 → `vpp.dispatch.events`（alarm 消费 `task.failed`） |
+| alarm     | Kafka                    | 消费           | ✅ **已通**    | `vpp.dispatch.events`（仅 `task.failed`）+ `vpp.soe.events` |
+| 管理端       | alarm                    | HTTP `:8087` | ✅ **已通**    | List / Get / Ack / Close；路径含 `tenant_id`；**无 APISIX 北向** |
+| **任意**    | Kafka SOE                | 消费           | ✅ **alarm**   | `vpp-alarm` 消费全部离散量变位；其它服务仍不消费 |
 
 
 ```mermaid
@@ -187,17 +211,21 @@ flowchart LR
 
         K3 -->|consume<br/>CommandResultConsumer| D2[dispatch<br/>推进状态机]
 
+        K1 -->|consume| A1[alarm]
+
+        D1 -->|produce task.failed| K5["vpp.dispatch.events"]
+
+        K5 -->|consume| A1
+
     end
 
     subgraph Future["❌ 尚未实现 / 部分未做"]
 
-        K4["vpp.soe.events"] -.->|consume| Alert[告警 / 其他消费者]
-
-        K5["vpp.dispatch.events"] -.->|consume| Alert2[告警服务]
-
         OnboardingUI["Onboarding 向导 (管理 UI)"] -.->|同时调用 CreateCU + CreateMapping| Both["resource + gateway"]
 
         RealEMS["真实 EMS 适配器"] -.->|替换 ems_log| G4[gateway]
+
+        AlarmAPI["APISIX /alarm/*"] -.->|OIDC 北向| A2[alarm HTTP]
 
     end
 
@@ -260,6 +288,7 @@ proto 注释：
 | telemetry | 时序数据存储，快照，SOE | 资产业务语义，设备路由 |
 | dispatch | 控制任务编排 (Task/Action/Command)，顺控/并发，超时重试，FailFast 熔断 | 协议转换，CU→外部 ID 映射，与外部系统直连 |
 | **simulator** | 虚拟设备运行时：Tick 演化、遥测上报、命令执行、故障注入 | 资源权威、协议转换、调度决策 |
+| **alarm** | 消费 `task.failed` + SOE，规则开单/合单，租户内查询 / ack / close | 全量审计、命令/资源生命周期、规则 DSL、自动恢复、APISIX 北向 |
 
 ### 3.6 Dispatch ↔ Gateway 协作约定
 
@@ -273,6 +302,12 @@ Gateway 负责：发给谁、怎么发、结果何时回调
 - 关联键：`CommandID`（Dispatch 分配的 UUID v7）
 
 详情见 [`internal/dispatch/README.md`](internal/dispatch/README.md)。
+
+### 3.7 Alarm 约定
+
+- 人管面 **纯 HTTP `:8087`**，无 gRPC / proto；v1 **不挂** APISIX `/alarm/*`（管理端直连或 `kubectl port-forward svc/alarm`）
+- **Fingerprint** 只决定和哪条 **open** 告警聚合；**`alarm_event_dedup`** 只负责 Kafka 精确一次。二者不要混用
+- Fingerprint / SOE `event_id` 是落库后不可默默改的哈希契约，见 [`internal/alarm/README.md`](internal/alarm/README.md)
 
 ---
 
@@ -291,6 +326,12 @@ Gateway 负责：发给谁、怎么发、结果何时回调
 │  │ 资源树/节点  │ │ 时序超表    │ │ mappings   │ │ tasks/actions/cmds │     │
 
 │  └────────────┘ └────────────┘ └────────────┘ └────────────────────┘     │
+
+│  ┌────────────┐                                                          │
+
+│  │ alarm 库    │  alarms + alarm_event_dedup（独立库，不出站查其它业务库） │
+
+│  └────────────┘                                                          │
 
 └──────────────────────────────────────────────────────────────────────────┘
 
@@ -312,9 +353,9 @@ Gateway 负责：发给谁、怎么发、结果何时回调
 
 │  vpp.command.events   — gateway 生产 / dispatch 消费（命令终态回调）         │
 
-│  vpp.dispatch.events  — dispatch 生产（任务生命周期，告警可选消费）           │
+│  vpp.dispatch.events  — dispatch 生产 / alarm 消费（仅 task.failed）         │
 
-│  vpp.soe.events       — telemetry 生产（尚无消费者）                        │
+│  vpp.soe.events       — telemetry 生产 / alarm 消费（全部离散量变位）         │
 
 └──────────────────────────────────────────────────────────────────────────┘
 
@@ -385,6 +426,19 @@ Casdoor :8000 签发 JWT；APISIX 验签（详见 docs/CASDOOR.md、docs/APISIX.
 
 ```
 
+**告警 ingest（已跑通）：**
+
+```
+
+telemetry ──Kafka vpp.soe.events──────────────────────────┐
+                                                           ├──▶ alarm ──规则 / 去重 / 原子 upsert──▶ Postgres (alarm 库)
+dispatch  ──Kafka vpp.dispatch.events (仅 task.failed)────┘
+
+管理端 ──HTTP :8087──▶ alarm  List / Get / Ack / Close
+（APISIX /alarm/* 未接；kind：kubectl -n vpp port-forward svc/alarm 8087:8087）
+
+```
+
 ---
 
 ## 六、服务端口一览
@@ -398,9 +452,10 @@ Casdoor :8000 签发 JWT；APISIX 验签（详见 docs/CASDOOR.md、docs/APISIX.
 | gateway | `:5005` | `:8083` | `:9104` |
 | **dispatch** | **`:5006`** | — | **`:9105`** |
 | **simulator** | — | **`:8084`** | **`:9106`** |
+| **alarm** | — | **`:8087`**（直连；无 APISIX） | **`:9107`** |
 
-北向鉴权：管理端 → `:9080/resource/*`（Casdoor OIDC）；EMS → `:9080/gateway/*`（`key-auth`）。详见 [`docs/CASDOOR.md`](docs/CASDOOR.md)、[`docs/APISIX.md`](docs/APISIX.md)。本机 kind 部署见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md)。
+北向鉴权：管理端 → `:9080/resource/*`（Casdoor OIDC）；EMS → `:9080/gateway/*`（`key-auth`）。alarm 人管面 v1 不经 APISIX。详见 [`docs/CASDOOR.md`](docs/CASDOOR.md)、[`docs/APISIX.md`](docs/APISIX.md)。本机 kind 部署见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md)。
 
 ---
 
-**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。后续重点：真实外部系统适配、`CancelTask`、告警消费 `vpp.dispatch.events` / SOE、Simulator Scenario Engine、APISIX metrics（Phase 3）。
+**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`）与 `vpp.soe.events`，人管面直连 HTTP `:8087`。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。后续重点：真实外部系统适配、`CancelTask`、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。

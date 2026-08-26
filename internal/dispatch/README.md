@@ -5,7 +5,7 @@ VPP 平台的**调度执行服务**。负责将上层下发的控制意图编排
 - **入站 gRPC**：管理端 / 算法侧提交调度任务、查询任务状态
 - **出站 gRPC**：调用 `vpp-gateway.ExecuteCommand` 下发控制指令
 - **入站 Kafka**：消费 `vpp.command.events`，驱动异步 continuation
-- **出站 Kafka**：发布任务生命周期事件到 `vpp.dispatch.events`（告警/监控可选消费）
+- **出站 Kafka**：发布任务生命周期事件到 `vpp.dispatch.events`（`vpp-alarm` 消费 `task.failed`）
 
 本服务**不负责**：协议转换、CUCode → ExternalID 映射、与 EMS 直连（均属 gateway）。
 

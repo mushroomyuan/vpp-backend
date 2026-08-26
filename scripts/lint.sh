@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
-MODULES=(platform resource telemetry gateway dispatch simulator)
+MODULES=(platform resource telemetry gateway dispatch simulator alarm)
 
 log() {
   printf '[lint] %s\n' "$*"

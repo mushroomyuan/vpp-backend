@@ -24,6 +24,7 @@ resources:
   - gateway
   - dispatch
   - simulator
+  - alarm
 
 patches:
   - path: host-aliases-patch.yaml

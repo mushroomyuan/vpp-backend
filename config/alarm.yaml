@@ -1,0 +1,59 @@
+tracing:
+  endpoint: 127.0.0.1:4318
+  insecure: true
+
+alarm:
+  service-name: alarm
+  http-addr: 127.0.0.1:8087
+  metrics-addr: 127.0.0.1:9107
+
+  # When true: require X-Userinfo + Casbin (Path C). APISIX /alarm/* is later.
+  # When false: auth bypass for local direct :8087 debugging.
+  auth:
+    trust-proxy-headers: false
+    authz:
+      casdoor-url: http://127.0.0.1:8000
+      casdoor-organization: built-in
+      casdoor-application: app-built-in
+      casdoor-username: admin
+      casdoor-password: "123"
+      owner: default
+      model-filter: default/vpp-rbac
+      snapshot-path: ./data/alarm-authz-snapshot.json
+      sync-interval: 30s
+      healthy-after: 5m
+      stale-after: 30m
+      allow-read-when-invalid: false
+
+  rules:
+    dispatch-task-failed:
+      enabled: true
+      severity: critical
+    soe-discrete-change:
+      enabled: true
+      severity: warning
+      # Empty = all SOE metric names.
+      metric-names: []
+
+database:
+  driver: postgres
+  host: 127.0.0.1
+  port: 5432
+  user: postgres
+  password: postgres123
+  dbname: alarm
+  params:
+    sslmode: disable
+    TimeZone: Asia/Shanghai
+  max-open-conns: 20
+  max-idle-conns: 5
+  conn-max-lifetime-seconds: 1800
+  conn-max-idle-time-seconds: 300
+
+kafka:
+  brokers:
+    - "127.0.0.1:9092"
+  dispatch-topic: vpp.dispatch.events
+  soe-topic: vpp.soe.events
+  dispatch-group-id: vpp-alarm-dispatch-events
+  soe-group-id: vpp-alarm-soe-events

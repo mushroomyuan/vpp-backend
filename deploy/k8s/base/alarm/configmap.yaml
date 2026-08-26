@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alarm-config
+data:
+  ALARM_AUTH_AUTHZ_CASDOOR_URL: http://host.docker.internal:8000
+  ALARM_AUTH_AUTHZ_SNAPSHOT_PATH: /tmp/alarm-authz-snapshot.json
+  DATABASE_DBNAME: alarm

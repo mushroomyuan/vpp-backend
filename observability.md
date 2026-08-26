@@ -142,6 +142,7 @@ make run-all             # 业务日志落到 ./data/vpp-logs/<service>.log
 | gateway | `127.0.0.1:9104` | `127.0.0.1:4318` | `config/gateway.yaml` |
 | dispatch | `127.0.0.1:9105` | `127.0.0.1:4318` | `config/dispatch.yaml` |
 | simulator | `127.0.0.1:9106` | `127.0.0.1:4318` | `config/simulator.yaml` |
+| alarm | `127.0.0.1:9107` | `127.0.0.1:4318` | `config/alarm.yaml` |
 
 服务跑在 **宿主机**，观测组件跑在 **Docker**；Prometheus 通过 `host.docker.internal` 回刮宿主机 `/metrics`；Alloy 通过挂载 `./data/vpp-logs` 采日志。
 

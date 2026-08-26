@@ -1,4 +1,4 @@
-# kind 单节点集群：本机学习 + 后续部署 5 个无状态服务。
+# kind 单节点集群：本机学习 + 后续部署无状态服务。
 #
 # 创建：kind create cluster --config deploy/k8s/kind-cluster.yaml
 # 销毁：kind delete cluster --name vpp
@@ -20,6 +20,8 @@
 #   30003  telemetry gRPC
 #   30006  dispatch gRPC
 # simulator 只被集群内 gateway 调用，不映射到 host。
+# alarm 是 ClusterIP；联调：kubectl -n vpp port-forward svc/alarm 8087:8087
+# v1 不新增 extraPortMappings / APISIX /alarm/*。
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: vpp
