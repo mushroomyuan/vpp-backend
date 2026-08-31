@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	dispatchpb "github.com/mushroomyuan/vpp-backend/api/dispatch/proto/gen"
 	"github.com/mushroomyuan/vpp-backend/dispatch/application/command"
 	"github.com/mushroomyuan/vpp-backend/dispatch/application/query"
@@ -55,10 +52,17 @@ func (s *Server) GetTask(
 }
 
 func (s *Server) CancelTask(
-	context.Context,
-	*dispatchpb.CancelTaskRequest,
+	ctx context.Context,
+	req *dispatchpb.CancelTaskRequest,
 ) (*dispatchpb.CancelTaskResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "CancelTask is not implemented in v1")
+	_, err := s.cancelTask.Handle(ctx, command.CancelTask{
+		TenantID: req.GetTenantID(),
+		TaskID:   req.GetTaskID(),
+	})
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+	return &dispatchpb.CancelTaskResponse{Success: true}, nil
 }
 
 func mapActionSpecs(specs []*dispatchpb.ActionSpec) ([]command.SubmitActionDTO, error) {

@@ -53,7 +53,8 @@ func (a *DispatchAction) Fail() error {
 }
 
 // Cancel transitions a Pending or Running action to Cancelled.
-// Used by the circuit-breaker in Dispatcher when a preceding action fails.
+// Used by the circuit-breaker in Dispatcher when a preceding action fails,
+// and by Dispatcher.Cancel when a task is cancelled externally.
 func (a *DispatchAction) Cancel() error {
 	if a.Status != ActionStatusPending && a.Status != ActionStatusRunning {
 		return fmt.Errorf("dispatch: action %s cannot be cancelled from %q", a.ID, a.Status)

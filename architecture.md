@@ -173,7 +173,7 @@ flowchart TB
 | EMS       | gateway（经 APISIX）     | HTTP `:9080/gateway` | ✅ 已通 | `X-API-KEY`；也可直连 `:8083` 本地调试 |
 | 管理端       | resource（经 APISIX）    | HTTP `:9080/resource` | ✅ 已通 | Casdoor JWT + OIDC；直连 `:8082` 可关应用鉴权 |
 | gateway   | telemetry                | gRPC `:5003` | ✅ 已通        | `IngestTelemetry`，配置写死在 `gateway.yaml`        |
-| 管理端 / 算法  | dispatch                 | gRPC `:5006` | ✅ **v2 已通** | `SubmitTask` / `GetTask`（`CancelTask` 未实现）   |
+| 管理端 / 算法  | dispatch                 | gRPC `:5006` | ✅ **v2 已通** | `SubmitTask` / `GetTask` / `CancelTask`（三个 RPC 均已实现）   |
 | dispatch  | gateway                  | gRPC `:5005` | ✅ **v2 已通** | `ExecuteCommand`（CommandID / PointKey / oneof Value） |
 | gateway   | 外部系统 / Simulator     | HTTP         | ✅ **simulator 已通** | `ExternalSystem=simulator` → Simulator；其它 → `ems_log`；成功后发 Kafka 回调 |
 | simulator | gateway                  | HTTP `:9080/gateway` 或 `:8083` | ✅ **新增**    | 遥测 `telemetry:ingest`（经 APISIX 需 api-key） |
@@ -458,4 +458,4 @@ dispatch  ──Kafka vpp.dispatch.events (仅 task.failed)────┘
 
 ---
 
-**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`）与 `vpp.soe.events`，人管面直连 HTTP `:8087`。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。后续重点：真实外部系统适配、`CancelTask`、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。
+**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`）与 `vpp.soe.events`，人管面直连 HTTP `:8087`。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。**`CancelTask` 已实现**：非终态 Action/Pending Command 置 Cancelled，`Sending` 中的 Command 不强制撤回（无 Gateway 侧撤回 RPC），其迟到回调由 `task.IsFinished()` 幂等守卫吞掉；发布 `task.cancelled` 事件。后续重点：真实外部系统适配、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。

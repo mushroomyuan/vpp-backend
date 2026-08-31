@@ -18,6 +18,8 @@ func toGRPCError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrCommandNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, domain.ErrTaskAlreadyDone):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		msg := err.Error()
 		lower := strings.ToLower(msg)

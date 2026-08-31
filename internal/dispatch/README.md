@@ -54,13 +54,14 @@ VPP 平台的**调度执行服务**。负责将上层下发的控制意图编排
 │                     Inbound Adapters                         │
 │   adapter/inbound/grpc/          adapter/inbound/kafka/      │
 │   · SubmitTask · GetTask         · CommandResultConsumer     │
-│   · CancelTask (Unimplemented)     (vpp.command.events)      │
+│   · CancelTask                     (vpp.command.events)      │
 └────────────────────────────┬────────────────────────────────┘
                              │ Command / Query
 ┌────────────────────────────▼────────────────────────────────┐
 │                      Application Layer                       │
 │  Commands                          Queries                   │
 │  · SubmitTask                      · GetTask                 │
+│  · CancelTask                                                │
 │  · HandleCommandResult                                       │
 │  · TimeoutScanner (goroutine)                                │
 │  port: GatewayPort（集成语义，非 domain）                      │
@@ -199,7 +200,7 @@ proto：`api/dispatch/proto/dispatch.proto`
 |---|---|---|
 | `SubmitTask` | 创建任务并同步下发第一批命令 | ✅ |
 | `GetTask` | 按 TenantID + TaskID 查询完整快照 | ✅ |
-| `CancelTask` | 取消任务 | ❌ Unimplemented |
+| `CancelTask` | 取消任务 | ✅ |
 
 字段命名与仓库其他服务一致，采用 **PascalCase**（如 `TenantID`、`CUCode`）。
 
@@ -226,6 +227,22 @@ SubmitTaskResponse
 #### GetTask（摘要）
 
 返回 Task 状态、`FailurePolicy`，以及嵌套的 Action / Command 状态（含失败时的 `ErrorCode` / `ErrorMessage`）。
+
+#### CancelTask（摘要）
+
+```text
+CancelTaskRequest
+  TenantID, TaskID
+
+CancelTaskResponse
+  Success
+```
+
+行为：
+
+- Task 已处于终态（Completed/Failed/Cancelled）→ 返回 `FailedPrecondition`（`domain.ErrTaskAlreadyDone`）。
+- 否则：所有非终态 Action 及其 Pending Command 置 `Cancelled`，Task 置 `Cancelled`，发布 `PublishTaskCancelled`（`vpp.dispatch.events` / `task.cancelled`）。
+- 已处于 `Sending` 的 Command **不会**被强制取消——Gateway 没有撤回指令的 RPC，设备侧动作可能已发生。它保持 `Sending`，等待自己的异步结果或超时；`HandleCommandResult` / `TimeoutScanner` 在处理回调前会先判断 `task.IsFinished()`，若任务已被取消则直接丢弃该回调（no-op），不会试图在已终结的任务上继续推进状态机。
 
 ---
 
@@ -464,7 +481,7 @@ docker exec vpp-backend-postgres-1 psql -U postgres -d dispatch \
 
 ### 已知未做 / 后续
 
-- `CancelTask` 业务实现
 - 真实 EMS 适配器（替换 `ems_log`）与真正异步设备回执
 - 多 Action 顺控、Parallel、超时重试、熔断路径的专项用例
-- 告警服务消费 `vpp.dispatch.events`
+
+`CancelTask` 业务实现（✅ 已完成）与告警服务消费 `vpp.dispatch.events`（✅ `internal/alarm` 已完成）已从本列表移除。

@@ -68,8 +68,9 @@ const (
 	ActionStatusRunning   ActionStatus = "running"
 	ActionStatusCompleted ActionStatus = "completed"
 	ActionStatusFailed    ActionStatus = "failed"
-	// ActionStatusCancelled is set by the circuit-breaker when a preceding Action
-	// fails: all subsequent Pending Actions are cancelled without executing.
+	// ActionStatusCancelled is set either by the circuit-breaker (a preceding
+	// Action failed: all subsequent Pending Actions are cancelled without
+	// executing) or by an externally requested CancelTask.
 	ActionStatusCancelled ActionStatus = "cancelled"
 )
 
@@ -84,7 +85,10 @@ const (
 	// CommandStatusTimeout means the Gateway did not respond within the deadline.
 	// It is not a terminal state: if CanRetry() is true, the command is reset to Pending.
 	CommandStatusTimeout CommandStatus = "timeout"
-	// CommandStatusCancelled is set by the circuit-breaker on Pending commands that
-	// were never dispatched because an earlier command or action failed.
+	// CommandStatusCancelled is set on Pending commands that were never
+	// dispatched — either because an earlier command/action failed
+	// (circuit-breaker) or because the task was cancelled externally
+	// (CancelTask). Commands already Sending are never force-cancelled; see
+	// Dispatcher.Cancel.
 	CommandStatusCancelled CommandStatus = "cancelled"
 )

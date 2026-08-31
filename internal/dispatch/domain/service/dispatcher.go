@@ -138,6 +138,51 @@ func (d *Dispatcher) OnCommandTimeout(
 	return d.applyCircuitBreaker(task, action, outcome)
 }
 
+// Cancel processes an externally requested cancellation of the task (e.g. the
+// CancelTask RPC). It is the "graceful" counterpart to applyCircuitBreaker:
+// instead of marking everything Failed after an error, it marks every
+// non-terminal Action Cancelled (via CancelPendingCommands + Action.Cancel)
+// and finally the Task itself.
+//
+// Commands already Sending are left untouched — Dispatch has no RPC to recall
+// a command already delivered to Gateway, so its eventual async result (or
+// timeout) must still be handled by the caller. The Application layer treats
+// that as a no-op once the owning Task is terminal (see the task.IsFinished
+// guards in HandleCommandResult / TimeoutScanner), which keeps this method
+// safe to call concurrently with an in-flight command's callback.
+//
+// Returns domain.ErrTaskAlreadyDone if the task has already reached a
+// terminal state (Completed, Failed, or Cancelled).
+func (d *Dispatcher) Cancel(task *model.DispatchTask) (*CommandResultOutcome, error) {
+	if task.IsFinished() {
+		return nil, domain.ErrTaskAlreadyDone
+	}
+
+	outcome := &CommandResultOutcome{}
+	for _, a := range task.Actions {
+		if a.Status != model.ActionStatusPending && a.Status != model.ActionStatusRunning {
+			continue
+		}
+		a.CancelPendingCommands()
+		for _, cmd := range a.Commands {
+			if cmd.Status == model.CommandStatusCancelled {
+				outcome.ChangedCommands = append(outcome.ChangedCommands, cmd)
+			}
+		}
+		if err := a.Cancel(); err != nil {
+			return nil, fmt.Errorf("dispatch: cancel action %s: %w", a.ID, err)
+		}
+		outcome.ChangedActions = append(outcome.ChangedActions, a)
+	}
+
+	if err := task.Cancel(); err != nil {
+		return nil, fmt.Errorf("dispatch: cancel task %s: %w", task.ID, err)
+	}
+	outcome.TaskChanged = true
+	outcome.TaskFinished = true
+	return outcome, nil
+}
+
 // advanceAfterSuccess is called when a command succeeds. It drives the
 // sequential continuation and action/task completion logic.
 func (d *Dispatcher) advanceAfterSuccess(

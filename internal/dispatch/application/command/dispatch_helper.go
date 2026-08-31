@@ -75,6 +75,10 @@ func (h *dispatchHelper) persistOutcome(
 			if err := h.publisher.PublishTaskFailed(ctx, task); err != nil {
 				return fmt.Errorf("publish task failed: %w", err)
 			}
+		case model.TaskStatusCancelled:
+			if err := h.publisher.PublishTaskCancelled(ctx, task); err != nil {
+				return fmt.Errorf("publish task cancelled: %w", err)
+			}
 		}
 	}
 	return nil

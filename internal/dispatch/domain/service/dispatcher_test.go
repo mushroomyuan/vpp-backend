@@ -239,6 +239,79 @@ func TestDispatcher_ParallelPartialSuccess(t *testing.T) {
 	}
 }
 
+func TestDispatcher_Cancel(t *testing.T) {
+	t.Parallel()
+	d := NewDispatcher()
+
+	t.Run("cancels pending commands and in-flight action, leaves Sending alone", func(t *testing.T) {
+		t.Parallel()
+		task := runningSequentialTask("c1", "c2")
+		task.Actions[0].Commands[0].Status = model.CommandStatusSending // c1 in-flight
+
+		out, err := d.Cancel(task)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if task.Status != model.TaskStatusCancelled || !out.TaskFinished || !out.TaskChanged {
+			t.Fatalf("task=%s finished=%v changed=%v", task.Status, out.TaskFinished, out.TaskChanged)
+		}
+		if task.Actions[0].Status != model.ActionStatusCancelled {
+			t.Fatalf("action=%s", task.Actions[0].Status)
+		}
+		if task.Actions[0].Commands[0].Status != model.CommandStatusSending {
+			t.Fatalf("c1 should remain Sending, got %s", task.Actions[0].Commands[0].Status)
+		}
+		if task.Actions[0].Commands[1].Status != model.CommandStatusCancelled {
+			t.Fatalf("c2 should be Cancelled, got %s", task.Actions[0].Commands[1].Status)
+		}
+	})
+
+	t.Run("cancels the running action and subsequent pending actions", func(t *testing.T) {
+		t.Parallel()
+		a1 := &model.DispatchAction{
+			ID: "a1", Sequence: 1, Status: model.ActionStatusRunning,
+			ExecutionPolicy: model.Sequential,
+			Commands:        []*model.ControlCommand{validCmd("c1")},
+		}
+		a1.Commands[0].Status = model.CommandStatusSending
+		a2 := &model.DispatchAction{
+			ID: "a2", Sequence: 2, Status: model.ActionStatusPending,
+			ExecutionPolicy: model.Sequential,
+			Commands:        []*model.ControlCommand{validCmd("c2")},
+		}
+		task := &model.DispatchTask{
+			ID: "t1", TenantID: "ten", Name: "n", Status: model.TaskStatusRunning,
+			Actions: []*model.DispatchAction{a1, a2},
+		}
+
+		out, err := d.Cancel(task)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if a1.Status != model.ActionStatusCancelled || a2.Status != model.ActionStatusCancelled {
+			t.Fatalf("a1=%s a2=%s", a1.Status, a2.Status)
+		}
+		if a1.Commands[0].Status != model.CommandStatusSending {
+			t.Fatalf("c1 should remain Sending, got %s", a1.Commands[0].Status)
+		}
+		if a2.Commands[0].Status != model.CommandStatusCancelled {
+			t.Fatalf("c2 should be Cancelled, got %s", a2.Commands[0].Status)
+		}
+		if len(out.ChangedActions) != 2 {
+			t.Fatalf("changed actions = %+v", out.ChangedActions)
+		}
+	})
+
+	t.Run("rejects an already-terminal task", func(t *testing.T) {
+		t.Parallel()
+		task := runningSequentialTask("c1")
+		task.Status = model.TaskStatusCompleted
+		if _, err := d.Cancel(task); !errors.Is(err, domain.ErrTaskAlreadyDone) {
+			t.Fatalf("want ErrTaskAlreadyDone, got %v", err)
+		}
+	})
+}
+
 func validCmd(id string) *model.ControlCommand {
 	return &model.ControlCommand{
 		ID: id, TenantID: "ten", CUCode: "cu", PointKey: "set_power",

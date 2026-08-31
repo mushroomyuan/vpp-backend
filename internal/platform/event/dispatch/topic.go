@@ -12,4 +12,5 @@ const (
 	TypeTaskStarted   = "task.started"
 	TypeTaskCompleted = "task.completed"
 	TypeTaskFailed    = "task.failed"
+	TypeTaskCancelled = "task.cancelled"
 )

@@ -21,6 +21,7 @@ type Application struct {
 
 type Commands struct {
 	SubmitTask          command.SubmitTaskHandler
+	CancelTask          command.CancelTaskHandler
 	HandleCommandResult command.HandleCommandResultHandler
 }
 
@@ -87,6 +88,15 @@ func NewApplication(deps Dependencies) Application {
 				validator,
 				deps.DefaultCommandTimeout,
 				deps.DefaultMaxRetries,
+				deps.Metrics,
+			),
+			CancelTask: command.NewCancelTaskHandler(
+				deps.TaskRepo,
+				deps.ActionRepo,
+				deps.CommandRepo,
+				deps.Gateway,
+				deps.Publisher,
+				dispatcher,
 				deps.Metrics,
 			),
 			HandleCommandResult: command.NewHandleCommandResultHandler(

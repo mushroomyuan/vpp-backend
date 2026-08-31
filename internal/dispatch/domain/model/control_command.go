@@ -105,7 +105,8 @@ func (c *ControlCommand) ResetForRetry() error {
 }
 
 // Cancel transitions a Pending command to Cancelled.
-// Used exclusively by the circuit-breaker path in Dispatcher.
+// Used by the circuit-breaker path (applyCircuitBreaker) and by an externally
+// requested cancellation (Dispatcher.Cancel) in the Dispatcher service.
 func (c *ControlCommand) Cancel() error {
 	if c.Status != CommandStatusPending {
 		return fmt.Errorf("dispatch: command %s cannot be cancelled from %q", c.ID, c.Status)

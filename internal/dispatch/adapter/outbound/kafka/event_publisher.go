@@ -71,6 +71,10 @@ func (p *EventPublisher) PublishTaskFailed(ctx context.Context, task *model.Disp
 	return p.publish(ctx, dispEvent.TypeTaskFailed, task)
 }
 
+func (p *EventPublisher) PublishTaskCancelled(ctx context.Context, task *model.DispatchTask) error {
+	return p.publish(ctx, dispEvent.TypeTaskCancelled, task)
+}
+
 func (p *EventPublisher) publish(ctx context.Context, eventType string, task *model.DispatchTask) error {
 	payload := dispEvent.TaskLifecyclePayload{
 		TaskID:   task.ID,

@@ -99,6 +99,11 @@ func (s *TimeoutScanner) handleExpired(ctx context.Context, commandID string) er
 	if err != nil {
 		return err
 	}
+	// The task may have been cancelled while this command was Sending; there
+	// is nothing left to advance.
+	if task.IsFinished() {
+		return nil
+	}
 	outcome, err := s.helper.dispatcher.OnCommandTimeout(task, commandID)
 	if err != nil {
 		return err

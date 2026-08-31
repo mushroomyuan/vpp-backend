@@ -46,10 +46,10 @@
 - [x] CI/CD（GitHub Actions：`.github/workflows/ci.yml` 三个 job——`lint`/`test` 按 7 模块矩阵跑，`docker` 构建 6 个服务镜像并推送 GHCR；`Makefile` 补齐 `test`/`vet`/`docker-build`，修复 `make lint`）
 - [x] 集成测试（`tests/integration`：testcontainers 起 Postgres×2 + Kafka，bufconn 打通 dispatch↔gateway，覆盖 SubmitTask→ExecuteCommand→Kafka 回调主链路的正向 + mapping 缺失异常路径；`.github/workflows/ci.yml` 新增 `integration-test` job，`docker` job 依赖它；顺带补上 gRPC health server + HTTP `/healthz`，见上表）
 - [x] Alarm 服务（消费 `vpp.dispatch.events` / `vpp.soe.events`；纯 HTTP 人管面；kind ClusterIP。详见 [`internal/alarm/README.md`](internal/alarm/README.md)）
-- [ ] `CancelTask`（dispatch，独立功能补齐，可随时插入）
+- [x] `CancelTask`（dispatch，独立功能补齐；非终态 Action/Pending Command → Cancelled，已 Sending 的 Command 不强制撤回，交由 `task.IsFinished()` 幂等守卫处理其迟到回调；发布 `PublishTaskCancelled`。详见 [`internal/dispatch/README.md`](internal/dispatch/README.md) CancelTask 一节）
 - [x] K8s 基础部署（本机 kind：6 个无状态服务 GHCR manifests；resource/gateway/telemetry/dispatch 走 NodePort 接 APISIX，simulator 与 **alarm 为 ClusterIP**。旧 host `:808x/:500x` 已收口。Consul 已从运行时移除，发现走 Service DNS。用法见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md)）
 
-**建议顺序：** CI/CD → 集成测试（补进 CI）→ **K8s 基础部署（已完成）** → **Alarm（已完成）** → CancelTask（可随时插入）。
+**建议顺序：** CI/CD → 集成测试（补进 CI）→ **K8s 基础部署（已完成）** → **Alarm（已完成）** → **CancelTask（已完成）**。Phase A 至此全部收口。
 
 ---
 

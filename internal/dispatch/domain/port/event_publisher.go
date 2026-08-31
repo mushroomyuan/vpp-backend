@@ -14,4 +14,5 @@ type TaskEventPublisher interface {
 	PublishTaskStarted(ctx context.Context, task *model.DispatchTask) error
 	PublishTaskCompleted(ctx context.Context, task *model.DispatchTask) error
 	PublishTaskFailed(ctx context.Context, task *model.DispatchTask) error
+	PublishTaskCancelled(ctx context.Context, task *model.DispatchTask) error
 }

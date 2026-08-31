@@ -86,6 +86,13 @@ func (h handleCommandResultHandler) Handle(ctx context.Context, cmd HandleComman
 	if existing.IsTerminal() {
 		return nil, nil
 	}
+	// A CancelTask request may have finished the task while this command was
+	// still Sending (Dispatch cannot recall a command already sent to
+	// Gateway). Its eventual result is now moot — drop it rather than trying
+	// to advance an already-terminal task's state machine.
+	if task.IsFinished() {
+		return nil, nil
+	}
 
 	outcome, err := h.helper.dispatcher.OnCommandResult(task, cmd.CommandID, cmd.Result)
 	if err != nil {
