@@ -32,6 +32,19 @@ dispatch:
       allow-read-when-invalid: false
       deny-writes-when-stale: true
 
+  # Per-RPC token-bucket rate limiting (see platform/decorator.WithRateLimit).
+  # Disabled by default — purely additive, opt in per RPC when needed
+  # (e.g. once Optimization starts calling SubmitTask at high frequency).
+  rate-limit:
+    submit-task:
+      enabled: false
+      rps: 50
+      burst: 100
+    cancel-task:
+      enabled: false
+      rps: 20
+      burst: 40
+
 database:
   driver: postgres
   host: 127.0.0.1

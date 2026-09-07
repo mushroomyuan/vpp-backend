@@ -4,7 +4,9 @@ import (
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application/command"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application/query"
+	"github.com/mushroomyuan/vpp-backend/telemetry/domain/model"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/port"
+	"golang.org/x/time/rate"
 )
 
 // Application is the composition root of the telemetry service's use-case layer.
@@ -41,6 +43,13 @@ type Dependencies struct {
 
 	// Metrics is optional; pass nil to disable metrics decoration.
 	Metrics decorator.MetricsClient
+
+	// IngestLimiter / QueryAggregationLimiter / GetFleetSnapshotLimiter are
+	// optional; pass nil to disable rate limiting for the corresponding RPC
+	// (see platform/decorator.WithRateLimiter).
+	IngestLimiter           *rate.Limiter
+	QueryAggregationLimiter *rate.Limiter
+	GetFleetSnapshotLimiter *rate.Limiter
 }
 
 func NewApplication(deps Dependencies) Application {
@@ -64,13 +73,18 @@ func NewApplication(deps Dependencies) Application {
 				deps.SnapshotRepo,
 				deps.EventPublisher,
 				deps.Metrics,
+				decorator.WithRateLimiter[command.IngestTelemetry, *command.IngestTelemetryResult](deps.IngestLimiter),
 			),
 		},
 		Queries: Queries{
-			QueryTelemetry:   query.NewQueryTelemetryHandler(deps.TelemetryRepo, deps.Metrics),
-			GetSnapshot:      query.NewGetSnapshotHandler(deps.SnapshotRepo, deps.Metrics),
-			GetFleetSnapshot: query.NewGetFleetSnapshotHandler(deps.SnapshotRepo, deps.Metrics),
-			QueryAggregation: query.NewQueryAggregationHandler(deps.AggregationRepo, deps.Metrics),
+			QueryTelemetry: query.NewQueryTelemetryHandler(deps.TelemetryRepo, deps.Metrics),
+			GetSnapshot:    query.NewGetSnapshotHandler(deps.SnapshotRepo, deps.Metrics),
+			GetFleetSnapshot: query.NewGetFleetSnapshotHandler(deps.SnapshotRepo, deps.Metrics,
+				decorator.WithRateLimiter[query.GetFleetSnapshot, []*query.SnapshotView](deps.GetFleetSnapshotLimiter),
+			),
+			QueryAggregation: query.NewQueryAggregationHandler(deps.AggregationRepo, deps.Metrics,
+				decorator.WithRateLimiter[query.QueryAggregation, []*model.AggregatedPoint](deps.QueryAggregationLimiter),
+			),
 		},
 	}
 }

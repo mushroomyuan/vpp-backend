@@ -25,6 +25,27 @@ type DispatchOptions struct {
 
 	// Auth configures gRPC identity middleware (x-userinfo metadata / Casdoor).
 	Auth AuthOptions `mapstructure:"auth"`
+
+	// RateLimit configures per-RPC token-bucket rate limiting (see
+	// platform/decorator.WithRateLimit). Every rule defaults to disabled;
+	// this section is purely additive.
+	RateLimit RateLimitOptions `mapstructure:"rate-limit"`
+}
+
+// RateLimitOptions configures rate limiting for individual dispatch RPCs.
+// Each field is independent and disabled unless explicitly enabled.
+type RateLimitOptions struct {
+	SubmitTask RateLimitRule `mapstructure:"submit-task"`
+	CancelTask RateLimitRule `mapstructure:"cancel-task"`
+}
+
+// RateLimitRule is a single token-bucket configuration: Burst tokens
+// refilled at RPS tokens/sec. Disabled (Enabled=false) is the default and
+// means "no rate limiting" regardless of RPS/Burst values.
+type RateLimitRule struct {
+	Enabled bool    `mapstructure:"enabled"`
+	RPS     float64 `mapstructure:"rps"`
+	Burst   int     `mapstructure:"burst"`
 }
 
 // AuthOptions configures gRPC identity middleware (APISIX-equivalent metadata).

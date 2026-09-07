@@ -9,6 +9,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/port"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/service"
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	"golang.org/x/time/rate"
 )
 
 // Application is the composition root of the dispatch use-case layer.
@@ -41,6 +42,12 @@ type Dependencies struct {
 
 	// Metrics is optional; pass nil to disable metrics decoration.
 	Metrics decorator.MetricsClient
+
+	// SubmitTaskLimiter / CancelTaskLimiter are optional; pass nil to
+	// disable rate limiting for the corresponding RPC (see
+	// platform/decorator.WithRateLimiter).
+	SubmitTaskLimiter *rate.Limiter
+	CancelTaskLimiter *rate.Limiter
 
 	TimeoutScanInterval   time.Duration // default 10s
 	DefaultCommandTimeout time.Duration // default 30s
@@ -89,6 +96,7 @@ func NewApplication(deps Dependencies) Application {
 				deps.DefaultCommandTimeout,
 				deps.DefaultMaxRetries,
 				deps.Metrics,
+				decorator.WithRateLimiter[command.SubmitTask, *command.SubmitTaskResult](deps.SubmitTaskLimiter),
 			),
 			CancelTask: command.NewCancelTaskHandler(
 				deps.TaskRepo,
@@ -98,6 +106,7 @@ func NewApplication(deps Dependencies) Application {
 				deps.Publisher,
 				dispatcher,
 				deps.Metrics,
+				decorator.WithRateLimiter[command.CancelTask, *command.CancelTaskResult](deps.CancelTaskLimiter),
 			),
 			HandleCommandResult: command.NewHandleCommandResultHandler(
 				deps.TaskRepo,

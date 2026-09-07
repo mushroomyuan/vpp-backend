@@ -43,6 +43,7 @@ func NewCancelTaskHandler(
 	publisher port.TaskEventPublisher,
 	dispatcher *service.Dispatcher,
 	metricsClient decorator.MetricsClient,
+	opts ...decorator.Option[CancelTask, *CancelTaskResult],
 ) CancelTaskHandler {
 	if taskRepo == nil {
 		panic("NewCancelTaskHandler: taskRepo is required")
@@ -70,6 +71,7 @@ func NewCancelTaskHandler(
 			metrics: metricsClient,
 		},
 		metricsClient,
+		opts...,
 	)
 }
 

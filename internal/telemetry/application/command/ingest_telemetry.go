@@ -53,6 +53,7 @@ func NewIngestTelemetryHandler(
 	snapshotRepo port.SnapshotRepository,
 	publisher port.EventPublisher,
 	metricsClient decorator.MetricsClient,
+	opts ...decorator.Option[IngestTelemetry, *IngestTelemetryResult],
 ) IngestTelemetryHandler {
 	if telemetryRepo == nil {
 		panic("NewIngestTelemetryHandler: telemetryRepo is required")
@@ -71,6 +72,7 @@ func NewIngestTelemetryHandler(
 			metrics:       metricsClient,
 		},
 		metricsClient,
+		opts...,
 	)
 }
 

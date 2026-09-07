@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain"
+	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -20,6 +21,8 @@ func toGRPCError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrTaskAlreadyDone):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, decorator.ErrRateLimited):
+		return status.Error(codes.ResourceExhausted, err.Error())
 	default:
 		msg := err.Error()
 		lower := strings.ToLower(msg)

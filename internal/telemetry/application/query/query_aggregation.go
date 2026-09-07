@@ -31,6 +31,7 @@ type queryAggregationHandler struct {
 func NewQueryAggregationHandler(
 	aggRepo port.AggregationRepository,
 	metricsClient decorator.MetricsClient,
+	opts ...decorator.Option[QueryAggregation, []*model.AggregatedPoint],
 ) QueryAggregationHandler {
 	if aggRepo == nil {
 		panic("NewQueryAggregationHandler: aggRepo is required")
@@ -38,6 +39,7 @@ func NewQueryAggregationHandler(
 	return decorator.ApplyQueryDecorators[QueryAggregation, []*model.AggregatedPoint](
 		queryAggregationHandler{aggRepo: aggRepo},
 		metricsClient,
+		opts...,
 	)
 }
 

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/mushroomyuan/vpp-backend/dispatch/options"
+	"golang.org/x/time/rate"
 )
 
 // Config is the application-level configuration passed through the wiring layer.
@@ -26,6 +27,8 @@ type Config struct {
 
 	TrustProxyHeaders bool
 	Authz             AuthzConfig
+
+	RateLimit RateLimitConfig
 }
 
 type KafkaConfig struct {
@@ -55,6 +58,14 @@ type AuthzConfig struct {
 	StaleAfter           time.Duration
 	AllowReadWhenInvalid bool
 	DenyWritesWhenStale  bool
+}
+
+// RateLimitConfig holds ready-to-use limiters resolved from
+// options.RateLimitOptions. A nil limiter means "disabled" for that RPC
+// (see platform/decorator.WithRateLimiter).
+type RateLimitConfig struct {
+	SubmitTask *rate.Limiter
+	CancelTask *rate.Limiter
 }
 
 func CreateFromOptions(opts *options.Options) *Config {
@@ -103,7 +114,20 @@ func CreateFromOptions(opts *options.Options) *Config {
 			AllowReadWhenInvalid: az.AllowReadWhenInvalid,
 			DenyWritesWhenStale:  denyWritesWhenStale,
 		},
+		RateLimit: RateLimitConfig{
+			SubmitTask: newLimiter(opts.Dispatch.RateLimit.SubmitTask),
+			CancelTask: newLimiter(opts.Dispatch.RateLimit.CancelTask),
+		},
 	}
+}
+
+// newLimiter builds a token-bucket limiter from a rule, or returns nil
+// (disabled) when the rule is not enabled.
+func newLimiter(rule options.RateLimitRule) *rate.Limiter {
+	if !rule.Enabled {
+		return nil
+	}
+	return rate.NewLimiter(rate.Limit(rule.RPS), rule.Burst)
 }
 
 func defaultStr(v, def string) string {

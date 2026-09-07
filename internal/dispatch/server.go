@@ -104,6 +104,8 @@ func createServer(
 		Gateway:               gatewayClient,
 		Publisher:             eventPublisher,
 		Metrics:               metricsClient,
+		SubmitTaskLimiter:     cfg.RateLimit.SubmitTask,
+		CancelTaskLimiter:     cfg.RateLimit.CancelTask,
 		TimeoutScanInterval:   cfg.TimeoutScanInterval,
 		DefaultCommandTimeout: cfg.DefaultCommandTimeout,
 		DefaultMaxRetries:     cfg.DefaultMaxRetries,

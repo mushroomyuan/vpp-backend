@@ -6,6 +6,7 @@ import (
 	"time"
 
 	telemetrypb "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen"
+	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application/types"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/model"
@@ -26,6 +27,7 @@ func TestToGRPCError(t *testing.T) {
 		{domain.ErrSnapshotNotFound, codes.NotFound},
 		{domain.ErrRecordNotFound, codes.NotFound},
 		{types.ErrQueryRangeExceeded, codes.InvalidArgument},
+		{decorator.ErrRateLimited, codes.ResourceExhausted},
 		{errors.New("domain_err: bad"), codes.InvalidArgument},
 		{errors.New("invalid quality"), codes.InvalidArgument},
 		{errors.New("metric name is required"), codes.InvalidArgument},

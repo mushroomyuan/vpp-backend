@@ -6,6 +6,7 @@ import (
 	"time"
 
 	telemetrypb "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen"
+	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application/command"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application/query"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application/types"
@@ -28,6 +29,8 @@ func toGRPCError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, types.ErrQueryRangeExceeded):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, decorator.ErrRateLimited):
+		return status.Error(codes.ResourceExhausted, err.Error())
 	default:
 		msg := err.Error()
 		lower := strings.ToLower(msg)

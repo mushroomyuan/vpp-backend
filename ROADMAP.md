@@ -37,6 +37,7 @@
 | 角色模型（admin/operator/viewer）为占位 | 真实业务角色/权限模型尚未确定 | 不阻塞现有架构，等业务角色明确后在 Casdoor 侧调整 Permission 绑定即可，不需要改代码 |
 | CI 已构建并推送镜像到 GHCR，但镜像本身尚不能直接部署 | manifests、探针、env 覆盖均已落地（本机 kind）。 | **已解决（2026-08）**：见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md) |
 | Consul 运行时 | compose 已删除；`consul-addr` 默认空，跳过注册。封装留在 `platform/discovery`。 | **已从运行时移除（2026-08）** |
+| Resource 的 `AssetRuntime`/`CURuntime`/`PointRuntime` 三级 Redis 缓存只有读路径，无任何服务写入 | 早期"冷热分离"设计遗留，Telemetry 后来自建了一套独立且真正在用的 `Snapshot`（Redis db=1），Resource 这套变成悬空能力；三级和 Telemetry 的重复程度不同（Point 级概念重复，CU 级纯空白，Asset 级是从未实现的聚合逻辑） | **暂不实现**。驱动力是"前端资产详情/列表页想一次拿全配置+状态"，不是 Optimization——Optimization 无论这层缓存存不存在，都应该直连 Telemetry 拿最新值，对新鲜度要求更高，不能忍受轮询缓存的滞后。若以后前端确实需要这种一次性聚合视图，在 Resource 内新增 `RuntimeSyncWorker` 主动轮询 Telemetry 只读接口补上写路径（pull，不要让 Telemetry 反向调用 Resource）。详见 `architecture.md` §3.3.1、`internal/resource/domain/resource_v2.md` |
 
 ---
 

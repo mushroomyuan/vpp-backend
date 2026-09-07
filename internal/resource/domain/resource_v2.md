@@ -175,6 +175,34 @@ type Point struct {
 // Asset Runtime
 // 资源运行态（调度最关心）
 // Redis Key: asset:{asset_id}:runtime
+//
+// ⚠️ 2026-09 现状说明（AssetRuntime / CURuntime / PointRuntime 三者通用）：
+//   读路径已完整实现（query handler 会合并返回），但写路径至今是空的——
+//   resource_service.proto 没有暴露任何写 Runtime 的 RPC，gateway/telemetry
+//   也没有代码调用 Set*/Patch* Runtime，三级缓存现在恒为空。
+//
+//   与 telemetry.Snapshot（Redis db=1，按 CUCode 存 map[MetricName]float64）的关系：
+//   - PointRuntime：概念重复（同为"单点最新值"），若两边都写会有一致性风险，
+//     建议以 Telemetry Snapshot 为唯一权威源，Resource 侧不再维护。
+//   - CURuntime：不重复，是纯粹的空白（Telemetry 无连接诊断字段）。
+//   - AssetRuntime：不重复，是衍生数据（多 CU 汇总成一个 Asset 级判断），
+//     Telemetry 和 Resource 目前都没做这层聚合逻辑。
+//
+//   为什么应该由 Resource 主动轮询 Telemetry（pull），而不是 Telemetry 主动
+//   写 Resource（push）：Asset 分组是 Resource 的业务概念，Telemetry 自身文档
+//   明确"不查 Resource、不做资产树"；push 会把聚合逻辑塞进 Telemetry 的 ingest
+//   热路径，增加故障点。后续如需要，应在 Resource 内新增一个 RuntimeSyncWorker
+//   （单 goroutine 定时轮询，参考 ImportWorker/ADR-002/003 的模式），调用
+//   Telemetry 已有的只读接口（GetFleetSnapshot/QueryAggregation），无需
+//   Telemetry 新增任何 API。详见 architecture.md §3.3.1。
+//
+//   谁该用这层缓存——容易搞反，记录一下：前端/管理端的资产详情页、列表页
+//   才是主要受益者（一次拿全"配置+当前状态"，容忍 15~30s 滞后）；Optimization
+//   决策对新鲜度要求更高，应该直连 Telemetry，不依赖这层轮询缓存。纯粹的
+//   Telemetry 原始指标图表/曲线也应直查 Telemetry，跟这层缓存无关。
+//
+//   现状结论：这层缓存值不值得实现，取决于前端要不要"资产详情页一次拿全"
+//   这种体验；不实现也不影响 Optimization（它本来就该直连 Telemetry）。
 // ============================================================
 
 type AssetRuntime struct {

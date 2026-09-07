@@ -93,11 +93,14 @@ func createServer(
 	eventPublisher := kafka.NewEventPublisher(kafkaCfg)
 
 	app := application.NewApplication(application.Dependencies{
-		TelemetryRepo:   telemetryStore,
-		SnapshotRepo:    snapshotStore,
-		AggregationRepo: aggregationStore,
-		EventPublisher:  eventPublisher,
-		Metrics:         metricsClient,
+		TelemetryRepo:           telemetryStore,
+		SnapshotRepo:            snapshotStore,
+		AggregationRepo:         aggregationStore,
+		EventPublisher:          eventPublisher,
+		Metrics:                 metricsClient,
+		IngestLimiter:           appCfg.RateLimit.Ingest,
+		QueryAggregationLimiter: appCfg.RateLimit.QueryAggregation,
+		GetFleetSnapshotLimiter: appCfg.RateLimit.GetFleetSnapshot,
 	})
 
 	var (

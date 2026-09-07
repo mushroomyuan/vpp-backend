@@ -26,6 +26,7 @@ type getFleetSnapshotHandler struct {
 func NewGetFleetSnapshotHandler(
 	snapshotRepo port.SnapshotRepository,
 	metricsClient decorator.MetricsClient,
+	opts ...decorator.Option[GetFleetSnapshot, []*SnapshotView],
 ) GetFleetSnapshotHandler {
 	if snapshotRepo == nil {
 		panic("NewGetFleetSnapshotHandler: snapshotRepo is required")
@@ -33,6 +34,7 @@ func NewGetFleetSnapshotHandler(
 	return decorator.ApplyQueryDecorators[GetFleetSnapshot, []*SnapshotView](
 		getFleetSnapshotHandler{snapshotRepo: snapshotRepo},
 		metricsClient,
+		opts...,
 	)
 }
 

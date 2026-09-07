@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain"
+	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -20,6 +21,7 @@ func TestToGRPCError(t *testing.T) {
 	}{
 		{domain.ErrTaskNotFound, codes.NotFound},
 		{domain.ErrCommandNotFound, codes.NotFound},
+		{decorator.ErrRateLimited, codes.ResourceExhausted},
 		{errors.New("tenant_id is required"), codes.InvalidArgument},
 		{errors.New("invalid command value"), codes.InvalidArgument},
 		{errors.New("action must have commands"), codes.InvalidArgument},

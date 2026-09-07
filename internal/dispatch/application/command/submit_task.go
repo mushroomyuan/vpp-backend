@@ -66,6 +66,7 @@ func NewSubmitTaskHandler(
 	defaultCommandTimeout time.Duration,
 	defaultMaxRetries int,
 	metricsClient decorator.MetricsClient,
+	opts ...decorator.Option[SubmitTask, *SubmitTaskResult],
 ) SubmitTaskHandler {
 	if taskRepo == nil {
 		panic("NewSubmitTaskHandler: taskRepo is required")
@@ -105,6 +106,7 @@ func NewSubmitTaskHandler(
 			metrics:               metricsClient,
 		},
 		metricsClient,
+		opts...,
 	)
 }
 

@@ -260,12 +260,44 @@ CU 创建        → 不触发 gateway 自动创建 Mapping               ✅ �
 
 | 存储位置 | 内容 | 说明 |
 |---|---|---|
-| Redis `CURuntime` (db=0) | `ConnStatus`, `LastSeenAt`, `LatencyMS`, … | ✅ 运行时动态状态，高频更新 |
+| Redis `CURuntime` (db=0) | `ConnStatus`, `LastSeenAt`, `LatencyMS`, … | ⚠️ 端口/Redis 实现已完整（`resource/domain/port/runtime_cache.go`），但**目前无任何服务写入**，见 §3.3.1 |
 | Postgres `cus.conn_status` | （已废弃，不再写入）| ⚠️ 列保留但不写，下次 migration 可删 |
 
-`CU` domain model 不再有 `ConnStatus` 字段。  
-连接状态由 gateway / IoT 平台通过 `CURuntimeReader.PatchCURuntime` 写入 Redis，通过 `CURuntimeReader.GetCURuntime` 读取展示。  
+`CU` domain model 不再有 `ConnStatus` 字段。
+
+> **2026-09 更新：** 本节曾计划"连接状态由 gateway / IoT 平台通过 `CURuntimeWriter.PatchCURuntime` 写入 Redis"，但这条写入路径从未被实现——`resource_service.proto` 没有暴露任何写 Runtime 的 RPC，gateway/telemetry 代码里也找不到对应调用。`GetCU`/`ListCUs` 读到的 `CURuntime` 目前恒为空。详见 §3.3.1 的现状说明与后续方案。
+
 `UpdateCURequest` 不再接受 `ConnStatus` 参数（proto field 12 已 reserved）。
+
+### 3.3.1 三级 Runtime 缓存（AssetRuntime / CURuntime / PointRuntime）现状与后续方案
+
+`resource/domain/port/runtime_cache.go` 为 Asset / CU / Point 三级都定义了完整的 Reader + Writer + Redis 实现（`adapter/outbound/redis/{asset,cu,point}_cache.go`），这是早期"冷热分离"设计的产物：Postgres 存配置，Redis 存高频运行态。**读路径完整可用**（`GetAsset`/`ListAssets` 等 query handler 会合并 Runtime 一起返回），但**写路径至今是空的**——没有任何服务、任何 RPC 调用过 `Set*Runtime`/`Patch*Runtime`。
+
+**和 Telemetry 的关系（按级拆开看，不能一概而论）：**
+
+| 级别 | 内容 | 与 Telemetry `Snapshot`（Redis db=1，按 CUCode 存 `map[MetricName]float64`）的关系 |
+|---|---|---|
+| `PointRuntime` | 单点最新值 `Value`/`NumericValue`/`QualityStatus`/`Sequence` | **概念重复**：Telemetry `Snapshot.Metrics[metricName]` 就是同一份"最新点值"，只是粒度组织不同。若两边都写会产生数据不一致风险 |
+| `CURuntime` | 连接健康度 `ConnStatus`/`LatencyMS`/`LastError` | **不重复，纯空白**：Telemetry 只有整体 `Snapshot.UpdatedAt` + `IsStale()` 做粗粒度判断，没有细粒度连接诊断字段 |
+| `AssetRuntime` | 业务聚合 `Dispatchable`/`SOC`/`MaxChargePowerKW` | **不重复，是衍生数据**：一个 Asset 可能对应多个 CU，这层"多 CU 汇总成一个可调度判断"的加工逻辑，Telemetry（只认单 CU）和 Resource 都没实现 |
+
+**为什么应该是 Resource 主动拉取 Telemetry（pull），而不是 Telemetry 主动写 Resource（push）：**
+
+1. Telemetry 自身文档明确"只认 `(TenantID, CUCode)`，不查 Resource、不做资产树"——push 模型要求 Telemetry 理解 Asset 分组，直接违反它自己的边界声明（见 `internal/telemetry/OVERVIEW.md`）。
+2. Asset 级聚合（哪些 CU 组成一个 Asset、怎么算 `Dispatchable`）是纯 Resource 业务概念，理应由 Resource 自己算，不需要教会 Telemetry 任何业务规则。
+3. push 会把"通知 Resource"这一步塞进 Telemetry 的 ingest 热路径（现有 硬门槛写 Timescale + 快照 Apply + SOE 发布三步已经够多），增加故障点；pull 由 Resource 按自己的节奏轮询，Telemetry 挂了只影响 Resource 侧缓存新鲜度，不影响 Telemetry 的可用性。
+4. 项目里已有同构先例可以直接复用：`ImportWorker`（单 goroutine 定时轮询，ADR-002/003）。
+
+**后续方案（未实现）：** 在 Resource 内新增 `RuntimeSyncWorker`，定时调用 Telemetry 的 `GetFleetSnapshot`/`QueryAggregation`（只读接口，Telemetry 无需新增任何 API），按 Asset→CU→Point 映射做聚合，写入本地 `AssetRuntime`/`PointRuntime`；`CURuntime.ConnStatus` 可用 Telemetry Snapshot 的 staleness 判断推导，不需要 Gateway 单独上报。
+
+**谁该用这层缓存——纠正一个容易搞反的直觉：**
+
+- **前端 / 管理端才是这层缓存的主要受益者，不是 Optimization。** 资产详情页/列表页需要"配置 + 当前状态"一次性拿全，`GetAsset`/`ListAssets` 已经在做这件事（`AssetView{Asset, Runtime}`），前端不用自己分别调 Resource 和 Telemetry 再拼接。这类场景对新鲜度的容忍度高（滞后 15~30s 不影响体验），恰好匹配"周期轮询缓存"的特性。
+  - 例外：如果前端要看的是**原始 Telemetry 指标的历史曲线/图表**（不是资产详情页的当前状态摘要），那应该直接查 Telemetry 的 `QueryAggregation`，和这层缓存无关，Resource 加工一遍没有意义。
+- **Optimization 应该绕开这层缓存，直连 Telemetry。** 决策对新鲜度的要求比前端高，缓存的轮询间隔对它是实质性的延迟成本，不是可以忍受的体验损失。`Optimization v1` 直接调用 Telemetry 的读接口即可，不依赖 `RuntimeSyncWorker` 是否存在。
+- 如果以后 Optimization 也想复用 Resource 已经算好的"多 CU 聚合成 Asset 级判断"这层业务规则（不想在 Optimization 里重复写一遍），可以再给 `GetAssetRuntime` 加一个按需强制刷新的变体（调用时同步现拉 Telemetry 再返回），但这是一个独立的复杂度，不必现在实现。
+
+**现状结论：** `RuntimeSyncWorker` 的驱动力来自"前端想要一次性聚合视图"，不是"Optimization 需要它"；先不实现，前端如果暂时不需要"资产详情页一次拿全"这种体验，可以继续搁置。Optimization 无论这层缓存实现与否，都应该直连 Telemetry。
 
 ### 3.4 CU.ExternalID / CU.Provider 的处置
 

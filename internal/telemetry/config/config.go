@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/mushroomyuan/vpp-backend/telemetry/options"
+	"golang.org/x/time/rate"
 )
 
 // Config is the application-level configuration for the telemetry service.
@@ -19,6 +20,8 @@ type Config struct {
 
 	TrustProxyHeaders bool
 	Authz             AuthzConfig
+
+	RateLimit RateLimitConfig
 }
 
 // AuthzConfig wires platform/authz for the telemetry service (C10c).
@@ -40,6 +43,15 @@ type AuthzConfig struct {
 	HealthyAfter         time.Duration
 	StaleAfter           time.Duration
 	AllowReadWhenInvalid bool
+}
+
+// RateLimitConfig holds ready-to-use limiters resolved from
+// options.RateLimitOptions. A nil limiter means "disabled" for that RPC
+// (see platform/decorator.WithRateLimiter).
+type RateLimitConfig struct {
+	Ingest           *rate.Limiter
+	QueryAggregation *rate.Limiter
+	GetFleetSnapshot *rate.Limiter
 }
 
 func CreateFromOptions(opts *options.Options) *Config {
@@ -72,7 +84,21 @@ func CreateFromOptions(opts *options.Options) *Config {
 			StaleAfter:           parseDuration(az.StaleAfter, 30*time.Minute),
 			AllowReadWhenInvalid: az.AllowReadWhenInvalid,
 		},
+		RateLimit: RateLimitConfig{
+			Ingest:           newLimiter(opts.Telemetry.RateLimit.Ingest),
+			QueryAggregation: newLimiter(opts.Telemetry.RateLimit.QueryAggregation),
+			GetFleetSnapshot: newLimiter(opts.Telemetry.RateLimit.GetFleetSnapshot),
+		},
 	}
+}
+
+// newLimiter builds a token-bucket limiter from a rule, or returns nil
+// (disabled) when the rule is not enabled.
+func newLimiter(rule options.RateLimitRule) *rate.Limiter {
+	if !rule.Enabled {
+		return nil
+	}
+	return rate.NewLimiter(rate.Limit(rule.RPS), rule.Burst)
 }
 
 func defaultStr(v, def string) string {
