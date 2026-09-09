@@ -3,8 +3,10 @@ package gatewaygrpc
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/sony/gobreaker/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -12,6 +14,7 @@ import (
 	gatewaypb "github.com/mushroomyuan/vpp-backend/api/gateway/proto/gen"
 	appport "github.com/mushroomyuan/vpp-backend/dispatch/application/port"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/model"
+	"github.com/mushroomyuan/vpp-backend/platform/resilience"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 )
 
@@ -23,6 +26,13 @@ type Config struct {
 	// platform defaults (insecure creds, otel stats handler). Production callers
 	// leave this nil; tests use it to inject grpc.WithContextDialer for bufconn.
 	DialOptions []grpc.DialOption
+
+	// Timeout bounds outbound ExecuteCommand calls that don't already carry
+	// a context deadline. 0 disables (no timeout added).
+	Timeout time.Duration
+	// Breaker short-circuits ExecuteCommand once too many failures accumulate.
+	// nil disables (no circuit breaking). See platform/resilience.NewBreaker.
+	Breaker *gobreaker.CircuitBreaker[any]
 }
 
 // Client implements application/port.GatewayPort by calling GatewayService.ExecuteCommand.
@@ -40,7 +50,18 @@ func NewClient(cfg Config) (*Client, error) {
 	if cfg.Addr == "" {
 		return nil, fmt.Errorf("gateway_grpc: addr is required")
 	}
-	conn, err := platformserver.DialGRPC(cfg.Addr, cfg.DialOptions...)
+	var interceptors []grpc.UnaryClientInterceptor
+	if cfg.Timeout > 0 {
+		interceptors = append(interceptors, resilience.UnaryClientTimeoutInterceptor(cfg.Timeout))
+	}
+	if cfg.Breaker != nil {
+		interceptors = append(interceptors, resilience.UnaryClientBreakerInterceptor(cfg.Breaker))
+	}
+	dialOpts := cfg.DialOptions
+	if len(interceptors) > 0 {
+		dialOpts = append([]grpc.DialOption{grpc.WithChainUnaryInterceptor(interceptors...)}, dialOpts...)
+	}
+	conn, err := platformserver.DialGRPC(cfg.Addr, dialOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("gateway_grpc: %w", err)
 	}

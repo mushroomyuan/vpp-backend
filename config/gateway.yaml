@@ -46,6 +46,18 @@ database:
 
 telemetry-grpc:
   addr: 127.0.0.1:5003
+  # Outbound-call timeout to telemetry; fills the gap when a call has no
+  # existing context deadline. Prerequisite for the circuit breaker below.
+  timeout: 5s
+  # Circuit breaker for gateway->telemetry IngestTelemetry (see
+  # platform/resilience). Disabled by default — purely additive, opt in
+  # once you have failure-rate signal.
+  circuit-breaker:
+    enabled: false
+    consecutive-failures: 5
+    min-requests: 10
+    failure-ratio: 0.5
+    open-timeout: 30s
 
 # Outbound command delivery to vpp-simulator (ExternalSystem = "simulator").
 # Leave empty to keep log-only default for all external systems.

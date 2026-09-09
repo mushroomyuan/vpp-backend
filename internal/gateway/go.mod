@@ -16,6 +16,7 @@ require (
 	github.com/mushroomyuan/vpp-backend/platform v0.0.0-00010101000000-000000000000
 	github.com/segmentio/kafka-go v0.4.51
 	github.com/sirupsen/logrus v1.9.3
+	github.com/sony/gobreaker/v2 v2.4.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	golang.org/x/sync v0.20.0

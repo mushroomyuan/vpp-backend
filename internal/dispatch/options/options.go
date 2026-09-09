@@ -104,6 +104,26 @@ type DatabaseOptions struct {
 
 type GatewayOptions struct {
 	GRPCAddr string `mapstructure:"grpc-addr"`
+
+	// Timeout bounds outbound ExecuteCommand calls that don't already carry
+	// a context deadline. This is a prerequisite for the circuit breaker
+	// below to work correctly (an unbounded call never registers a failure).
+	Timeout time.Duration `mapstructure:"timeout"`
+
+	// CircuitBreaker configures transport-level circuit breaking for the
+	// dispatch->gateway ExecuteCommand call (see platform/resilience).
+	// Disabled by default — purely additive.
+	CircuitBreaker CircuitBreakerOptions `mapstructure:"circuit-breaker"`
+}
+
+// CircuitBreakerOptions configures a platform/resilience circuit breaker for
+// one outbound dependency. Enabled=false (the default) means no breaking.
+type CircuitBreakerOptions struct {
+	Enabled             bool          `mapstructure:"enabled"`
+	ConsecutiveFailures uint32        `mapstructure:"consecutive-failures"`
+	MinRequests         uint32        `mapstructure:"min-requests"`
+	FailureRatio        float64       `mapstructure:"failure-ratio"`
+	OpenTimeout         time.Duration `mapstructure:"open-timeout"`
 }
 
 // KafkaOptions configures command-result consumer and task-event publisher.
@@ -142,6 +162,7 @@ func NewOptions() *Options {
 		},
 		Gateway: GatewayOptions{
 			GRPCAddr: "127.0.0.1:5005",
+			Timeout:  5 * time.Second,
 		},
 		Kafka: KafkaOptions{
 			CommandTopic:  "vpp.command.events",

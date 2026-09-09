@@ -13,6 +13,7 @@ import (
 	"github.com/mushroomyuan/vpp-backend/gateway/config"
 	"github.com/mushroomyuan/vpp-backend/gateway/options"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
+	"github.com/mushroomyuan/vpp-backend/platform/resilience"
 )
 
 // App wraps a cobra.Command and provides a single Run() entry point.
@@ -87,7 +88,19 @@ func dbConfigFromOptions(o options.DatabaseOptions) platformpostgres.Config {
 }
 
 func telemetryConfigFromOptions(o options.TelemetryGRPCOptions) telemetrygrpc.Config {
-	return telemetrygrpc.Config{Addr: o.Addr}
+	return telemetrygrpc.Config{
+		Addr:    o.Addr,
+		Timeout: o.Timeout,
+		Breaker: resilience.NewBreaker[any](resilience.BreakerConfig{
+			Enabled:             o.CircuitBreaker.Enabled,
+			Name:                "gateway->telemetry",
+			ConsecutiveFailures: o.CircuitBreaker.ConsecutiveFailures,
+			MinRequests:         o.CircuitBreaker.MinRequests,
+			FailureRatio:        o.CircuitBreaker.FailureRatio,
+			OpenTimeout:         o.CircuitBreaker.OpenTimeout,
+			IsSuccessful:        resilience.GRPCIsSuccessful,
+		}),
+	}
 }
 
 func simulatorConfigFromOptions(o options.SimulatorOptions) simulator.Config {

@@ -3,14 +3,17 @@ package telemetrygrpc
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/sony/gobreaker/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	telemetrypb "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen"
 	"github.com/mushroomyuan/vpp-backend/gateway/domain/model"
 	"github.com/mushroomyuan/vpp-backend/gateway/domain/port"
+	"github.com/mushroomyuan/vpp-backend/platform/resilience"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 )
 
@@ -21,6 +24,14 @@ type Config struct {
 	// DialOptions lets callers inject extra grpc.DialOptions (e.g. a bufconn
 	// dialer for tests). Production callers leave this nil.
 	DialOptions []grpc.DialOption
+
+	// Timeout bounds outbound IngestTelemetry calls that don't already carry
+	// a context deadline. 0 disables (no timeout added).
+	Timeout time.Duration
+	// Breaker short-circuits IngestTelemetry once too many failures
+	// accumulate. nil disables (no circuit breaking). See
+	// platform/resilience.NewBreaker.
+	Breaker *gobreaker.CircuitBreaker[any]
 }
 
 // TelemetryGRPCClient implements port.TelemetryClient by forwarding to the
@@ -40,7 +51,18 @@ func NewTelemetryGRPCClient(cfg Config) (*TelemetryGRPCClient, error) {
 	if cfg.Addr == "" {
 		return nil, fmt.Errorf("telemetry_grpc: addr is required")
 	}
-	conn, err := platformserver.DialGRPC(cfg.Addr, cfg.DialOptions...)
+	var interceptors []grpc.UnaryClientInterceptor
+	if cfg.Timeout > 0 {
+		interceptors = append(interceptors, resilience.UnaryClientTimeoutInterceptor(cfg.Timeout))
+	}
+	if cfg.Breaker != nil {
+		interceptors = append(interceptors, resilience.UnaryClientBreakerInterceptor(cfg.Breaker))
+	}
+	dialOpts := cfg.DialOptions
+	if len(interceptors) > 0 {
+		dialOpts = append([]grpc.DialOption{grpc.WithChainUnaryInterceptor(interceptors...)}, dialOpts...)
+	}
+	conn, err := platformserver.DialGRPC(cfg.Addr, dialOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("telemetry_grpc: %w", err)
 	}

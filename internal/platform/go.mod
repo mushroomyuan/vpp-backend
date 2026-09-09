@@ -11,6 +11,7 @@ require (
 	github.com/prometheus/client_golang v1.23.0
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/sirupsen/logrus v1.9.3
+	github.com/sony/gobreaker/v2 v2.4.0
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.62.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0

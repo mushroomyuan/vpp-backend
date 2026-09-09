@@ -62,7 +62,11 @@ func runApp(opts *options.Options) error {
 
 	appCfg := config.CreateFromOptions(opts)
 	dbCfg := dbConfigFromOptions(opts.Database)
-	gatewayCfg := gatewaygrpc.Config{Addr: opts.Gateway.GRPCAddr}
+	gatewayCfg := gatewaygrpc.Config{
+		Addr:    opts.Gateway.GRPCAddr,
+		Timeout: appCfg.GatewayTimeout,
+		Breaker: appCfg.GatewayBreaker,
+	}
 
 	return Run(appCfg, dbCfg, gatewayCfg)
 }

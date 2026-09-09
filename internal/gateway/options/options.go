@@ -1,6 +1,9 @@
 package options
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Options holds all configurable parameters for the gateway service.
 type Options struct {
@@ -77,6 +80,25 @@ type DatabaseOptions struct {
 
 type TelemetryGRPCOptions struct {
 	Addr string `mapstructure:"addr"`
+
+	// Timeout bounds outbound IngestTelemetry calls that don't already
+	// carry a context deadline. Prerequisite for the circuit breaker below.
+	Timeout time.Duration `mapstructure:"timeout"`
+
+	// CircuitBreaker configures transport-level circuit breaking for the
+	// gateway->telemetry IngestTelemetry call (see platform/resilience).
+	// Disabled by default — purely additive.
+	CircuitBreaker CircuitBreakerOptions `mapstructure:"circuit-breaker"`
+}
+
+// CircuitBreakerOptions configures a platform/resilience circuit breaker for
+// one outbound dependency. Enabled=false (the default) means no breaking.
+type CircuitBreakerOptions struct {
+	Enabled             bool          `mapstructure:"enabled"`
+	ConsecutiveFailures uint32        `mapstructure:"consecutive-failures"`
+	MinRequests         uint32        `mapstructure:"min-requests"`
+	FailureRatio        float64       `mapstructure:"failure-ratio"`
+	OpenTimeout         time.Duration `mapstructure:"open-timeout"`
 }
 
 // SimulatorOptions configures the outbound HTTP client to vpp-simulator.
@@ -118,7 +140,8 @@ func NewOptions() *Options {
 			ConnMaxIdleTimeSeconds: 300,
 		},
 		TelemetryGRPC: TelemetryGRPCOptions{
-			Addr: "127.0.0.1:5003",
+			Addr:    "127.0.0.1:5003",
+			Timeout: 5 * time.Second,
 		},
 		Kafka: KafkaOptions{
 			Topic:        "vpp.resource.events",

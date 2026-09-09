@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/mushroomyuan/vpp-backend/dispatch/options"
+	"github.com/mushroomyuan/vpp-backend/platform/resilience"
+	"github.com/sony/gobreaker/v2"
 	"golang.org/x/time/rate"
 )
 
@@ -18,6 +20,10 @@ type Config struct {
 	TelemetryInsecure bool
 
 	GatewayGRPCAddr string
+	// GatewayTimeout/GatewayBreaker configure resilience for the outbound
+	// dispatch->gateway ExecuteCommand call (see platform/resilience).
+	GatewayTimeout time.Duration
+	GatewayBreaker *gobreaker.CircuitBreaker[any]
 
 	Kafka KafkaConfig
 
@@ -86,6 +92,8 @@ func CreateFromOptions(opts *options.Options) *Config {
 		TelemetryEndpoint:     opts.Tracing.Endpoint,
 		TelemetryInsecure:     opts.Tracing.Insecure,
 		GatewayGRPCAddr:       opts.Gateway.GRPCAddr,
+		GatewayTimeout:        opts.Gateway.Timeout,
+		GatewayBreaker:        newBreaker("dispatch->gateway", opts.Gateway.CircuitBreaker),
 		TimeoutScanInterval:   opts.Dispatch.TimeoutScanInterval,
 		DefaultCommandTimeout: opts.Dispatch.DefaultCommandTimeout,
 		DefaultMaxRetries:     opts.Dispatch.DefaultMaxRetries,
@@ -128,6 +136,21 @@ func newLimiter(rule options.RateLimitRule) *rate.Limiter {
 		return nil
 	}
 	return rate.NewLimiter(rate.Limit(rule.RPS), rule.Burst)
+}
+
+// newBreaker builds a circuit breaker for one outbound gRPC dependency from
+// a CircuitBreakerOptions rule, or returns nil (disabled) when the rule is
+// not enabled. name identifies the dependency in logs (e.g. "dispatch->gateway").
+func newBreaker(name string, o options.CircuitBreakerOptions) *gobreaker.CircuitBreaker[any] {
+	return resilience.NewBreaker[any](resilience.BreakerConfig{
+		Enabled:             o.Enabled,
+		Name:                name,
+		ConsecutiveFailures: o.ConsecutiveFailures,
+		MinRequests:         o.MinRequests,
+		FailureRatio:        o.FailureRatio,
+		OpenTimeout:         o.OpenTimeout,
+		IsSuccessful:        resilience.GRPCIsSuccessful,
+	})
 }
 
 func defaultStr(v, def string) string {
