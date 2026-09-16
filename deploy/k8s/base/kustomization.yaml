@@ -25,6 +25,7 @@ resources:
   - dispatch
   - simulator
   - alarm
+  - optimization
 
 patches:
   - path: host-aliases-patch.yaml

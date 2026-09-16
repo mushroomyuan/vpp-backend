@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: optimization-config
+data:
+  TELEMETRY_GRPC_ADDR: telemetry.vpp.svc.cluster.local:5003
+  RESOURCE_GRPC_ADDR: resource.vpp.svc.cluster.local:5002
+  DISPATCH_GRPC_ADDR: dispatch.vpp.svc.cluster.local:5006

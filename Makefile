@@ -22,15 +22,16 @@ LOG_DIR := $(abspath data/vpp-logs)
 APISIX_COMPOSE := deploy/apisix/docker-compose.apisix.yaml
 CASDOOR_COMPOSE := deploy/casdoor/docker-compose.casdoor.yaml
 DOCKER_COMPOSE := $(shell command -v docker-compose >/dev/null 2>&1 && echo docker-compose || echo "docker compose")
-SERVICES := resource telemetry gateway dispatch simulator alarm
+SERVICES := resource telemetry gateway dispatch simulator alarm optimization
 
-# Primary listen port used by `status` (gRPC where available; HTTP for simulator/alarm).
-PORT_resource  := 5002
-PORT_telemetry := 5003
-PORT_gateway   := 5005
-PORT_dispatch  := 5006
-PORT_simulator := 8084
-PORT_alarm     := 8087
+# Primary listen port used by `status` (gRPC where available; HTTP for simulator/alarm/optimization).
+PORT_resource      := 5002
+PORT_telemetry     := 5003
+PORT_gateway       := 5005
+PORT_dispatch      := 5006
+PORT_simulator     := 8084
+PORT_alarm         := 8087
+PORT_optimization  := 8088
 
 # ── help ──────────────────────────────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ help:
 	@echo "    make status                   PID / process / port health"
 	@echo "    make logs                     Tail all logs (Ctrl-C to stop)"
 	@echo "    make logs SERVICE=gateway     Tail one service log"
-	@echo "    make run-<svc>                Foreground go run (resource|telemetry|gateway|dispatch|simulator|alarm)"
+	@echo "    make run-<svc>                Foreground go run (resource|telemetry|gateway|dispatch|simulator|alarm|optimization)"
 	@echo ""
 	@echo "  Cleanup"
 	@echo "    make clean-logs               Remove $(LOG_DIR)"
@@ -71,8 +72,8 @@ help:
 	@echo "  Codegen / lint / modules"
 	@echo "    make tidy                     go mod tidy in internal/{platform,services}"
 	@echo "    make gen | fmt | lint"
-	@echo "    make test                     go test ./... -race in all 7 modules"
-	@echo "    make vet                      go vet ./... in all 7 modules"
+	@echo "    make test                     go test ./... -race in all 8 modules"
+	@echo "    make vet                      go vet ./... in all 8 modules"
 	@echo "    make test-integration         tests/integration (testcontainers, needs Docker)"
 	@echo ""
 	@echo "  Docker"
@@ -83,7 +84,7 @@ help:
 
 # ── single-service foreground run ─────────────────────────────────────────────
 
-.PHONY: run-resource run-telemetry run-gateway run-dispatch run-simulator run-alarm
+.PHONY: run-resource run-telemetry run-gateway run-dispatch run-simulator run-alarm run-optimization
 run-resource:
 	cd internal/resource && go run ./cmd/main.go -c ../../config/resource.yaml
 
@@ -101,6 +102,9 @@ run-simulator:
 
 run-alarm:
 	cd internal/alarm && go run ./cmd/main.go -c ../../config/alarm.yaml
+
+run-optimization:
+	cd internal/optimization && go run ./cmd/main.go -c ../../config/optimization.yaml
 
 # ── infra ─────────────────────────────────────────────────────────────────────
 
@@ -252,11 +256,12 @@ fmt:
 lint:
 	@./scripts/lint.sh
 
-# Run go mod tidy for the seven internal modules (platform + services).
+# Run go mod tidy for the eight internal modules (platform + services).
 tidy:
 	@failed=0; \
 	for dir in internal/platform internal/resource internal/telemetry \
-		internal/gateway internal/dispatch internal/simulator internal/alarm; do \
+		internal/gateway internal/dispatch internal/simulator internal/alarm \
+		internal/optimization; do \
 		echo "==> go mod tidy ($$dir)"; \
 		if ( cd "$$dir" && go mod tidy ); then \
 			:; \
@@ -265,15 +270,16 @@ tidy:
 			failed=1; \
 		fi; \
 	done; \
-	echo "tidy done (7 modules)"; \
+	echo "tidy done (8 modules)"; \
 	exit $$failed
 
-# Run go vet ./... for the seven internal modules. Mirrors the CI `test` job so
+# Run go vet ./... for the eight internal modules. Mirrors the CI `test` job so
 # a local `make vet` failure predicts a CI failure.
 vet:
 	@failed=0; \
 	for dir in internal/platform internal/resource internal/telemetry \
-		internal/gateway internal/dispatch internal/simulator internal/alarm; do \
+		internal/gateway internal/dispatch internal/simulator internal/alarm \
+		internal/optimization; do \
 		echo "==> go vet ($$dir)"; \
 		if ( cd "$$dir" && go vet ./... ); then \
 			:; \
@@ -282,15 +288,16 @@ vet:
 			failed=1; \
 		fi; \
 	done; \
-	echo "vet done (7 modules)"; \
+	echo "vet done (8 modules)"; \
 	exit $$failed
 
-# Run go test ./... -race for the seven internal modules. Mirrors the CI `test`
+# Run go test ./... -race for the eight internal modules. Mirrors the CI `test`
 # job's matrix so a local `make test` failure predicts a CI failure.
 test:
 	@failed=0; \
 	for dir in internal/platform internal/resource internal/telemetry \
-		internal/gateway internal/dispatch internal/simulator internal/alarm; do \
+		internal/gateway internal/dispatch internal/simulator internal/alarm \
+		internal/optimization; do \
 		echo "==> go test ($$dir)"; \
 		if ( cd "$$dir" && go test ./... -race -count=1 ); then \
 			:; \
@@ -299,7 +306,7 @@ test:
 			failed=1; \
 		fi; \
 	done; \
-	echo "test done (7 modules)"; \
+	echo "test done (8 modules)"; \
 	exit $$failed
 
 # Real dispatch/gateway application layers wired to ephemeral Postgres+Kafka
@@ -319,11 +326,12 @@ build-all:
 	@cd internal/dispatch && go build -o ../../$(BIN_DIR)/dispatch ./cmd
 	@cd internal/simulator && go build -o ../../$(BIN_DIR)/simulator ./cmd
 	@cd internal/alarm && go build -o ../../$(BIN_DIR)/alarm ./cmd
+	@cd internal/optimization && go build -o ../../$(BIN_DIR)/optimization ./cmd
 	@echo "Build completed → $(BIN_DIR)/"
 
 # Build one service's container image locally, mirroring the CI docker job.
 # Usage: make docker-build SERVICE=resource
-DOCKER_SERVICES := resource telemetry gateway dispatch simulator alarm
+DOCKER_SERVICES := resource telemetry gateway dispatch simulator alarm optimization
 docker-build:
 	@if [ -z "$(SERVICE)" ]; then \
 		echo "Usage: make docker-build SERVICE=<$(DOCKER_SERVICES)>"; \
@@ -378,7 +386,7 @@ run-all: build-all
 		rm -f $$pidfile; \
 		return 1; \
 	}; \
-	for name in resource telemetry gateway dispatch alarm; do \
+	for name in resource telemetry gateway dispatch alarm optimization; do \
 		start_svc $$name || exit 1; \
 	done; \
 	echo "Waiting for resource (:5002) and gateway (:8083)..."; \
@@ -422,11 +430,11 @@ stop-all:
 		fi; \
 	done
 	@for i in 1 2 3 4 5; do \
-		left=$$(pgrep -f '/$(BIN_DIR)/(resource|telemetry|gateway|dispatch|simulator|alarm)( |$$)' 2>/dev/null || true); \
+		left=$$(pgrep -f '/$(BIN_DIR)/(resource|telemetry|gateway|dispatch|simulator|alarm|optimization)( |$$)' 2>/dev/null || true); \
 		[ -z "$$left" ] && break; \
 		sleep 1; \
 	done
-	@left=$$(pgrep -f '/$(BIN_DIR)/(resource|telemetry|gateway|dispatch|simulator|alarm)( |$$)' 2>/dev/null || true); \
+	@left=$$(pgrep -f '/$(BIN_DIR)/(resource|telemetry|gateway|dispatch|simulator|alarm|optimization)( |$$)' 2>/dev/null || true); \
 	if [ -n "$$left" ]; then \
 		echo "force kill stragglers: $$left"; \
 		kill -9 $$left 2>/dev/null || true; \
@@ -454,12 +462,13 @@ status:
 		fi; \
 		printf "%-12s %-8s %-10s %-8s %-s\n" $$name $$pid $$proc $$listen "$$note"; \
 	}; \
-	check resource  $(PORT_resource)  "gRPC (+HTTP :8082)"; \
-	check telemetry $(PORT_telemetry) "gRPC"; \
-	check gateway   $(PORT_gateway)   "gRPC (+HTTP :8083)"; \
-	check dispatch  $(PORT_dispatch)  "gRPC"; \
-	check simulator $(PORT_simulator) "HTTP"; \
-	check alarm     $(PORT_alarm)     "HTTP"
+	check resource      $(PORT_resource)     "gRPC (+HTTP :8082)"; \
+	check telemetry     $(PORT_telemetry)    "gRPC"; \
+	check gateway       $(PORT_gateway)      "gRPC (+HTTP :8083)"; \
+	check dispatch      $(PORT_dispatch)     "gRPC"; \
+	check simulator     $(PORT_simulator)    "HTTP"; \
+	check alarm         $(PORT_alarm)        "HTTP"; \
+	check optimization  $(PORT_optimization) "HTTP /healthz only"
 
 # Tail logs. Usage: make logs   or   make logs SERVICE=gateway
 logs:
@@ -472,9 +481,11 @@ logs:
 	else \
 		echo "Tailing $(LOG_DIR)/*.log (Ctrl-C to stop)"; \
 		touch $(LOG_DIR)/resource.log $(LOG_DIR)/telemetry.log $(LOG_DIR)/gateway.log \
-			$(LOG_DIR)/dispatch.log $(LOG_DIR)/simulator.log $(LOG_DIR)/alarm.log; \
+			$(LOG_DIR)/dispatch.log $(LOG_DIR)/simulator.log $(LOG_DIR)/alarm.log \
+			$(LOG_DIR)/optimization.log; \
 		tail -n 50 -F $(LOG_DIR)/resource.log $(LOG_DIR)/telemetry.log $(LOG_DIR)/gateway.log \
-			$(LOG_DIR)/dispatch.log $(LOG_DIR)/simulator.log $(LOG_DIR)/alarm.log; \
+			$(LOG_DIR)/dispatch.log $(LOG_DIR)/simulator.log $(LOG_DIR)/alarm.log \
+			$(LOG_DIR)/optimization.log; \
 	fi
 
 # ── cleanup ───────────────────────────────────────────────────────────────────

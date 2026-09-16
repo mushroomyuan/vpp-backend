@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: optimization
+  labels:
+    app.kubernetes.io/name: optimization
+spec:
+  # ClusterIP only. v1 has no inbound business API and no APISIX route.
+  # Local: kubectl -n vpp port-forward svc/optimization 8088:8088
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: optimization
+  ports:
+    - name: http
+      port: 8088
+      targetPort: http

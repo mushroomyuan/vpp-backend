@@ -121,14 +121,15 @@ func (c *DispatchConsumer) handleMessage(ctx context.Context, msg kafka.Message)
 	}
 
 	incoming := model.IncomingEvent{
-		Source:     model.SourceDispatch,
-		TenantID:   env.TenantID,
-		EventID:    env.EventID,
-		EventType:  env.EventType,
-		OccurredAt: env.OccurredAt,
-		TaskID:     payload.TaskID,
-		TaskName:   payload.Name,
-		TaskStatus: payload.Status,
+		Source:      model.SourceDispatch,
+		TenantID:    env.TenantID,
+		EventID:     env.EventID,
+		EventType:   env.EventType,
+		OccurredAt:  env.OccurredAt,
+		TaskID:      payload.TaskID,
+		TaskName:    payload.Name,
+		TaskStatus:  payload.Status,
+		TriggerType: payload.TriggerType,
 	}
 	if incoming.TenantID == "" {
 		incoming.TenantID = payload.TenantID

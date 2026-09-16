@@ -1,0 +1,65 @@
+tracing:
+  endpoint: 127.0.0.1:4318
+  insecure: true
+
+optimization:
+  service-name: vpp-optimization
+  # /healthz only — v1 has no inbound business HTTP/gRPC (design plan §3).
+  http-addr: 127.0.0.1:8088
+  metrics-addr: 127.0.0.1:9108
+
+  # Must stay strictly greater than Telemetry's collection cycle
+  # (Simulator default 30s). See design plan §4.
+  decision-interval: 60s
+  # Empty / 0s = 2× decision-interval. Per-rule cooldown: 0s means this default.
+  default-cooldown: 2m
+
+  # Empty = decision loop ticks as a no-op. Fill in before enabling rules.
+  tenant-ids: []
+
+  # Concrete CU/threshold values are deployment-specific. Domain
+  # DefaultRules() stays empty for the same reason. Example:
+  #   - enabled: true
+  #     cu-code: cu-battery-1
+  #     read-point-key: soc
+  #     write-point-key: active_power_setpoint_kw
+  #     min-soc: 20
+  #     max-soc: 90
+  #     charge-power-kw: 50
+  #     discharge-power-kw: -50
+  #     cooldown: 0s
+  rules:
+    soc-thresholds: []
+
+# Outbound gRPC (internal direct connect, not via APISIX). Optimization is
+# the first high-frequency polling client, so circuit-breakers default on
+# (design plan §9) — unlike dispatch->gateway, which stays opt-in.
+telemetry:
+  grpc-addr: 127.0.0.1:5003
+  timeout: 5s
+  circuit-breaker:
+    enabled: true
+    consecutive-failures: 5
+    min-requests: 10
+    failure-ratio: 0.5
+    open-timeout: 30s
+
+resource:
+  grpc-addr: 127.0.0.1:5002
+  timeout: 5s
+  circuit-breaker:
+    enabled: true
+    consecutive-failures: 5
+    min-requests: 10
+    failure-ratio: 0.5
+    open-timeout: 30s
+
+dispatch:
+  grpc-addr: 127.0.0.1:5006
+  timeout: 5s
+  circuit-breaker:
+    enabled: true
+    consecutive-failures: 5
+    min-requests: 10
+    failure-ratio: 0.5
+    open-timeout: 30s

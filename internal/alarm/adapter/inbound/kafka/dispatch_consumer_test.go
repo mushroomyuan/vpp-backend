@@ -54,6 +54,29 @@ func TestDispatchHandle_TaskFailed(t *testing.T) {
 	}
 }
 
+func TestDispatchHandle_PassesTriggerType(t *testing.T) {
+	t.Parallel()
+	h := &stubIngest{res: &command.IngestEventResult{Outcome: command.OutcomeOK, AlarmID: "a1"}}
+	c := &DispatchConsumer{handler: h}
+	body, _ := json.Marshal(platEvent.Envelope[dispEvent.TaskLifecyclePayload]{
+		EventID:    "evt-1",
+		EventType:  dispEvent.TypeTaskFailed,
+		TenantID:   "t1",
+		OccurredAt: time.Unix(10, 0).UTC(),
+		Payload: dispEvent.TaskLifecyclePayload{
+			TaskID: "task-1", TenantID: "t1", Name: "shed", Status: "failed",
+			TriggerType: "automatic",
+		},
+	})
+	class := c.handleMessage(context.Background(), kafka.Message{Value: body})
+	if class.Result != ResultOK || !class.Commit {
+		t.Fatalf("%+v", class)
+	}
+	if len(h.calls) != 1 || h.calls[0].Incoming.TriggerType != "automatic" {
+		t.Fatalf("TriggerType not passed through: %+v", h.calls)
+	}
+}
+
 func TestDispatchHandle_NonFailedDroppedWithoutIngest(t *testing.T) {
 	t.Parallel()
 	h := &stubIngest{}

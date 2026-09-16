@@ -1,6 +1,6 @@
 # 本机 kind 部署与基础操作
 
-> 6 个无状态业务服务跑在 kind 单节点里；Postgres / Kafka / Redis / APISIX / Casdoor / 可观测性栈仍在 Docker Compose。  
+> 7 个无状态业务服务跑在 kind 单节点里；Postgres / Kafka / Redis / APISIX / Casdoor / 可观测性栈仍在 Docker Compose。  
 > 网络心智模型见 [`discussion/k8s网络拓扑.md`](../discussion/k8s网络拓扑.md)。  
 > 配置如何被环境变量盖掉见 [`docs/CONFIG_ENV_OVERRIDE.md`](CONFIG_ENV_OVERRIDE.md)。
 
@@ -8,7 +8,7 @@
 
 ## 1. 范围
 
-**在 kind 里：** `resource` / `telemetry` / `gateway` / `dispatch` / `simulator` / **`alarm`**  
+**在 kind 里：** `resource` / `telemetry` / `gateway` / `dispatch` / `simulator` / `alarm` / **`optimization`**  
 镜像来自 CI：`ghcr.io/mushroomyuan/vpp-backend/<service>:latest`。
 
 **仍在 compose：** Postgres/TimescaleDB、Kafka、Redis、APISIX、Casdoor、Prometheus/Grafana/Loki/Jaeger。
@@ -56,7 +56,7 @@ kind delete cluster --name vpp
 `imagePullPolicy: Always`，`make k8s-apply` 之后若要吃到新的 GHCR `:latest`：
 
 ```bash
-kubectl -n vpp rollout restart deploy/resource deploy/telemetry deploy/gateway deploy/dispatch deploy/simulator deploy/alarm
+kubectl -n vpp rollout restart deploy/resource deploy/telemetry deploy/gateway deploy/dispatch deploy/simulator deploy/alarm deploy/optimization
 ```
 
 ---
@@ -72,7 +72,7 @@ deploy/k8s/
     secret.yaml                  # postgres / casdoor / simulator API key
     configmap-infra.yaml         # DATABASE_HOST / KAFKA_BROKERS=host.docker.internal:29092 …
     host-aliases-patch.yaml      # 所有 Deployment：host.docker.internal → 192.168.65.254
-    resource/ telemetry/ gateway/ dispatch/ simulator/ alarm/
+    resource/ telemetry/ gateway/ dispatch/ simulator/ alarm/ optimization/
       deployment.yaml
       service.yaml
       configmap.yaml             # 该服务互调地址、Casdoor URL
@@ -95,15 +95,23 @@ alarm 同样是 ClusterIP（HTTP `:8087`），**没有** extraPortMappings，也
 kubectl -n vpp port-forward svc/alarm 8087:8087
 ```
 
+optimization 也是 ClusterIP（HTTP `:8088`，仅 `/healthz`），无入站业务 API、无 extraPortMappings。冷却态在进程内，**`replicas` 必须保持 1**。联调：
+
+```bash
+kubectl -n vpp port-forward svc/optimization 8088:8088
+curl -s http://127.0.0.1:8088/healthz
+```
+
 ### 端口
 
 | 角色 | 地址 |
 | ---- | ---- |
 | 用户入口 | APISIX `:9080` HTTP、`:9081` gRPC h2c |
 | APISIX → kind | `host.docker.internal:30082` resource HTTP、`:30083` gateway HTTP、`:30003` telemetry gRPC、`:30006` dispatch gRPC |
-| 集群内 | ClusterIP + 上表端口号（8082/8083/5003/5006/8084/8087） |
+| 集群内 | ClusterIP + 上表端口号（8082/8083/5003/5006/8084/8087/8088） |
 | 本机 `make run-*`（可选） | 仍是 `:8082` 等；覆盖 `GATEWAY_UPSTREAM` 等再 `make apisix-init` |
 | alarm 人管面 | `kubectl -n vpp port-forward svc/alarm 8087:8087`（不经 APISIX） |
+| optimization `/healthz` | `kubectl -n vpp port-forward svc/optimization 8088:8088`（不经 APISIX） |
 
 host `:30082/healthz` 能通，但**绕过 APISIX**。验收脚本：`make k8s-exposure-check`。
 
@@ -119,7 +127,7 @@ docker exec vpp-control-plane getent hosts host.docker.internal
 ## 4. 基础操作指南
 
 下面都在 namespace `vpp`。演示用 **simulator**：无 Kafka 消费组，scale 最安全。  
-`resource` / `gateway` / `dispatch` / **`alarm`** 先保持 `replicas: 1`（Kafka 消费者语义还没按多副本设计）。
+`resource` / `gateway` / `dispatch` / **`alarm`** / **`optimization`** 先保持 `replicas: 1`（Kafka 消费者语义还没按多副本设计；optimization 冷却态在进程内存里）。
 
 常用查看：
 
@@ -171,7 +179,7 @@ kubectl -n vpp scale deploy/simulator --replicas=1
 
 git 里的 `replicas: 1` 不会因为这次 scale 自动改回去。下次 `make k8s-apply` 会把副本数扳回 YAML。若要长期 2 副本，改 `deployment.yaml` 再 apply。
 
-不要对 `resource` / `dispatch` / `alarm` 随手 `--replicas=2` 然后走开。
+不要对 `resource` / `dispatch` / `alarm` / `optimization` 随手 `--replicas=2` 然后走开。
 
 ### 4.4 面试时能讲清楚的三句
 
@@ -208,5 +216,6 @@ git 里的 `replicas: 1` 不会因为这次 scale 自动改回去。下次 `make
 - Helm、Ingress Controller、HPA、多节点
 - 用 NetworkPolicy 挡住 host 上的 NodePort 旁路
 - APISIX `/alarm/*`（alarm 人管面 v1 直连 ClusterIP / port-forward）
+- optimization 北向（无入站业务 API；ClusterIP 仅 `/healthz`）
 
 相关：[`docs/APISIX.md`](APISIX.md)、[`docs/CASDOOR.md`](CASDOOR.md)、[`architecture.md`](../architecture.md)、[`ROADMAP.md`](../ROADMAP.md)。

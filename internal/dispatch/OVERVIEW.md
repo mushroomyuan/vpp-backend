@@ -64,7 +64,8 @@ Kafka 回调对已终态命令幂等忽略（适配 at-least-once）。
 ```mermaid
 flowchart TB
     subgraph Clients["调用方"]
-        Admin["管理端 / 算法"]
+        Admin["管理端"]
+        Opt["optimization"]
     end
 
     subgraph Dispatch["vpp-dispatch"]
@@ -83,6 +84,7 @@ flowchart TB
     end
 
     Admin -->|SubmitTask / GetTask| GRPC
+    Opt -->|SubmitTask automatic| GRPC
     GRPC --> App
     App --> Dom
     App --> DB
@@ -109,13 +111,15 @@ SubmitTask → 持久化 → 下发首批命令
 ```mermaid
 flowchart LR
     Admin[管理端] -->|gRPC| Dis[Dispatch]
+    Opt[optimization] -->|SubmitTask automatic| Dis
     Dis -->|ExecuteCommand| GW[Gateway]
     GW -.->|command.completed| Dis
-    Dis -.->|task.failed| Alarm[vpp-alarm]
+    Dis -.->|task.failed + trigger_type| Alarm[vpp-alarm]
 ```
 
 | 服务 | 关系 |
 |------|------|
 | **Gateway** | 唯一出站控制通道；受理走 gRPC，成功终态走 Kafka |
 | **Resource / Telemetry / Simulator** | 不直连；设备与映射由 Gateway 侧消化 |
-| **Alarm** | 消费 `task.failed` 开单；不消费 started / completed |
+| **Alarm** | 消费 `task.failed` 开单；不消费 started / completed；`trigger_type` 只进属性 |
+| **Optimization** | 内部直连 `SubmitTask`（`TriggerType=automatic`）；无入站业务 API |

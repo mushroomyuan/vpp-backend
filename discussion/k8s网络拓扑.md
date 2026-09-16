@@ -1,6 +1,6 @@
 核心变化不是端口号变了，而是**谁拥有 IP、以及怎么找到对方**。`config/resource.yaml` 里的 `127.0.0.1:8082` 仍然是本机 `go run` 的默认值；进 kind 之后，这些地址会被环境变量盖掉，服务之间改走集群 DNS，而不是写死本机 IP。操作手册见 [`docs/K8S_DEPLOYMENT.md`](../docs/K8S_DEPLOYMENT.md)。
 
-当前是**混合拓扑**：6 个无状态业务服务在 kind 里；Postgres / Kafka / Redis / Casdoor / APISIX 仍在 Docker Compose。
+当前是**混合拓扑**：7 个无状态业务服务在 kind 里；Postgres / Kafka / Redis / Casdoor / APISIX 仍在 Docker Compose。
 
 ---
 
@@ -48,6 +48,7 @@ flowchart TB
       DIS["dispatch Pod<br/>POD_IP:5006"]
       SIM["simulator Pod<br/>:8084"]
       ALM["alarm Pod<br/>:8087"]
+      OPT["optimization Pod<br/>:8088"]
 
       svcGW["Service gateway<br/>ClusterIP"]
       svcRES["Service resource<br/>ClusterIP"]
@@ -55,6 +56,7 @@ flowchart TB
       svcDIS["Service dispatch<br/>ClusterIP"]
       svcSIM["Service simulator<br/>ClusterIP"]
       svcALM["Service alarm<br/>ClusterIP"]
+      svcOPT["Service optimization<br/>ClusterIP"]
     end
       NP["NodePort<br/>30082 / 30083 / 30003 / 30006"]
     end
@@ -71,6 +73,9 @@ flowchart TB
   DIS --> svcGW
   SIM --> svcRES
   SIM --> svcGW
+  OPT --> svcTEL
+  OPT --> svcRES
+  OPT --> svcDIS
 
   GW -->|"host.docker.internal"| PG
   RES -->|"host.docker.internal"| PG
@@ -113,9 +118,9 @@ flowchart TB
 
 `POD_IP` 来自 `status.podIP`。kubelet 探针和 ClusterIP 流量打的是 Pod IP，绑 `127.0.0.1` 等于对外不可达。
 
-端口号没变：resource 仍是 8082/5002，gateway 8083/5005，telemetry 5003，dispatch 5006，simulator 8084，alarm 8087。变的是前面的 IP。
+端口号没变：resource 仍是 8082/5002，gateway 8083/5005，telemetry 5003，dispatch 5006，simulator 8084，alarm 8087，optimization 8088。变的是前面的 IP。
 
-simulator 绑 `0.0.0.0:8084`。alarm 人管面 HTTP `:8087`，仅 ClusterIP。
+simulator 绑 `0.0.0.0:8084`。alarm 人管面 HTTP `:8087`，仅 ClusterIP。optimization HTTP `:8088`（仅 `/healthz`），仅 ClusterIP。
 
 ---
 
@@ -142,6 +147,9 @@ simulator:
 | dispatch  | gateway gRPC   | `gateway.vpp.svc.cluster.local:5005`          |
 | simulator | resource gRPC  | `resource.vpp.svc.cluster.local:5002`         |
 | simulator | gateway HTTP   | `http://gateway.vpp.svc.cluster.local:8083`   |
+| optimization | telemetry gRPC | `telemetry.vpp.svc.cluster.local:5003`     |
+| optimization | resource gRPC  | `resource.vpp.svc.cluster.local:5002`      |
+| optimization | dispatch gRPC  | `dispatch.vpp.svc.cluster.local:5006`      |
 
 
 DNS 格式是 `<Service名>.<namespace>.svc.cluster.local`。Service 是 ClusterIP，selector 对上 Deployment 的 label，kube-proxy 把这个虚拟 IP 转到当前活着的 Pod。
@@ -199,7 +207,7 @@ ClusterIP **只在集群内有效**。APISIX 跑在 Compose 网络里，解析�
 | 30006         | 5006    | dispatch gRPC  | `host.docker.internal:30006`            |
 
 
-simulator 与 alarm 故意不映射：simulator 只被集群内 gateway 调用；alarm 人管面 v1 用 `kubectl -n vpp port-forward svc/alarm 8087:8087`，不挂 APISIX。resource / gateway 的内部 gRPC 也各有一个未映射的 NodePort（30502 / 30505），只是为了避免 kube-proxy 抢走上面四个口；集群内互调仍走 ClusterIP。
+simulator 与 alarm、optimization 故意不映射：simulator 只被集群内 gateway 调用；alarm 人管面 v1 用 `kubectl -n vpp port-forward svc/alarm 8087:8087`，不挂 APISIX；optimization 无入站业务 API，联调用 `kubectl -n vpp port-forward svc/optimization 8088:8088`。resource / gateway 的内部 gRPC 也各有一个未映射的 NodePort（30502 / 30505），只是为了避免 kube-proxy 抢走上面四个口；集群内互调仍走 ClusterIP。
 
 APISIX 在 Docker 里，kind 节点也是 Docker 容器：请求 hairpin 到宿主机 `:30082`，再经 extraPortMappings 进节点上的 NodePort。`make apisix-init` 默认灌这四个地址。本机 `make run-*` 仍听 `:8082` 等，把 `GATEWAY_UPSTREAM` / `RESOURCE_UPSTREAM` / `DISPATCH_UPSTREAM` / `TELEMETRY_UPSTREAM` 改回旧端口再 init 即可。
 
@@ -219,6 +227,7 @@ APISIX 在 Docker 里，kind 节点也是 Docker 容器：请求 hairpin 到宿�
 | 没有 `make run-*` 进程 / pidfile | 业务只在 kind Pod 里 |
 | simulator | 仍是 ClusterIP，host `:8084` 不通 |
 | alarm | 仍是 ClusterIP，host `:8087` 不通；联调 port-forward |
+| optimization | 仍是 ClusterIP，host `:8088` 不通；联调 port-forward |
 | 未映射的内部 gRPC NodePort | `:30502` `:30505` 没有 extraPortMappings，host 上 closed |
 | 用户入口 | APISIX `:9080` / `:9081`；无 Bearer 打 `/resource` → 401 |
 | 复检命令 | `make k8s-exposure-check` |

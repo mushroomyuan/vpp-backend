@@ -41,6 +41,47 @@ func TestEvaluator_DispatchTaskFailed(t *testing.T) {
 	}
 }
 
+func TestEvaluator_DispatchCopiesTriggerTypeWithoutChangingFingerprint(t *testing.T) {
+	t.Parallel()
+	ev := NewEvaluator(DefaultRules())
+	base := model.IncomingEvent{
+		Source:     model.SourceDispatch,
+		TenantID:   "t1",
+		EventID:    "evt-1",
+		EventType:  dispEvent.TypeTaskFailed,
+		OccurredAt: time.Unix(10, 0).UTC(),
+		TaskID:     "task-1",
+		TaskName:   "shed-load",
+		TaskStatus: "failed",
+	}
+	auto := base
+	auto.TriggerType = "automatic"
+
+	legacy, err := ev.Evaluate(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ev.Evaluate(auto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.Fingerprint != got.Fingerprint {
+		t.Fatal("trigger_type must not enter the fingerprint")
+	}
+	if got.Fingerprint != model.FingerprintDispatch("t1", "task-1", "evt-1") {
+		t.Fatalf("fp %s", got.Fingerprint)
+	}
+
+	legacyAttrs, ok := legacy.Attributes.(*model.DispatchAttributes)
+	if !ok || legacyAttrs.TriggerType != "" {
+		t.Fatalf("legacy attributes %+v", legacy.Attributes)
+	}
+	attrs, ok := got.Attributes.(*model.DispatchAttributes)
+	if !ok || attrs.TriggerType != "automatic" {
+		t.Fatalf("expected trigger_type=automatic, got %+v", got.Attributes)
+	}
+}
+
 func TestEvaluator_DispatchNonFailedDropped(t *testing.T) {
 	t.Parallel()
 	ev := NewEvaluator(DefaultRules())

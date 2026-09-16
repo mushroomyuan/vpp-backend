@@ -27,7 +27,9 @@ const (
 
 // FingerprintDispatch is the v1 open-ticket key for a dispatch failure.
 // event_id is included: one task.failed = one ticket. Dedup is NOT this hash;
-// it is alarm_event_dedup (tenant_id, event_id).
+// it is alarm_event_dedup (tenant_id, event_id). TriggerType is display-only
+// and must not be added here — a manual vs automatic failure of the same
+// task.failed event is the same ticket.
 func FingerprintDispatch(tenantID, taskID, eventID string) string {
 	return dispatchFingerprintSchema + hashCanonical(string(SourceDispatch), tenantID, taskID, eventID)
 }

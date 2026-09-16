@@ -103,7 +103,7 @@ telemetry / dispatch（不改生产者）
 
 `LastEventID` 是展示字段，最近一次真正更新了本行的 event_id，**不是**唯一键。
 
-**Dispatch：** fingerprint 含 `event_id`，一次 `task.failed` 一张单。部分唯一索引不会把两次失败合成一条。去重完全交给 dedup 表。
+**Dispatch：** fingerprint 含 `event_id`，一次 `task.failed` 一张单。部分唯一索引不会把两次失败合成一条。去重完全交给 dedup 表。Kafka payload 的 `trigger_type` 只进 `DispatchAttributes` 展示（人工 / 自动），**不进** fingerprint。
 
 **SOE：** fingerprint **不含** 单次变位的时间 / 新旧值。同一断路器连跳：dedup 未命中则 `count+1`；dedup 命中则整笔成功返回、不 bump count。关闭后再变位：部分唯一索引不再命中已 closed 行，INSERT 新开一条。
 

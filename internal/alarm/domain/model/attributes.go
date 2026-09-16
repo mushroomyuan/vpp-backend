@@ -17,6 +17,11 @@ type DispatchAttributes struct {
 	TaskID  string `json:"task_id,omitempty"`
 	Name    string `json:"name,omitempty"`
 	Status  string `json:"status,omitempty"`
+	// TriggerType is copied from the dispatch event ("manual" /
+	// "scheduled" / "automatic") so the ticket can distinguish a human
+	// dispatch failure from Optimization's automatic one. Empty on events
+	// published before the field existed. Not part of the fingerprint.
+	TriggerType string `json:"trigger_type,omitempty"`
 }
 
 func (*DispatchAttributes) isAttributesPayload() {}

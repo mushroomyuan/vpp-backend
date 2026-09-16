@@ -20,9 +20,10 @@ type IncomingEvent struct {
 	EventType  string
 	OccurredAt time.Time
 
-	TaskID     string
-	TaskName   string
-	TaskStatus string
+	TaskID      string
+	TaskName    string
+	TaskStatus  string
+	TriggerType string // optional; empty on pre-field dispatch events
 
 	CUCode     string
 	MetricName string

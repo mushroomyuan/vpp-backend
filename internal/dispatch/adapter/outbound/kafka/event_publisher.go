@@ -75,20 +75,26 @@ func (p *EventPublisher) PublishTaskCancelled(ctx context.Context, task *model.D
 	return p.publish(ctx, dispEvent.TypeTaskCancelled, task)
 }
 
-func (p *EventPublisher) publish(ctx context.Context, eventType string, task *model.DispatchTask) error {
-	payload := dispEvent.TaskLifecyclePayload{
-		TaskID:   task.ID,
-		TenantID: task.TenantID,
-		Name:     task.Name,
-		Status:   string(task.Status),
+func newTaskLifecyclePayload(task *model.DispatchTask) dispEvent.TaskLifecyclePayload {
+	return dispEvent.TaskLifecyclePayload{
+		TaskID:      task.ID,
+		TenantID:    task.TenantID,
+		Name:        task.Name,
+		Status:      string(task.Status),
+		TriggerType: string(task.TriggerType),
 	}
+}
+
+func (p *EventPublisher) publish(ctx context.Context, eventType string, task *model.DispatchTask) error {
+	payload := newTaskLifecyclePayload(task)
 
 	if p.writer == nil {
 		logging.Debugf(ctx, logrus.Fields{
-			"component":  "DispatchEventPublisher",
-			"event_type": eventType,
-			"tenant_id":  task.TenantID,
-			"task_id":    task.ID,
+			"component":    "DispatchEventPublisher",
+			"event_type":   eventType,
+			"tenant_id":    task.TenantID,
+			"task_id":      task.ID,
+			"trigger_type": payload.TriggerType,
 		}, "kafka not configured — dispatch event dropped")
 		return nil
 	}
