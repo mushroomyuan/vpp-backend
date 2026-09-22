@@ -6,7 +6,8 @@
   },
   "tags": [
     {
-      "name": "TelemetryService"
+      "name": "TelemetryService",
+      "description": "TelemetryService exposes APIs for ingesting, querying, and aggregating\ntime-series telemetry data from Control Units (CUs).\n\nWrite path:  IngestTelemetry (saves to TSDB + updates real-time Snapshot + publishes SOE)\nRead paths:\n  - QueryTelemetry    — raw historical records (≤ 30-day window)\n  - GetSnapshot       — current real-time state of a single CU\n  - GetFleetSnapshot  — current real-time state of all CUs in a tenant\n  - QueryAggregation  — downsampled/aggregated time-series (≤ 30-day window)"
     }
   ],
   "consumes": [

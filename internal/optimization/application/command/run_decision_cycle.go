@@ -126,7 +126,7 @@ func (h runDecisionCycleHandler) Handle(ctx context.Context, cmd RunDecisionCycl
 	for _, target := range targets {
 		fields := targetLogFields(target)
 		if h.observer != nil {
-			h.observer.ObserveRulesFired(ruleIDOf(target), 1)
+			h.observer.ObserveRulesFired(target.RuleID(), 1)
 		}
 		specs, allocErr := service.Allocate(ctx, h.resource, target)
 		if allocErr != nil {
@@ -184,13 +184,6 @@ func taskName(t model.Target) string {
 	}
 }
 
-func ruleIDOf(t model.Target) string {
-	if pt, ok := t.(model.PointTarget); ok && pt.Source() == model.SourceInternalRule {
-		return string(model.RuleSOCThreshold)
-	}
-	return t.Source()
-}
-
 // nopMetrics is used when the caller did not supply a MetricsClient
 // (unit tests). Production always passes platform/metrics.Client.
 type nopMetrics struct{}
@@ -209,9 +202,13 @@ func targetLogFields(t model.Target) logrus.Fields {
 	if pt, ok := t.(model.PointTarget); ok {
 		fields["cu_code"] = pt.CUCode
 		fields["point_key"] = pt.PointKey
-		if pt.Source() == model.SourceInternalRule {
-			fields["rule_id"] = string(model.RuleSOCThreshold)
-		}
+	}
+	// RuleID() is the producer's own stated identity (see PointTarget.Rule's
+	// doc comment), not re-derived from Source() — fixes the 2026-09 review
+	// finding that the previous hardcoded guess would have silently
+	// misattributed a second rule kind's targets to soc_threshold.
+	if id := t.RuleID(); id != "" {
+		fields["rule_id"] = id
 	}
 	return fields
 }

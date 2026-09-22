@@ -70,6 +70,9 @@ func TestEvaluator_FiresChargeBelowMinSOC(t *testing.T) {
 	if pt.Source() != model.SourceInternalRule {
 		t.Errorf("expected Source() = %q, got %q", model.SourceInternalRule, pt.Source())
 	}
+	if pt.RuleID() != string(model.RuleSOCThreshold) {
+		t.Errorf("expected RuleID() = %q, got %q", model.RuleSOCThreshold, pt.RuleID())
+	}
 }
 
 func TestEvaluator_FiresDischargeAboveMaxSOC(t *testing.T) {
@@ -171,6 +174,54 @@ func TestEvaluator_CooldownSuppressesRepeatFire(t *testing.T) {
 	}
 	if len(targets) != 1 {
 		t.Fatalf("expected rule to fire again after cooldown elapses, got %d targets", len(targets))
+	}
+}
+
+// TestEvaluator_CooldownDoesNotSuppressOppositeDirection pins the 2026-09
+// review fix (internal/optimization/review.md #1): a charge trigger's
+// cooldown must not swallow a later, legitimate discharge trigger on the
+// same CU/rule within the same cooldown window — that is a different
+// decision, not a repeat of the same one, and anti-oscillation was never
+// supposed to suppress it.
+func TestEvaluator_CooldownDoesNotSuppressOppositeDirection(t *testing.T) {
+	tel := newFakeTelemetry()
+	tel.snapshots["cu-1"] = port.Snapshot{CUCode: "cu-1", Metrics: map[string]float64{"soc": 5}} // breach low
+
+	rules := model.Rules{SOCThresholds: []model.SOCThresholdRule{lowSOCRule("cu-1")}}
+	e := NewEvaluator(rules, tel, time.Minute)
+
+	now := time.Now()
+	targets, err := e.Evaluate(context.Background(), "tenant-1", now)
+	if err != nil || len(targets) != 1 {
+		t.Fatalf("expected first cycle to fire a charge, got targets=%d err=%v", len(targets), err)
+	}
+	if v := targets[0].(model.PointTarget).Value.FloatValue; v == nil || *v != 50 {
+		t.Fatalf("expected the first target to be a charge (50), got %+v", targets[0])
+	}
+
+	// Still within the charge cooldown window, but SOC has since swung to
+	// breach MaxSOC — a discharge is a different, legitimate decision and
+	// must fire despite the still-active charge cooldown.
+	tel.snapshots["cu-1"] = port.Snapshot{CUCode: "cu-1", Metrics: map[string]float64{"soc": 95}}
+	targets, err = e.Evaluate(context.Background(), "tenant-1", now.Add(10*time.Second))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("expected the discharge to fire despite the active charge cooldown, got %d targets", len(targets))
+	}
+	if v := targets[0].(model.PointTarget).Value.FloatValue; v == nil || *v != -50 {
+		t.Fatalf("expected a discharge target (-50), got %+v", targets[0])
+	}
+
+	// The charge direction itself is still suppressed by its own cooldown.
+	tel.snapshots["cu-1"] = port.Snapshot{CUCode: "cu-1", Metrics: map[string]float64{"soc": 5}}
+	targets, err = e.Evaluate(context.Background(), "tenant-1", now.Add(15*time.Second))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(targets) != 0 {
+		t.Fatalf("expected the charge direction to remain suppressed by its own cooldown, got %d targets", len(targets))
 	}
 }
 

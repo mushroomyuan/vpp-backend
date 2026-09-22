@@ -32,7 +32,7 @@ v1 产线只走 `PointTarget`。`AggregateTarget` 已实现并单测，不接真
 
 ### 3. Forecast 只占位
 
-`ForecastPort.GetLatestPrediction` 的唯一实现是 `forecast_stub`，恒返回 `ErrNotImplemented`。v1 规则**不调用**它。指标序列已种上，等 Forecast 服务落地再接线。
+`ForecastPort.GetLatestPrediction` 的唯一实现仍是 `forecast_stub`，恒返回 `ErrNotImplemented`。v1 规则**不调用**它。指标序列已种上。Forecast v1 已作为独立服务落地，本轮不把这个 Port 接到真实 gRPC。
 
 ## 架构概览
 
@@ -90,4 +90,4 @@ flowchart LR
 
 **v1 已具备：** DecisionLoop、SOC 阈值规则（YAML）、冷却期、三条 outbound gRPC + 熔断默认开、Dispatch `SubmitTask` 限流、Prometheus 指标、`TriggerType` 透传到 alarm 属性、kind ClusterIP、CI 镜像。
 
-**刻意未做：** 真实 Forecast、`AggregateTarget` 产线调用方、多级任务分解、入站业务 API、Redis 冷却态。本机 `make run-optimization` / `make run-all`；kind 为 ClusterIP（`replicas: 1`）。默认 `tenant-ids` / `soc-thresholds` 为空，填上才会真正决策。
+**刻意未做：** 把 `ForecastPort` 接到真实 Forecast 服务、`AggregateTarget` 产线调用方、多级任务分解、入站业务 API、Redis 冷却态。本机 `make run-optimization` / `make run-all`；kind 为 ClusterIP（`replicas: 1`）。默认 `tenant-ids` / `soc-thresholds` 为空，填上才会真正决策。

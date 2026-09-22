@@ -62,6 +62,7 @@ func pointTarget(cu string, value float64) model.PointTarget {
 	return model.PointTarget{
 		Tenant:   "tenant-1",
 		Src:      model.SourceInternalRule,
+		Rule:     model.RuleSOCThreshold,
 		CUCode:   cu,
 		PointKey: "active_power_setpoint_kw",
 		Value:    model.FloatCommandValue(value),

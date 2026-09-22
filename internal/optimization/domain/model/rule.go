@@ -3,8 +3,9 @@ package model
 import "time"
 
 // RuleID identifies which rule produced a decision. Used for cooldown
-// bookkeeping (DecisionLoop / Evaluator cooldown, keyed by (CUCode, RuleID))
-// and as an observability label.
+// bookkeeping (DecisionLoop / Evaluator cooldown, keyed by (CUCode, RuleID,
+// Direction) — see Direction's doc comment for why Direction joined this
+// key in the 2026-09 review) and as an observability label.
 type RuleID string
 
 const (
@@ -12,6 +13,24 @@ const (
 	// "调峰调频" scenario: a battery CU's SOC alone (no forecast, no
 	// external signal) is enough to decide whether to charge or discharge.
 	RuleSOCThreshold RuleID = "soc_threshold"
+)
+
+// Direction distinguishes which way a threshold rule is pushing power.
+// It exists purely for cooldown bookkeeping (domain/service/cooldown.go):
+// review of the v1 design (internal/optimization/review.md #1) found that
+// keying cooldown by (RuleID, CUCode) alone conflates two different things
+// — "don't re-fire the same decision on the same stale-ish reading" (the
+// anti-oscillation guard's actual job, discussion §一 risk #5) and "don't
+// let this CU do anything for the cooldown window" (an accidentally wider
+// rule that isn't what anti-oscillation is supposed to mean). A CU that
+// legitimately swings from breaching MinSOC to breaching MaxSOC within one
+// cooldown window is a different decision, not a repeat of the same one,
+// and must not be suppressed by the earlier charge/discharge's cooldown.
+type Direction string
+
+const (
+	DirectionCharge    Direction = "charge"
+	DirectionDischarge Direction = "discharge"
 )
 
 // SOCThresholdRule binds a charge/discharge policy to one specific CU and

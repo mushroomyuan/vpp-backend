@@ -7,7 +7,7 @@
 
 ## 1. 机制
 
-`resource` / `telemetry` / `gateway` / `dispatch` / `simulator` / `alarm` / `optimization` 的 `app.go` 里都有等价的 `loadViperConfig()`：
+`resource` / `telemetry` / `gateway` / `dispatch` / `simulator` / `alarm` / `optimization` / `forecast` 的 `app.go` 里都有等价的 `loadViperConfig()`：
 
 ```go
 viper.SetConfigName("<service>")
@@ -51,8 +51,13 @@ if err := viper.ReadInConfig(); err != nil {
 | `dispatch.auth.trust-proxy-headers` | `DISPATCH_AUTH_TRUST_PROXY_HEADERS` |
 | `dispatch.auth.authz.casdoor-url` | `DISPATCH_AUTH_AUTHZ_CASDOOR_URL` |
 | `optimization.http-addr` | `OPTIMIZATION_HTTP_ADDR` |
-| `telemetry.grpc-addr`（optimization 出站） | `TELEMETRY_GRPC_ADDR` |
+| `telemetry.grpc-addr`（optimization / forecast 出站） | `TELEMETRY_GRPC_ADDR` |
 | `resource.grpc-addr`（optimization 出站） | `RESOURCE_GRPC_ADDR` |
+| `forecast.grpc-addr` | `FORECAST_GRPC_ADDR` |
+| `forecast.http-addr` | `FORECAST_HTTP_ADDR` |
+| `postgres.host`（forecast；其它服务是 `database.host`） | `POSTGRES_HOST` |
+| `postgres.dbname` | `POSTGRES_DBNAME` |
+| `redis.db` | `REDIS_DB` |
 
 其余四个服务（resource / telemetry / gateway / simulator）的 `options.go` 结构不完全相同，但规则一致：
 直接对照各自的 `internal/<service>/options/options.go` 里的 `mapstructure` 标签推导即可。

@@ -1,0 +1,23 @@
+version: v2
+
+modules:
+  - path: .
+    excludes:
+      - gen
+
+lint:
+  use:
+    - STANDARD
+  except:
+    # PascalCase field names (e.g. TenantID, CUCode) match the rest of this
+    # repo's proto conventions (resource / telemetry / dispatch / gateway).
+    - FIELD_LOWER_SNAKE_CASE
+    - PACKAGE_VERSION_SUFFIX
+    - PACKAGE_DIRECTORY_MATCH
+    # GetLatestPrediction returns the domain message Prediction directly,
+    # matching telemetry.GetSnapshot → Snapshot.
+    - RPC_RESPONSE_STANDARD_NAME
+
+breaking:
+  use:
+    - FILE

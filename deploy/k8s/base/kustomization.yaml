@@ -26,6 +26,7 @@ resources:
   - simulator
   - alarm
   - optimization
+  - forecast
 
 patches:
   - path: host-aliases-patch.yaml

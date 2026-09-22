@@ -34,7 +34,7 @@ VPP 平台的**内部闭环决策服务**。按固定周期读 Telemetry 当前�
 |---|---|
 | **决策循环** | `DecisionLoop` ticker 驱动，每租户一轮 `RunDecisionCycle` |
 | **阈值评估** | v1 仅 `SOCThresholdRule`：显式绑定 CU + 读/写 PointKey |
-| **防抖** | 进程内 `(CUCode, RuleID)` 冷却期；过期/stale 快照不决策 |
+| **防抖** | 进程内 `(CUCode, RuleID, Direction)` 冷却期；过期/stale 快照不决策 |
 | **下发** | 一条 Target → 一个 Dispatch Task（parallel Action） |
 | **来源标记** | `TriggerType=automatic`，经 `vpp.dispatch.events.trigger_type` 进 alarm 工单属性 |
 
@@ -89,9 +89,11 @@ Telemetry :5003          Resource :5002           Dispatch :5006
 | 机制 | 默认 | 负责 |
 |---|---|---|
 | Decision interval | `60s`（YAML 可调） | 必须**严格大于** Telemetry 采集周期（Simulator 默认 30s） |
-| Cooldown | `2× interval`（`2m`） | 同一 `(CUCode, RuleID)` 触发后，窗口内即使仍越限也不再下发 |
+| Cooldown | `2× interval`（`2m`） | 同一 `(CUCode, RuleID, Direction)` 触发后，窗口内即使仍越限也不再下发 |
 
 冷却态是进程内 map，不是 Redis。单实例部署；重启后最坏情况是多一次决策，不是正确性 bug。
+
+**冷却按方向（充电/放电）分别计**（2026-09 review 修正，见 `review.md` #1）：充电触发的冷却只压制"再次充电"，不会压制冷却期内 SOC 反向冲高后需要的放电——两者是不同的决策，不是同一份数据的重复决策。副作用：为了在冷却期内也能侦测到方向反转，规则现在**每轮都会读 Telemetry**，不再像 v1 最初那样在冷却激活时直接跳过读取（那个优化和这个修复在结构上互斥）。
 
 规则自己的 `cooldown: 0s` 表示"用默认值"，**不是**"关闭冷却"。stale snapshot 静默跳过，不算错误。
 
@@ -136,7 +138,7 @@ Evaluate → []Target → Allocate → []CommandSpec → SubmitTask
 | `optimization_submit_task_total{result}` | `success` \| `failure` |
 | `optimization_forecast_calls_total{result}` | `ok` \| `error` \| `not_implemented` |
 
-结构化日志 `component: "DecisionLoop"`，字段包括 `rule_id`、`cu_code`、`cooldown_skipped`、`tenant_id`、`targets_fired`、`tasks_submitted`。
+结构化日志 `component: "DecisionLoop"`，字段包括 `rule_id`、`cu_code`、`direction`、`cooldown_skipped`、`tenant_id`、`targets_fired`、`tasks_submitted`。
 
 ---
 
@@ -205,7 +207,7 @@ kubectl -n vpp port-forward svc/optimization 8088:8088
 
 ## 已知技术债（v1 故意不做）
 
-- **真实 Forecast。** 只有 Port + stub；预测型规则不启用。
+- **真实 Forecast 接线。** Forecast 服务已独立落地；本服务只有 Port + stub，预测型规则不启用。
 - **`AggregateTarget` 无产线调用方。** 等 Market / 需求响应。
 - **多级任务分解。** `Scope` 单层；代理用户链推迟。
 - **冷却态不持久化。** 重启可能多一次下发；kind `replicas: 1`。

@@ -84,6 +84,16 @@ flowchart TB
 
     end
 
+    subgraph Forecast["vpp-forecast"]
+
+        F_GRPC["gRPC :5007<br/>GetLatestPrediction"]
+
+        F_HTTP["HTTP :8089<br/>/healthz only"]
+
+        F_APP["ForecastLoop<br/>QueryAggregation → Predict → 落库"]
+
+    end
+
     PG -->|resource 库| Resource
 
     PG -->|telemetry 库| Telemetry
@@ -94,9 +104,13 @@ flowchart TB
 
     PG -->|alarm 库| Alarm
 
+    PG -->|forecast 库| Forecast
+
     Redis -->|db=0 运行时缓存| Resource
 
     Redis -->|db=1 CU 快照| Telemetry
+
+    Redis -->|db=2 最新预测批次| Forecast
 
     Admin -->|REST Bearer JWT| APISIX
 
@@ -158,6 +172,16 @@ flowchart TB
 
     O_APP -->|gRPC SubmitTask automatic| D_GRPC
 
+    F_HTTP --> F_APP
+
+    F_GRPC --> F_APP
+
+    F_APP -->|gRPC QueryAggregation| T_GRPC
+
+    F_APP -->|整批最新点| Redis
+
+    F_APP -->|forecast_history| PG
+
     Resource --- Jaeger
 
     Telemetry --- Jaeger
@@ -182,6 +206,10 @@ flowchart TB
 
     Optimization --- Prom
 
+    Forecast --- Jaeger
+
+    Forecast --- Prom
+
 ```
 
 
@@ -198,6 +226,11 @@ flowchart TB
 | **optimization** | resource             | gRPC `:5002` | ✅ 已接线      | `GetAsset` 额定容量；仅 `AggregateTarget`；v1 规则不调用 |
 | **optimization** | dispatch             | gRPC `:5006` | ✅ **已通**    | `SubmitTask` `TriggerType=automatic`；熔断默认开；服务端 `submit-task` 限流 `rps=20 burst=40` |
 | **任意**    | **optimization 业务 API** | —          | ❌ 无         | 无入站业务 gRPC/HTTP，只有 `/healthz` + `/metrics` |
+| **forecast** | telemetry            | gRPC `:5003` | ✅ **已通**    | `QueryAggregation` AVG+LAST；熔断默认开；不查 Resource |
+| **forecast** | Redis db=2           | —            | ✅ **已通**    | 最新整批预测点；TTL = horizon + 一轮周期 |
+| **forecast** | Postgres `forecast`  | —            | ✅ **已通**    | `forecast_history` 权威历史；先写 PG 再写 Redis |
+| 管理端 / Optimization | **forecast**     | gRPC `:5007` | 🟡 已暴露未接线 | `GetLatestPrediction` / `QueryForecastHistory` 已可用；无 APISIX；Optimization `ForecastPort` 仍是 stub |
+| **任意**    | **forecast 写 RPC**  | —            | ❌ 无         | 唯一产出者是自己的 ForecastLoop |
 | dispatch  | gateway                  | gRPC `:5005` | ✅ **v2 已通** | `ExecuteCommand`（CommandID / PointKey / oneof Value） |
 | gateway   | 外部系统 / Simulator     | HTTP         | ✅ **simulator 已通** | `ExternalSystem=simulator` → Simulator；其它 → `ems_log`；成功后发 Kafka 回调 |
 | simulator | gateway                  | HTTP `:9080/gateway` 或 `:8083` | ✅ **新增**    | 遥测 `telemetry:ingest`（经 APISIX 需 api-key） |
@@ -245,6 +278,12 @@ flowchart LR
 
         O1 -->|gRPC SubmitTask automatic| D1
 
+        F1[forecast] -->|gRPC QueryAggregation| T1
+
+        F1 -->|最新整批点| Redis2[("Redis db=2")]
+
+        F1 -->|forecast_history| PGf[("Postgres forecast")]
+
     end
 
     subgraph Future["❌ 尚未实现 / 部分未做"]
@@ -255,7 +294,9 @@ flowchart LR
 
         AlarmAPI["APISIX /alarm/*"] -.->|OIDC 北向| A2[alarm HTTP]
 
-        ForecastSvc["Forecast v1"] -.->|ForecastPort| O2[optimization]
+        O2[optimization] -.->|ForecastPort 本轮不接| F2[forecast]
+
+        ChartUI["前端 预测 vs 实际"] -.->|QueryForecastHistory| F2
 
     end
 
@@ -351,7 +392,8 @@ proto 注释：
 | dispatch | 控制任务编排 (Task/Action/Command)，顺控/并发，超时重试，FailFast 熔断 | 协议转换，CU→外部 ID 映射，与外部系统直连 |
 | **simulator** | 虚拟设备运行时：Tick 演化、遥测上报、命令执行、故障注入 | 资源权威、协议转换、调度决策 |
 | **alarm** | 消费 `task.failed` + SOE，规则开单/合单，租户内查询 / ack / close | 全量审计、命令/资源生命周期、规则 DSL、自动恢复、APISIX 北向 |
-| **optimization** | 内部闭环决策：ticker 读 Telemetry，阈值规则 → Allocate → Dispatch `SubmitTask`（`TriggerType=automatic`） | 入站业务 API、真实预测、多级任务分解、Resource Runtime 缓存 |
+| **optimization** | 内部闭环决策：ticker 读 Telemetry，阈值规则 → Allocate → Dispatch `SubmitTask`（`TriggerType=automatic`） | 入站业务 API、真实预测接线、多级任务分解、Resource Runtime 缓存 |
+| **forecast** | 内部批算预测：ticker 读 Telemetry 历史，朴素算法 → Redis 最新批次 + Postgres 历史；只读 gRPC | 电价/天气预测、写 RPC、APISIX 北向、接 Optimization、retention |
 
 ### 3.6 Dispatch ↔ Gateway 协作约定
 
@@ -520,6 +562,24 @@ ticker（默认 60s，须 > Telemetry 采集周期 30s）
 
 ```
 
+**内部批算预测（forecast v1 已落地）：**
+
+```
+
+ticker（默认 15m，对齐 Telemetry 15 分钟视图）
+    → telemetry QueryAggregation
+    → Predictor（moving_average / same_period_prior）
+    → Postgres forecast_history（权威）
+    → Redis db=2 整批最新点（热点；失败不回滚 PG）
+
+只读 gRPC：GetLatestPrediction（SelectNextPoint 现算下一步）
+          QueryForecastHistory（按 target_timestamp 窗口）
+无写 RPC、无 APISIX。targets 默认空，填上才会真正批算。
+本机：`make run-forecast`；kind：ClusterIP `:5007` / `:8089`，镜像 `ghcr.io/mushroomyuan/vpp-backend/forecast:latest`。replicas: 1。
+Optimization ForecastPort 本轮不接。
+
+```
+
 ---
 
 ## 六、服务端口一览
@@ -535,9 +595,10 @@ ticker（默认 60s，须 > Telemetry 采集周期 30s）
 | **simulator** | — | **`:8084`** | **`:9106`** |
 | **alarm** | — | **`:8087`**（直连；无 APISIX） | **`:9107`** |
 | **optimization** | — | **`:8088`**（仅 `/healthz`） | **`:9108`** |
+| **forecast** | **`:5007`** | **`:8089`**（仅 `/healthz`） | **`:9109`** |
 
-北向鉴权：管理端 → `:9080/resource/*`（Casdoor OIDC）；EMS → `:9080/gateway/*`（`key-auth`）。alarm 人管面 v1 不经 APISIX。optimization 无北向、无业务 HTTP。详见 [`docs/CASDOOR.md`](docs/CASDOOR.md)、[`docs/APISIX.md`](docs/APISIX.md)。本机 kind 部署见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md)。
+北向鉴权：管理端 → `:9080/resource/*`（Casdoor OIDC）；EMS → `:9080/gateway/*`（`key-auth`）。alarm 人管面 v1 不经 APISIX。optimization / forecast 无北向。详见 [`docs/CASDOOR.md`](docs/CASDOOR.md)、[`docs/APISIX.md`](docs/APISIX.md)。本机 kind 部署见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md)。
 
 ---
 
-**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`，含 `trigger_type`）与 `vpp.soe.events`，人管面直连 HTTP `:8087`。**optimization v1 已落地**为内部闭环：ticker → Telemetry `GetSnapshot` → 阈值规则 → Dispatch `SubmitTask`（`TriggerType=automatic`）；无入站业务 API、无独立存储；Forecast 仍为 Port 占位。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。**`CancelTask` 已实现**：非终态 Action/Pending Command 置 Cancelled，`Sending` 中的 Command 不强制撤回（无 Gateway 侧撤回 RPC），其迟到回调由 `task.IsFinished()` 幂等守卫吞掉；发布 `task.cancelled` 事件。后续重点：Forecast v1、真实外部系统适配、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。
+**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`，含 `trigger_type`）与 `vpp.soe.events`，人管面直连 HTTP `:8087`。**optimization v1 已落地**为内部闭环：ticker → Telemetry `GetSnapshot` → 阈值规则 → Dispatch `SubmitTask`（`TriggerType=automatic`）；无入站业务 API、无独立存储。**forecast v1 已落地**为独立批算服务：ticker → Telemetry `QueryAggregation` → 朴素算法 → Redis db=2 + Postgres `forecast_history`；只读 gRPC 已暴露，Optimization `ForecastPort` 本轮不接。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。**`CancelTask` 已实现**：非终态 Action/Pending Command 置 Cancelled，`Sending` 中的 Command 不强制撤回（无 Gateway 侧撤回 RPC），其迟到回调由 `task.IsFinished()` 幂等守卫吞掉；发布 `task.cancelled` 事件。后续重点：Optimization 接真实 Forecast、真实外部系统适配、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。

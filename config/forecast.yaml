@@ -1,0 +1,74 @@
+tracing:
+  endpoint: 127.0.0.1:4318
+  insecure: true
+
+forecast:
+  service-name: vpp-forecast
+  # Native gRPC only — no grpc-gateway HTTP. :8089 is /healthz (design plan §3 / §10).
+  grpc-addr: 127.0.0.1:5007
+  http-addr: 127.0.0.1:8089
+  metrics-addr: 127.0.0.1:9109
+
+  # Not a correctness floor (unlike Optimization's decision-interval): Forecast
+  # is read+compute+store, so repeating a tick has no side effect. Default 15m
+  # matches Telemetry's 15-minute continuous aggregation view.
+  cycle-interval: 15m
+  horizon-steps: 4
+  step-seconds: 900
+  history-window: 168h        # 7 days; same_period_prior needs at least this lookback
+
+  # Each target carries its own tenant-id (design plan §5): not a service-level
+  # tenant-ids list. Empty = loop ticks as a no-op. Fill in to enable. Example:
+  #   - enabled: true
+  #     tenant-id: tenant-a
+  #     cu-code: cu-battery-1
+  #     metric-name: active_power_kw
+  #     algorithm: moving_average
+  #     moving-average-window: 8
+  #   - enabled: true
+  #     tenant-id: tenant-a
+  #     cu-code: cu-pv-1
+  #     metric-name: active_power_kw
+  #     algorithm: same_period_prior
+  #     same-period-lookback-days: 7
+  targets: []
+
+# Outbound gRPC (internal direct connect, not via APISIX). Circuit-breaker
+# defaults on, matching Optimization's telemetry client (design plan §8 / §10).
+telemetry:
+  grpc-addr: 127.0.0.1:5003
+  timeout: 5s
+  circuit-breaker:
+    enabled: true
+    consecutive-failures: 5
+    min-requests: 10
+    failure-ratio: 0.5
+    open-timeout: 30s
+
+# Forecast's own logical database (migrations/initdb/80-forecast-db.sh).
+# Key is postgres (not database) so env overlay is POSTGRES_HOST / POSTGRES_DBNAME.
+postgres:
+  driver: postgres
+  host: 127.0.0.1
+  port: 5432
+  user: postgres
+  password: postgres123
+  dbname: forecast
+  params:
+    sslmode: disable
+    TimeZone: Asia/Shanghai
+  max-open-conns: 20
+  max-idle-conns: 5
+  conn-max-lifetime-seconds: 1800
+  conn-max-idle-time-seconds: 300
+
+redis:
+  addr: 127.0.0.1:6379
+  password: ""
+  db: 2          # db=2 to avoid key collisions with resource (db=0) and telemetry (db=1)
+  pool-size: 10
+  min-idle-conns: 2
+  dial-timeout-seconds: 5
+  read-timeout-seconds: 3
+  write-timeout-seconds: 3
+  ping-timeout-seconds: 3

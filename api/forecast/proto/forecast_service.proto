@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package forecastpb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/forecast/proto/gen;forecastpb";
+
+import "google/protobuf/timestamp.proto";
+
+// ForecastService exposes read-only access to asset generation / load
+// predictions produced by Forecast's own batch loop.
+//
+// There is no write RPC: v1's only producer is Forecast itself. External
+// model pipelines that need to push predictions would be a later, intentional
+// API extension.
+service ForecastService {
+
+  // GetLatestPrediction answers "from now, what is the next still-future
+  // target timestamp's predicted value" for one CU metric.
+  //
+  // That answer moves as the request time advances: it is not "the first
+  // point the last batch wrote". The server picks, from the latest known
+  // batch (Redis cache or Postgres fallback, same SelectNextPoint rule),
+  // the point with the smallest target_timestamp >= request time.
+  //
+  // Returns NOT_FOUND if this target has never been forecast, or if every
+  // point in the latest batch already lies in the past.
+  rpc GetLatestPrediction(GetLatestPredictionRequest) returns (Prediction);
+
+  // QueryForecastHistory returns persisted forecast points whose
+  // target_timestamp falls in [StartTime, EndTime], for "forecast vs actual"
+  // charts.
+  //
+  // GeneratedAt unset: one point per target_timestamp, the most recently
+  // generated one. GeneratedAt set: only that batch (to compare "4h-ahead"
+  // vs "1h-ahead" accuracy).
+  rpc QueryForecastHistory(QueryForecastHistoryRequest) returns (QueryForecastHistoryResponse);
+}
+
+// Prediction is one bi-temporal forecast value: GeneratedAt is when the
+// batch ran; TargetTimestamp is the future instant being predicted.
+message Prediction {
+  string TenantID = 1;
+  string CUCode = 2;
+  string MetricName = 3;
+  google.protobuf.Timestamp GeneratedAt = 4;
+  google.protobuf.Timestamp TargetTimestamp = 5;
+  double PredictedValue = 6;
+  string AlgorithmVersion = 7;
+}
+
+message GetLatestPredictionRequest {
+  string TenantID = 1;
+  string CUCode = 2;
+  string MetricName = 3;
+}
+
+message QueryForecastHistoryRequest {
+  string TenantID = 1;
+  string CUCode = 2;
+  string MetricName = 3;
+  // StartTime / EndTime bound target_timestamp (not generated_at).
+  google.protobuf.Timestamp StartTime = 4;
+  google.protobuf.Timestamp EndTime = 5;
+  // GeneratedAt is optional. Unset = latest generation per target_timestamp;
+  // set = only points from that batch.
+  google.protobuf.Timestamp GeneratedAt = 6;
+}
+
+message QueryForecastHistoryResponse {
+  repeated Prediction Predictions = 1;
+}

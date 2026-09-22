@@ -6,7 +6,8 @@
   },
   "tags": [
     {
-      "name": "ResourceService"
+      "name": "ResourceService",
+      "description": "ResourceService exposes APIs aligned with the current application layer:\nSite / Asset / CU / Point, resource-tree operations, and import jobs."
     }
   ],
   "consumes": [

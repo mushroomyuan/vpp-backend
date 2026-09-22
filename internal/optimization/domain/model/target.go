@@ -37,6 +37,17 @@ import "time"
 type Target interface {
 	TenantID() string
 	Source() string
+	// RuleID identifies which rule instance produced this target, for
+	// metrics/log attribution (application/command/run_decision_cycle.go's
+	// targetLogFields and the ObserveRulesFired call). Added in the
+	// 2026-09 review (internal/optimization/review.md #2): the previous
+	// approach re-derived a rule id downstream by guessing from Source(),
+	// which only stayed correct by coincidence while v1 had exactly one
+	// rule kind — see PointTarget.Rule's doc comment for the fix. Empty
+	// for targets that don't originate from one specific rule instance
+	// (e.g. AggregateTarget: an externally-dispatched objective, not a
+	// rule firing).
+	RuleID() string
 }
 
 // Source values identify which path produced a Target. v1 only ever
@@ -54,6 +65,16 @@ const (
 type PointTarget struct {
 	Tenant string
 	Src    string
+	// Rule is which rule instance produced this target — set by the rule
+	// engine at the point of construction (domain/service/evaluator.go),
+	// which always knows this about itself. This is deliberately the
+	// producer stating its own identity, not a consumer guessing it back
+	// from Source() (the bug fixed in the 2026-09 review, see Target's
+	// RuleID doc comment): the day a second internal rule kind exists, its
+	// evaluate function sets its own RuleID constant here, and every
+	// downstream consumer of RuleID() is correct automatically — no
+	// second place to remember to update.
+	Rule RuleID
 
 	CUCode   string
 	PointKey string
@@ -62,6 +83,7 @@ type PointTarget struct {
 
 func (t PointTarget) TenantID() string { return t.Tenant }
 func (t PointTarget) Source() string   { return t.Src }
+func (t PointTarget) RuleID() string   { return string(t.Rule) }
 
 var _ Target = PointTarget{}
 
@@ -87,6 +109,11 @@ type AggregateTarget struct {
 
 func (t AggregateTarget) TenantID() string { return t.Tenant }
 func (t AggregateTarget) Source() string   { return t.Src }
+
+// RuleID is always empty: an AggregateTarget is an externally-dispatched
+// objective (Market/demand-response, Phase D), not the output of one of
+// Optimization's own rule instances — there is no single rule to name.
+func (t AggregateTarget) RuleID() string { return "" }
 
 var _ Target = AggregateTarget{}
 

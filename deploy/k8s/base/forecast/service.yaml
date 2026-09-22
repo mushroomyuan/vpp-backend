@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: forecast
+  labels:
+    app.kubernetes.io/name: forecast
+spec:
+  # ClusterIP only. v1 has no external caller and no APISIX route
+  # (design plan §3 / §11). Local:
+  #   kubectl -n vpp port-forward svc/forecast 5007:5007
+  #   kubectl -n vpp port-forward svc/forecast 8089:8089
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: forecast
+  ports:
+    - name: grpc
+      port: 5007
+      targetPort: grpc
+    - name: http
+      port: 8089
+      targetPort: http

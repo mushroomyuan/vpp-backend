@@ -158,6 +158,7 @@ type unsupportedTarget struct{}
 
 func (unsupportedTarget) TenantID() string { return "t" }
 func (unsupportedTarget) Source() string   { return "unsupported" }
+func (unsupportedTarget) RuleID() string   { return "" }
 
 // callAllocate is a thin wrapper so table-style tests above read a
 // little cleaner; it is not exported and has no behavior of its own.

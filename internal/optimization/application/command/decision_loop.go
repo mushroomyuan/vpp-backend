@@ -18,7 +18,7 @@ import (
 // process.
 //
 // Cooldown / debounce lives on Evaluator (in-memory lastFiredAt keyed by
-// (CUCode, RuleID)), not here. The loop's job is only to fire slower than
+// (CUCode, RuleID, Direction)), not here. The loop's job is only to fire slower than
 // Telemetry's collection cycle (v1 default 60s vs Simulator's 30s) and to
 // hand the tick time into Evaluate so cooldown is deterministic.
 type DecisionLoop struct {

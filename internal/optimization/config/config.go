@@ -25,7 +25,7 @@ type Config struct {
 	// DecisionInterval must stay strictly greater than Telemetry's
 	// collection cycle (Simulator default 30s). See design plan §4.
 	DecisionInterval time.Duration
-	// DefaultCooldown suppresses repeat (CUCode, RuleID) fires. Zero at
+	// DefaultCooldown suppresses repeat (CUCode, RuleID, Direction) fires. Zero at
 	// the options layer becomes 2× DecisionInterval here.
 	DefaultCooldown time.Duration
 

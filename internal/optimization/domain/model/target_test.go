@@ -6,6 +6,7 @@ func TestPointTarget_Accessors(t *testing.T) {
 	pt := PointTarget{
 		Tenant:   "tenant-1",
 		Src:      SourceInternalRule,
+		Rule:     RuleSOCThreshold,
 		CUCode:   "cu-1",
 		PointKey: "active_power_kw",
 		Value:    FloatCommandValue(10.5),
@@ -16,6 +17,20 @@ func TestPointTarget_Accessors(t *testing.T) {
 	}
 	if got := pt.Source(); got != SourceInternalRule {
 		t.Errorf("Source() = %q, want %q", got, SourceInternalRule)
+	}
+	if got := pt.RuleID(); got != string(RuleSOCThreshold) {
+		t.Errorf("RuleID() = %q, want %q", got, RuleSOCThreshold)
+	}
+}
+
+// TestPointTarget_RuleIDEmptyWhenUnset guards the zero-value case: a
+// PointTarget built without a Rule (e.g. in older call sites that predate
+// the 2026-09 review fix) reports an empty RuleID rather than panicking or
+// guessing — callers (ObserveRulesFired) already treat "" as "unknown".
+func TestPointTarget_RuleIDEmptyWhenUnset(t *testing.T) {
+	pt := PointTarget{Tenant: "tenant-1", Src: SourceInternalRule}
+	if got := pt.RuleID(); got != "" {
+		t.Errorf("RuleID() = %q, want empty for a PointTarget with no Rule set", got)
 	}
 }
 
@@ -33,6 +48,9 @@ func TestAggregateTarget_Accessors(t *testing.T) {
 	}
 	if got := at.Source(); got != SourceExternalDR {
 		t.Errorf("Source() = %q, want %q", got, SourceExternalDR)
+	}
+	if got := at.RuleID(); got != "" {
+		t.Errorf("RuleID() = %q, want empty (AggregateTarget has no single rule to attribute to)", got)
 	}
 }
 

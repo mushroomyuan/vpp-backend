@@ -82,17 +82,16 @@ func (e *Evaluator) Evaluate(ctx context.Context, tenantID string, now time.Time
 func (e *Evaluator) evaluateSOCThreshold(
 	ctx context.Context, tenantID string, rule model.SOCThresholdRule, now time.Time,
 ) (model.PointTarget, bool, error) {
-	if e.cooldown.active(rule.CUCode, model.RuleSOCThreshold, now) {
-		logging.Infof(ctx, logrus.Fields{
-			"component":        "DecisionLoop",
-			"tenant_id":        tenantID,
-			"rule_id":          string(model.RuleSOCThreshold),
-			"cu_code":          rule.CUCode,
-			"cooldown_skipped": true,
-		}, "rule suppressed by cooldown")
-		return model.PointTarget{}, false, nil
-	}
-
+	// Read-then-decide-then-check-cooldown, in that order — not "check
+	// cooldown first" like the pre-review version. Cooldown is scoped per
+	// direction (model.Direction; see cooldown.go's doc comment for why),
+	// and direction is only known after reading the current SOC, so the
+	// cooldown check necessarily moves after the read. The v1 optimization
+	// of skipping Telemetry entirely while any cooldown is active is gone
+	// as a result — that optimization was structurally incompatible with
+	// the fix: the exact case it fixes (charge cooldown active, SOC has
+	// since swung up to breach MaxSOC) is only detectable by reading
+	// Telemetry during the old cooldown window, not by skipping the read.
 	snap, err := e.telemetry.GetSnapshot(ctx, tenantID, rule.CUCode)
 	if err != nil {
 		return model.PointTarget{}, false, fmt.Errorf("soc_threshold[%s]: get snapshot: %w", rule.CUCode, err)
@@ -111,21 +110,39 @@ func (e *Evaluator) evaluateSOCThreshold(
 		)
 	}
 
-	var value model.CommandValue
+	var (
+		value     model.CommandValue
+		direction model.Direction
+	)
 	switch {
 	case soc <= rule.MinSOC:
 		value = model.FloatCommandValue(rule.ChargePowerKW)
+		direction = model.DirectionCharge
 	case soc >= rule.MaxSOC:
 		value = model.FloatCommandValue(rule.DischargePowerKW)
+		direction = model.DirectionDischarge
 	default:
 		return model.PointTarget{}, false, nil
 	}
 
-	e.cooldown.record(rule.CUCode, model.RuleSOCThreshold, now, rule.Cooldown)
+	if e.cooldown.active(rule.CUCode, model.RuleSOCThreshold, direction, now) {
+		logging.Infof(ctx, logrus.Fields{
+			"component":        "DecisionLoop",
+			"tenant_id":        tenantID,
+			"rule_id":          string(model.RuleSOCThreshold),
+			"cu_code":          rule.CUCode,
+			"direction":        string(direction),
+			"cooldown_skipped": true,
+		}, "rule suppressed by cooldown")
+		return model.PointTarget{}, false, nil
+	}
+
+	e.cooldown.record(rule.CUCode, model.RuleSOCThreshold, direction, now, rule.Cooldown)
 
 	return model.PointTarget{
 		Tenant:   tenantID,
 		Src:      model.SourceInternalRule,
+		Rule:     model.RuleSOCThreshold,
 		CUCode:   rule.CUCode,
 		PointKey: rule.WritePointKey,
 		Value:    value,

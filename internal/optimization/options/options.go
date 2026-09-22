@@ -23,7 +23,7 @@ type OptimizationOptions struct {
 	// DecisionInterval must stay strictly greater than Telemetry's
 	// collection cycle (Simulator default 30s). See design plan §4.
 	DecisionInterval time.Duration `mapstructure:"decision-interval"`
-	// DefaultCooldown suppresses repeat (CUCode, RuleID) fires. Zero means
+	// DefaultCooldown suppresses repeat (CUCode, RuleID, Direction) fires. Zero means
 	// "use 2× DecisionInterval" rather than "no cooldown".
 	DefaultCooldown time.Duration `mapstructure:"default-cooldown"`
 

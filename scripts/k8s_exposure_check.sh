@@ -45,10 +45,12 @@ expect_closed 8083 "gateway HTTP"
 expect_closed 8084 "simulator HTTP"
 expect_closed 8087 "alarm HTTP"
 expect_closed 8088 "optimization HTTP"
+expect_closed 8089 "forecast HTTP"
 expect_closed 5002 "resource gRPC"
 expect_closed 5003 "telemetry gRPC"
 expect_closed 5005 "gateway gRPC"
 expect_closed 5006 "dispatch gRPC"
+expect_closed 5007 "forecast gRPC"
 
 echo
 echo "== unused NodePorts must not be extraPortMapped =="

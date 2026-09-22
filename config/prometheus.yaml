@@ -50,3 +50,9 @@ scrape_configs:
     scrape_interval: 5s
     static_configs:
       - targets: ["host.docker.internal:9108"]
+
+  - job_name: vpp-forecast
+    metrics_path: /metrics
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["host.docker.internal:9109"]

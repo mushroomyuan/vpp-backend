@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forecast-config
+data:
+  TELEMETRY_GRPC_ADDR: telemetry.vpp.svc.cluster.local:5003
+  # YAML key is postgres (not database), so env overlay is POSTGRES_*.
+  POSTGRES_HOST: host.docker.internal
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: postgres
+  POSTGRES_DBNAME: forecast
+  REDIS_DB: "2"
