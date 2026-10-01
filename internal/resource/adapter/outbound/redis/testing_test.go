@@ -16,7 +16,6 @@ const (
 	seedTenantID = "001"
 	seedAssetID  = "019e81c4-3c21-718c-85e9-1cc4e34627c1"
 	seedCUID     = "019e81d8-ec58-7bff-9313-18c92b73cb1f"
-	seedPointID  = "019e8209-de32-7de9-bc86-511a03ab6faf"
 )
 
 func float64Ptr(v float64) *float64 { return &v }
@@ -87,26 +86,6 @@ func seedCURuntime(t *testing.T, store *CURuntimeStore) {
 	}
 }
 
-func seedPointRuntime(t *testing.T, store *PointRuntimeStore) {
-	t.Helper()
-	now := time.Now().UTC().Truncate(time.Millisecond)
-	value := "42.5"
-	quality := "good"
-	err := store.SetPointRuntime(context.Background(), &model.PointRuntime{
-		TenantID:      seedTenantID,
-		PointID:       seedPointID,
-		Value:         &value,
-		NumericValue:  float64Ptr(42.5),
-		QualityStatus: &quality,
-		Sequence:      1001,
-		SampledAt:     now.Add(-5 * time.Second),
-		UpdatedAt:     now,
-	})
-	if err != nil {
-		t.Fatalf("seed point runtime: %v", err)
-	}
-}
-
 func flushSeedKeys(t *testing.T, client *platformredis.Client) {
 	t.Helper()
 	rdb := client.Client()
@@ -117,7 +96,6 @@ func flushSeedKeys(t *testing.T, client *platformredis.Client) {
 	keys := []string{
 		assetRuntimeKey(seedTenantID, seedAssetID),
 		cuRuntimeKey(seedTenantID, seedCUID),
-		pointRuntimeKey(seedTenantID, seedPointID),
 	}
 	if err := rdb.Del(ctx, keys...).Err(); err != nil {
 		t.Fatalf("flush seed keys: %v", err)

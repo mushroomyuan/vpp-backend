@@ -160,7 +160,7 @@ flowchart LR
 ### Resource — 配置源（只读）
 
 - Simulator 启动时遍历资源树，过滤可模拟 CU，用 Point 作为遥测/控制模板。
-- `Snapshot()` **只输出 Resource 已声明的 PointKey**，保证模拟数据与平台点表一致。
+- `Snapshot()` **只输出 Resource 已声明的 canonical MetricID**，保证模拟数据与平台点表一致。
 - Onboarding 约定：Resource 创建 `provider=simulator` 的 CU → Gateway 建 `external_system=simulator` 的 Mapping → Simulator 加载后自动 Tick。
 
 ### Gateway — 唯一双向对接面

@@ -1,8 +1,6 @@
 package builder
 
 import (
-	"encoding/json"
-
 	"github.com/mushroomyuan/vpp-backend/platform/util"
 	"gorm.io/gorm"
 )
@@ -79,8 +77,16 @@ func (c *CU) Fill(db *gorm.DB, scanCUSRows bool) *gorm.DB {
 		db = db.Select("cus.*")
 	}
 	if len(c.capabilities) > 0 {
-		caps, _ := json.Marshal(c.capabilities)
-		db = db.Where("cus.capability_tags @> ?::jsonb", string(caps))
+		db = db.Where(
+			`(SELECT COUNT(DISTINCT cc.capability_id)
+			  FROM cu_capabilities cc
+			  WHERE cc.tenant_id = cus.tenant_id
+			    AND cc.cu_id = cus.node_id
+			    AND cc.enabled = TRUE
+			    AND cc.capability_id IN ?) = ?`,
+			c.capabilities,
+			len(c.capabilities),
+		)
 	}
 	if c.limit > 0 {
 		db = db.Limit(c.limit).Offset(c.offset)

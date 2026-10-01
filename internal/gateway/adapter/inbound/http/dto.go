@@ -15,6 +15,8 @@ type IngestTelemetryRequest struct {
 }
 
 type MetricValueRequest struct {
+	// Name is forwarded unchanged. Telemetry accepts only a canonical MetricID;
+	// Gateway does not translate vendor addresses.
 	Name  string  `json:"name" binding:"required"`
 	Value float64 `json:"value"`
 }

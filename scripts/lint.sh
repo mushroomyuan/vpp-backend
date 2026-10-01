@@ -5,7 +5,18 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
-MODULES=(platform resource telemetry gateway dispatch simulator alarm optimization forecast)
+MODULE_DIRS=(
+  api/contracts
+  internal/platform
+  internal/resource
+  internal/telemetry
+  internal/gateway
+  internal/dispatch
+  internal/simulator
+  internal/alarm
+  internal/optimization
+  internal/forecast
+)
 
 log() {
   printf '[lint] %s\n' "$*"
@@ -19,8 +30,7 @@ die() {
 command -v golangci-lint >/dev/null 2>&1 || die "golangci-lint not found. Install: https://golangci-lint.run/welcome/install/"
 
 failed=0
-for module in "${MODULES[@]}"; do
-  dir="internal/${module}"
+for dir in "${MODULE_DIRS[@]}"; do
   log "golangci-lint run (${dir})"
   if ! (cd "${dir}" && golangci-lint run --config "${ROOT_DIR}/.golangci.yml" --timeout=5m ./...); then
     log "FAILED: ${dir}"

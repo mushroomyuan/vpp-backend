@@ -74,7 +74,6 @@ type CUModel struct {
 	Protocol       *string   `gorm:"column:protocol"`
 	ProtocolConfig []byte    `gorm:"column:protocol_config;type:jsonb"`
 	Connection     []byte    `gorm:"column:connection;type:jsonb"`
-	CapabilityTags []byte    `gorm:"column:capability_tags;type:jsonb"`
 	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt      time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
@@ -84,26 +83,52 @@ func (CUModel) TableName() string { return "cus" }
 // PointModel is the GORM representation of the points table.
 // When the point is also a node row, NodeID is set; AssetID links to the owning asset (node tree).
 type PointModel struct {
-	ID               string         `gorm:"column:id;primaryKey;type:uuid"`
-	TenantID         string         `gorm:"column:tenant_id;not null;index"`
-	NodeID           *string        `gorm:"column:node_id;index;type:uuid"`
-	AssetID          string         `gorm:"column:asset_id;not null;index"`
-	CUID             string         `gorm:"column:cu_id;not null;index"`
-	PointKey         string         `gorm:"column:point_key;not null"`
-	ExternalAddress  string         `gorm:"column:external_address"`
-	DataType         string         `gorm:"column:data_type;not null"`
-	ExtConfig        []byte         `gorm:"column:ext_config;type:jsonb"`
-	Description      string         `gorm:"column:description"`
-	ControlFlag      bool           `gorm:"column:control_flag;default:false"`
-	IsVirtual        bool           `gorm:"column:is_virtual;default:false"`
-	SafetyThresholds []byte         `gorm:"column:safety_thresholds;type:jsonb"`
-	CacheKeyAlias    string         `gorm:"column:cache_key_alias"`
-	CreatedAt        time.Time      `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt        time.Time      `gorm:"column:updated_at;autoUpdateTime"`
-	DeletedAt        gorm.DeletedAt `gorm:"column:deleted_at;index"`
+	ID               string                      `gorm:"column:id;primaryKey;type:uuid"`
+	TenantID         string                      `gorm:"column:tenant_id;not null;index"`
+	NodeID           *string                     `gorm:"column:node_id;index;type:uuid"`
+	AssetID          string                      `gorm:"column:asset_id;not null;index"`
+	CUID             string                      `gorm:"column:cu_id;not null;index"`
+	MetricID         string                      `gorm:"column:metric_id;not null"`
+	ExternalAddress  string                      `gorm:"column:external_address;not null"`
+	AccessMode       string                      `gorm:"column:access_mode;not null"`
+	Scale            float64                     `gorm:"column:scale;not null"`
+	Offset           float64                     `gorm:"column:offset;not null"`
+	Enabled          bool                        `gorm:"column:enabled;not null"`
+	Revision         int64                       `gorm:"column:revision;not null"`
+	SafetyConstraint *PointSafetyConstraintModel `gorm:"foreignKey:PointID"`
+	CreatedAt        time.Time                   `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt        time.Time                   `gorm:"column:updated_at;autoUpdateTime"`
+	DeletedAt        gorm.DeletedAt              `gorm:"column:deleted_at;index"`
 }
 
 func (PointModel) TableName() string { return "points" }
+
+type PointSafetyConstraintModel struct {
+	PointID            string    `gorm:"column:point_id;primaryKey;type:uuid"`
+	MinValue           *float64  `gorm:"column:min_value"`
+	MaxValue           *float64  `gorm:"column:max_value"`
+	MaxChangePerSecond *float64  `gorm:"column:max_change_per_second"`
+	Version            int64     `gorm:"column:version;not null"`
+	CreatedAt          time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt          time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+func (PointSafetyConstraintModel) TableName() string { return "point_safety_constraints" }
+
+type CUCapabilityModel struct {
+	ID            string    `gorm:"column:id;primaryKey;type:uuid"`
+	TenantID      string    `gorm:"column:tenant_id;not null;index"`
+	CUID          string    `gorm:"column:cu_id;not null;index;type:uuid"`
+	CapabilityID  string    `gorm:"column:capability_id;not null;index"`
+	SchemaVersion int       `gorm:"column:schema_version;not null"`
+	Spec          []byte    `gorm:"column:spec;type:jsonb;not null"`
+	Enabled       bool      `gorm:"column:enabled;not null"`
+	Version       int64     `gorm:"column:version;not null"`
+	CreatedAt     time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt     time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+func (CUCapabilityModel) TableName() string { return "cu_capabilities" }
 
 // JobModel is the GORM representation of the import_jobs table.
 // Payload and ResultJSON are stored as JSONB. Status is indexed to support the

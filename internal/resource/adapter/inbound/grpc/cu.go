@@ -51,7 +51,6 @@ func (s *Server) CreateCU(ctx context.Context, req *resourcepb.CreateCURequest) 
 		Name:           req.GetName(),
 		Type:           req.GetType(),
 		Description:    description,
-		CapabilityTags: req.GetCapabilityTags(),
 		Provider:       provider,
 		ExternalID:     externalID,
 		Protocol:       protocol,
@@ -87,14 +86,14 @@ func (s *Server) ListCUs(ctx context.Context, req *resourcepb.ListCUsRequest) (*
 	logIn(ctx, "list_cus")
 
 	result, err := s.listCUs.Handle(ctx, query.ListCUs{
-		TenantID:       req.GetTenantID(),
-		SiteID:         req.GetSiteID(),
-		AssetID:        req.GetAssetID(),
-		CapabilityTags: req.GetCapability(),
-		IDs:            req.GetIDs(),
-		NameLike:       req.GetNameLike(),
-		Offset:         int(req.GetOffset()),
-		Limit:          int(req.GetLimit()),
+		TenantID:      req.GetTenantID(),
+		SiteID:        req.GetSiteID(),
+		AssetID:       req.GetAssetID(),
+		CapabilityIDs: req.GetCapabilityIDs(),
+		IDs:           req.GetIDs(),
+		NameLike:      req.GetNameLike(),
+		Offset:        int(req.GetOffset()),
+		Limit:         int(req.GetLimit()),
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
@@ -144,7 +143,6 @@ func (s *Server) UpdateCU(ctx context.Context, req *resourcepb.UpdateCURequest) 
 		ID:             req.GetID(),
 		Name:           req.GetName(),
 		Type:           req.GetType(),
-		CapabilityTags: req.GetCapabilityTags(),
 		Provider:       provider,
 		ExternalID:     externalID,
 		Protocol:       protocol,

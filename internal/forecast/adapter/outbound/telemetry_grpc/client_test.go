@@ -64,7 +64,7 @@ func TestClient_QueryAggregation_ConvertsResponseAndRequestsAvgLast(t *testing.T
 			Points: []*telemetrypb.AggregatedPoint{
 				{
 					CUCode:      "cu-1",
-					MetricName:  "active_power_kw",
+					MetricID:    "active_power_kw",
 					WindowStart: timestamppb.New(start),
 					Avg:         &avg,
 					Last:        &last,
@@ -109,8 +109,8 @@ func TestClient_QueryAggregation_ConvertsResponseAndRequestsAvgLast(t *testing.T
 	if req == nil {
 		t.Fatal("expected QueryAggregation to be invoked")
 	}
-	if req.GetTenantID() != "tenant-1" || req.GetCUCode() != "cu-1" || req.GetMetricName() != "active_power_kw" {
-		t.Errorf("identity = (%s,%s,%s)", req.GetTenantID(), req.GetCUCode(), req.GetMetricName())
+	if req.GetTenantID() != "tenant-1" || req.GetCUCode() != "cu-1" || req.GetMetricID() != "active_power_kw" {
+		t.Errorf("identity = (%s,%s,%s)", req.GetTenantID(), req.GetCUCode(), req.GetMetricID())
 	}
 	if req.GetStepSeconds() != 900 {
 		t.Errorf("StepSeconds = %d, want 900", req.GetStepSeconds())

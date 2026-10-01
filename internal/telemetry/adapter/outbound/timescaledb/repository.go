@@ -26,9 +26,9 @@ type TelemetryStore struct {
 }
 
 const insertSQL = `
-INSERT INTO telemetry_records (ts, tenant_id, cu_code, metric_name, metric_type, value)
+INSERT INTO telemetry_records (ts, tenant_id, cu_code, metric_id, metric_type, value)
 VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (ts, tenant_id, cu_code, metric_name) DO NOTHING`
+ON CONFLICT (ts, tenant_id, cu_code, metric_id) DO NOTHING`
 
 // SaveBatch writes all records to TimescaleDB using pgx.Batch — a single
 // network round-trip regardless of how many rows are sent.
@@ -42,7 +42,7 @@ func (s *TelemetryStore) SaveBatch(ctx context.Context, records []*model.Telemet
 
 	batch := &pgx.Batch{}
 	for _, r := range rows {
-		batch.Queue(insertSQL, r.ts, r.tenantID, r.cuCode, r.metricName, r.metricType, r.value)
+		batch.Queue(insertSQL, r.ts, r.tenantID, r.cuCode, r.metricID, r.metricType, r.value)
 	}
 
 	results := s.pool.SendBatch(ctx, batch)
@@ -57,14 +57,14 @@ func (s *TelemetryStore) SaveBatch(ctx context.Context, records []*model.Telemet
 }
 
 const querySQL = `
-SELECT ts, tenant_id, cu_code, metric_name, metric_type, value
+SELECT ts, tenant_id, cu_code, metric_id, metric_type, value
 FROM   telemetry_records
 WHERE  tenant_id = $1
   AND  cu_code   = $2
   AND  ts >= $3
   AND  ts <  $4
 %s
-ORDER BY ts ASC, metric_name ASC`
+ORDER BY ts ASC, metric_id ASC`
 
 // Query returns raw TelemetryRecords matching the condition.
 // Rows are grouped by (timestamp × cu_code) to reconstruct the original
@@ -79,9 +79,9 @@ func (s *TelemetryStore) Query(
 
 	var metricFilter string
 	args := []interface{}{condition.TenantID, condition.CUCode, condition.StartTime, condition.EndTime}
-	if condition.MetricName != "" {
-		metricFilter = "AND metric_name = $5"
-		args = append(args, condition.MetricName)
+	if condition.MetricID != "" {
+		metricFilter = "AND metric_id = $5"
+		args = append(args, condition.MetricID)
 	}
 
 	sql := fmt.Sprintf(querySQL, metricFilter)
@@ -94,7 +94,7 @@ func (s *TelemetryStore) Query(
 	var rawRows []rawRow
 	for pgxRows.Next() {
 		var r rawRow
-		if err := pgxRows.Scan(&r.ts, &r.tenantID, &r.cuCode, &r.metricName, &r.metricType, &r.value); err != nil {
+		if err := pgxRows.Scan(&r.ts, &r.tenantID, &r.cuCode, &r.metricID, &r.metricType, &r.value); err != nil {
 			return nil, fmt.Errorf("timescaledb Query scan: %w", err)
 		}
 		rawRows = append(rawRows, r)
@@ -130,7 +130,7 @@ func (s *AggregationStore) Query(
 	sql := buildAggSQL(requested)
 	stepStr := pgIntervalString(q.Step)
 	pgxRows, err := s.pool.Query(ctx, sql,
-		stepStr, q.TenantID, q.CUCode, q.MetricName, q.StartTime, q.EndTime,
+		stepStr, q.TenantID, q.CUCode, q.MetricID, q.StartTime, q.EndTime,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("timescaledb AggQuery: %w", err)
@@ -140,18 +140,18 @@ func (s *AggregationStore) Query(
 	var points []*model.AggregatedPoint
 	for pgxRows.Next() {
 		var (
-			bucket     time.Time
-			bucketEnd  time.Time
-			tenantID   string
-			cuCode     string
-			metricName string
+			bucket    time.Time
+			bucketEnd time.Time
+			tenantID  string
+			cuCode    string
+			metricID  string
 		)
 
 		p := &model.AggregatedPoint{}
 
 		// Build the scan destination list: fixed columns first, then the
 		// requested aggregation columns in the same order as buildAggSQL.
-		dests := []interface{}{&bucket, &bucketEnd, &tenantID, &cuCode, &metricName}
+		dests := []interface{}{&bucket, &bucketEnd, &tenantID, &cuCode, &metricID}
 		if requested[model.AggAvg] {
 			dests = append(dests, &p.Avg)
 		}
@@ -175,7 +175,7 @@ func (s *AggregationStore) Query(
 			return nil, fmt.Errorf("timescaledb AggQuery scan: %w", err)
 		}
 		p.CUCode = cuCode
-		p.MetricName = metricName
+		p.MetricID = metricID
 		p.StartTime = bucket
 		p.EndTime = bucketEnd
 		points = append(points, p)

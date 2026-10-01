@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mushroomyuan/vpp-backend/api/contracts"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 )
 
@@ -50,13 +51,20 @@ func TestCUItem_Validate(t *testing.T) {
 func TestPointItem_Validate(t *testing.T) {
 	t.Parallel()
 
-	if err := (PointItem{PointKey: "p", DataType: model.DataTypeInt}).Validate(); err != nil {
+	if err := (PointItem{
+		MetricID:        string(contracts.MetricEnergyStorageStateOfCharge),
+		ExternalAddress: "soc", AccessMode: model.AccessModeRead, Scale: 1,
+	}).Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if err := (PointItem{DataType: model.DataTypeInt}).Validate(); err == nil {
-		t.Fatal("missing PointKey")
+	if err := (PointItem{
+		ExternalAddress: "soc", AccessMode: model.AccessModeRead, Scale: 1,
+	}).Validate(); err == nil {
+		t.Fatal("missing MetricID")
 	}
-	if err := (PointItem{PointKey: "p", DataType: "Nope"}).Validate(); err == nil {
-		t.Fatal("invalid DataType")
+	if err := (PointItem{
+		MetricID: "soc", ExternalAddress: "soc", AccessMode: model.AccessModeRead, Scale: 1,
+	}).Validate(); err == nil {
+		t.Fatal("invalid MetricID")
 	}
 }

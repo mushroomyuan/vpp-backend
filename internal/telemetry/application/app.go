@@ -26,6 +26,8 @@ type Queries struct {
 	QueryTelemetry query.QueryTelemetryHandler
 	// GetSnapshot returns the current real-time state for a single CU.
 	GetSnapshot query.GetSnapshotHandler
+	// GetSnapshots returns real-time state for an explicit CU list and metric set.
+	GetSnapshots query.GetSnapshotsHandler
 	// GetFleetSnapshot returns real-time state for every CU in a tenant.
 	GetFleetSnapshot query.GetFleetSnapshotHandler
 	// QueryAggregation returns downsampled time-series data for a single CU metric.
@@ -79,6 +81,7 @@ func NewApplication(deps Dependencies) Application {
 		Queries: Queries{
 			QueryTelemetry: query.NewQueryTelemetryHandler(deps.TelemetryRepo, deps.Metrics),
 			GetSnapshot:    query.NewGetSnapshotHandler(deps.SnapshotRepo, deps.Metrics),
+			GetSnapshots:   query.NewGetSnapshotsHandler(deps.SnapshotRepo, deps.Metrics),
 			GetFleetSnapshot: query.NewGetFleetSnapshotHandler(deps.SnapshotRepo, deps.Metrics,
 				decorator.WithRateLimiter[query.GetFleetSnapshot, []*query.SnapshotView](deps.GetFleetSnapshotLimiter),
 			),

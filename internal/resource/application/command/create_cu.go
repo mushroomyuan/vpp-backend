@@ -21,7 +21,6 @@ type CreateCU struct {
 	Name           string
 	Type           string
 	Description    *string
-	CapabilityTags []string
 	Provider       *string
 	ExternalID     *string
 	Protocol       *string
@@ -87,7 +86,6 @@ func (h createCUHandler) Handle(ctx context.Context, cmd CreateCU) (*CreateCURes
 		Description:    cmd.Description,
 		Provider:       cmd.Provider,
 		ExternalID:     cmd.ExternalID,
-		CapabilityTags: cmd.CapabilityTags,
 		Protocol:       cmd.Protocol,
 		ProtocolConfig: cmd.ProtocolConfig,
 		Connection:     cmd.Connection,

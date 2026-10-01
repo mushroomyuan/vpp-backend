@@ -152,7 +152,7 @@ func (r *CURepositoryPostgres) List(ctx context.Context, f port.CUFilter) (*port
 		SiteID(f.SiteID).
 		AssetID(f.AssetID).
 		IDs(f.IDs...).
-		Capabilities(f.CapabilityTags...).
+		Capabilities(f.CapabilityIDs...).
 		NameLike(f.NameLike).
 		Paginate(f.Limit, f.Offset)
 	rows, totalCount, err := r.repo.ListCUs(ctx, q)

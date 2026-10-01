@@ -85,6 +85,24 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  contracts:
+    name: contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: go vet
+        working-directory: api/contracts
+        run: go vet ./...
+
+      - name: go test
+        working-directory: api/contracts
+        run: go test ./... -race -count=1
+
   # ── integration-test ─────────────────────────────────────────────────────
   # Exercises the real SubmitTask -> ExecuteCommand -> Kafka callback chain
   # across the dispatch and gateway application layers, against ephemeral
@@ -111,7 +129,7 @@ jobs:
   # build for validation only, they never publish.
   docker:
     name: docker (${{ matrix.service }})
-    needs: [lint, test, integration-test]
+    needs: [lint, test, contracts, integration-test]
     runs-on: ubuntu-latest
     permissions:
       contents: read

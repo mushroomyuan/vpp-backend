@@ -45,5 +45,5 @@ func (h getSnapshotHandler) Handle(ctx context.Context, q GetSnapshot) (*Snapsho
 	if age == 0 {
 		age = defaultStaleAge
 	}
-	return snapshotToView(snapshot, age), nil
+	return snapshotToView(snapshot, nil, age), nil
 }

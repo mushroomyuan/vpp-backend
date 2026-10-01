@@ -8,14 +8,14 @@ import (
 )
 
 type ListCUs struct {
-	TenantID       string
-	SiteID         string
-	AssetID        string
-	CapabilityTags []string
-	IDs            []string
-	NameLike       string
-	Offset         int
-	Limit          int
+	TenantID      string
+	SiteID        string
+	AssetID       string
+	CapabilityIDs []string
+	IDs           []string
+	NameLike      string
+	Offset        int
+	Limit         int
 }
 
 type ListCUsResult struct {
@@ -56,11 +56,11 @@ func (h listCUsHandler) Handle(ctx context.Context, q ListCUs) (*ListCUsResult, 
 			Offset:   q.Offset,
 			Limit:    q.Limit,
 		},
-		SiteID:         q.SiteID,
-		AssetID:        q.AssetID,
-		CapabilityTags: q.CapabilityTags,
-		IDs:            q.IDs,
-		NameLike:       q.NameLike,
+		SiteID:        q.SiteID,
+		AssetID:       q.AssetID,
+		CapabilityIDs: q.CapabilityIDs,
+		IDs:           q.IDs,
+		NameLike:      q.NameLike,
 	}
 
 	page, err := h.cuRepo.List(ctx, filter)

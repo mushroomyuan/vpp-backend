@@ -12,7 +12,7 @@ import "common.proto";
 // requested or when the window contained no samples.
 message AggregatedPoint {
   string CUCode = 1;
-  string MetricName = 2;
+  string MetricID = 2;
   google.protobuf.Timestamp WindowStart = 3;
   google.protobuf.Timestamp WindowEnd = 4;
   optional double Avg = 5;
@@ -29,7 +29,7 @@ message AggregatedPoint {
 message QueryAggregationRequest {
   string TenantID = 1;
   string CUCode = 2;
-  string MetricName = 3;
+  string MetricID = 3;
   google.protobuf.Timestamp StartTime = 4;
   google.protobuf.Timestamp EndTime = 5;
   // StepSeconds is the downsampling window size in seconds.

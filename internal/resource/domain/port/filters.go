@@ -29,20 +29,20 @@ type AssetFilter struct {
 // ---- CU ----
 type CUFilter struct {
 	BaseFilter
-	SiteID         string   // 可选
-	AssetID        string   // 可选：资源下的 CU
-	CapabilityTags []string // ["frequency_regulation","peak_shaving"]
-	IDs            []string
-	NameLike       string
+	SiteID        string   // 可选
+	AssetID       string   // 可选：资源下的 CU
+	CapabilityIDs []string // 可选：要求 CU 拥有全部启用能力
+	IDs           []string
+	NameLike      string
 }
 
 // ---- Point ----
 type PointFilter struct {
 	BaseFilter
-	SiteID    string // 可选
-	CUID      string
-	PointKeys []string
-	IsVirtual *bool
-	DataTypes []string
-	IDs       []string
+	SiteID      string // 可选
+	CUID        string
+	MetricIDs   []string
+	AccessModes []string
+	Enabled     *bool
+	IDs         []string
 }

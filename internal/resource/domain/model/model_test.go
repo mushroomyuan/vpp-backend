@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/mushroomyuan/vpp-backend/api/contracts"
 )
 
 func TestNewJob(t *testing.T) {
@@ -251,16 +253,17 @@ func TestNewPoint(t *testing.T) {
 		t.Fatal("want validation error")
 	}
 	p, err := NewPoint(CreatePointParams{
-		ID: "p1", AssetID: "a1", CUID: "c1", PointKey: "soc", DataType: DataTypeFloat,
+		ID:              "p1",
+		AssetID:         "a1",
+		CUID:            "c1",
+		MetricID:        string(contracts.MetricEnergyStorageStateOfCharge),
+		ExternalAddress: "soc", AccessMode: AccessModeRead, Scale: 1, Enabled: true,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.ExtConfig == nil || p.SafetyThresholds == nil {
-		t.Fatal("maps should be initialized")
-	}
-	if !DataTypeFloat.IsValid() || DataType("x").IsValid() {
-		t.Fatal("DataType.IsValid")
+	if p.MetricID != contracts.MetricEnergyStorageStateOfCharge || p.Revision != 1 {
+		t.Fatalf("point = %+v", p)
 	}
 }
 

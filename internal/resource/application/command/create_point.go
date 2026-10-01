@@ -19,15 +19,13 @@ type CreatePoint struct {
 	TenantID         string
 	AssetID          string
 	CUID             string
-	PointKey         string
+	MetricID         string
 	ExternalAddress  string
-	DataType         model.DataType
-	ExtConfig        map[string]any
-	Description      string
-	ControlFlag      bool
-	IsVirtual        bool
-	SafetyThresholds map[string]any
-	CacheKeyAlias    string
+	AccessMode       model.AccessMode
+	Scale            float64
+	Offset           float64
+	Enabled          bool
+	SafetyConstraint *model.PointSafetyConstraint
 }
 
 type CreatePointResult struct {
@@ -81,15 +79,13 @@ func (h createPointHandler) Handle(ctx context.Context, cmd CreatePoint) (*Creat
 		TenantID:         tenantID,
 		AssetID:          strings.TrimSpace(cmd.AssetID),
 		CUID:             strings.TrimSpace(cmd.CUID),
-		PointKey:         cmd.PointKey,
+		MetricID:         cmd.MetricID,
 		ExternalAddress:  cmd.ExternalAddress,
-		DataType:         cmd.DataType,
-		ExtConfig:        cmd.ExtConfig,
-		Description:      cmd.Description,
-		ControlFlag:      cmd.ControlFlag,
-		IsVirtual:        cmd.IsVirtual,
-		SafetyThresholds: cmd.SafetyThresholds,
-		CacheKeyAlias:    cmd.CacheKeyAlias,
+		AccessMode:       cmd.AccessMode,
+		Scale:            cmd.Scale,
+		Offset:           cmd.Offset,
+		Enabled:          cmd.Enabled,
+		SafetyConstraint: cmd.SafetyConstraint,
 	})
 	if err != nil {
 		return nil, err
@@ -109,7 +105,8 @@ func (h createPointHandler) Handle(ctx context.Context, cmd CreatePoint) (*Creat
 				TenantID: tenantID,
 				AssetID:  strings.TrimSpace(cmd.AssetID),
 				CUID:     strings.TrimSpace(cmd.CUID),
-				PointKey: cmd.PointKey,
+				MetricID: cmd.MetricID,
+				Revision: point.Revision,
 			},
 		}); pubErr != nil {
 			logging.Warnf(ctx, logrus.Fields{

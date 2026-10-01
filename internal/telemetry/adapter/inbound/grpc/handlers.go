@@ -31,11 +31,11 @@ func (s *Server) QueryTelemetry(ctx context.Context, req *telemetrypb.QueryTelem
 	}
 
 	records, err := s.queryTelemetry.Handle(ctx, query.QueryTelemetry{
-		TenantID:   req.GetTenantID(),
-		CUCode:     req.GetCUCode(),
-		MetricName: req.GetMetricName(),
-		StartTime:  startTime,
-		EndTime:    endTime,
+		TenantID:  req.GetTenantID(),
+		CUCode:    req.GetCUCode(),
+		MetricID:  req.GetMetricID(),
+		StartTime: startTime,
+		EndTime:   endTime,
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
@@ -65,6 +65,29 @@ func (s *Server) GetSnapshot(ctx context.Context, req *telemetrypb.GetSnapshotRe
 		return nil, toGRPCError(err)
 	}
 	return snapshotViewToProto(view), nil
+}
+
+func (s *Server) GetSnapshots(ctx context.Context, req *telemetrypb.GetSnapshotsRequest) (*telemetrypb.GetSnapshotsResponse, error) {
+	var staleAge time.Duration
+	if req.GetStaleAgeSeconds() > 0 {
+		staleAge = time.Duration(req.GetStaleAgeSeconds()) * time.Second
+	}
+
+	views, err := s.getSnapshots.Handle(ctx, query.GetSnapshots{
+		TenantID:  req.GetTenantID(),
+		CUCodes:   req.GetCUCodes(),
+		MetricIDs: req.GetMetricIDs(),
+		StaleAge:  staleAge,
+	})
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	snapshots := make([]*telemetrypb.Snapshot, 0, len(views))
+	for _, v := range views {
+		snapshots = append(snapshots, snapshotViewToProto(v))
+	}
+	return &telemetrypb.GetSnapshotsResponse{Snapshots: snapshots}, nil
 }
 
 func (s *Server) GetFleetSnapshot(ctx context.Context, req *telemetrypb.GetFleetSnapshotRequest) (*telemetrypb.GetFleetSnapshotResponse, error) {
@@ -105,13 +128,13 @@ func (s *Server) QueryAggregation(ctx context.Context, req *telemetrypb.QueryAgg
 	}
 
 	points, err := s.queryAggregation.Handle(ctx, query.QueryAggregation{
-		TenantID:   req.GetTenantID(),
-		CUCode:     req.GetCUCode(),
-		MetricName: req.GetMetricName(),
-		StartTime:  startTime,
-		EndTime:    endTime,
-		Step:       time.Duration(req.GetStepSeconds()) * time.Second,
-		Functions:  funcs,
+		TenantID:  req.GetTenantID(),
+		CUCode:    req.GetCUCode(),
+		MetricID:  req.GetMetricID(),
+		StartTime: startTime,
+		EndTime:   endTime,
+		Step:      time.Duration(req.GetStepSeconds()) * time.Second,
+		Functions: funcs,
 	})
 	if err != nil {
 		return nil, toGRPCError(err)

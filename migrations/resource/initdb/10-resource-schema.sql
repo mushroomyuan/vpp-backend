@@ -64,7 +64,6 @@ CREATE TABLE IF NOT EXISTS cus (
     protocol TEXT NULL,
     protocol_config JSONB NULL,
     connection JSONB NULL,
-    capability_tags JSONB NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT fk_cus_node FOREIGN KEY (node_id) REFERENCES nodes (id) ON DELETE CASCADE
@@ -78,21 +77,22 @@ CREATE TABLE IF NOT EXISTS points (
     node_id UUID NULL,
     asset_id UUID NOT NULL,
     cu_id UUID NOT NULL,
-    point_key TEXT NOT NULL,
+    metric_id TEXT NOT NULL,
     external_address TEXT NOT NULL,
-    data_type TEXT NOT NULL,
-    ext_config JSONB NULL,
-    description TEXT NOT NULL,
-    control_flag BOOLEAN DEFAULT FALSE,
-    is_virtual BOOLEAN DEFAULT FALSE,
-    safety_thresholds JSONB NULL,
-    cache_key_alias TEXT NOT NULL,
+    access_mode TEXT NOT NULL DEFAULT 'read',
+    scale DOUBLE PRECISION NOT NULL DEFAULT 1,
+    offset DOUBLE PRECISION NOT NULL DEFAULT 0,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    revision BIGINT NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ NULL,
     CONSTRAINT fk_points_node FOREIGN KEY (node_id) REFERENCES nodes (id),
     CONSTRAINT fk_points_asset FOREIGN KEY (asset_id) REFERENCES assets (node_id),
-    CONSTRAINT fk_points_cu FOREIGN KEY (cu_id) REFERENCES cus (node_id)
+    CONSTRAINT fk_points_cu FOREIGN KEY (cu_id) REFERENCES cus (node_id),
+    CONSTRAINT chk_points_access_mode CHECK (access_mode IN ('read', 'write', 'read_write')),
+    CONSTRAINT chk_points_scale_nonzero CHECK (scale <> 0),
+    CONSTRAINT chk_points_revision_positive CHECK (revision > 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_points_tenant_id ON points (tenant_id);
@@ -100,6 +100,52 @@ CREATE INDEX IF NOT EXISTS idx_points_node_id ON points (node_id);
 CREATE INDEX IF NOT EXISTS idx_points_asset_id ON points (asset_id);
 CREATE INDEX IF NOT EXISTS idx_points_cu_id ON points (cu_id);
 CREATE INDEX IF NOT EXISTS idx_points_deleted_at ON points (deleted_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_points_active_metric
+    ON points (tenant_id, cu_id, metric_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_points_active_external_address
+    ON points (tenant_id, cu_id, external_address) WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS point_safety_constraints (
+    point_id UUID PRIMARY KEY,
+    min_value DOUBLE PRECISION NULL,
+    max_value DOUBLE PRECISION NULL,
+    max_change_per_second DOUBLE PRECISION NULL,
+    version BIGINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_point_safety_constraints_point
+        FOREIGN KEY (point_id) REFERENCES points (id) ON DELETE CASCADE,
+    CONSTRAINT chk_point_safety_min_max
+        CHECK (min_value IS NULL OR max_value IS NULL OR min_value <= max_value),
+    CONSTRAINT chk_point_safety_change_positive
+        CHECK (max_change_per_second IS NULL OR max_change_per_second > 0),
+    CONSTRAINT chk_point_safety_version_positive CHECK (version > 0)
+);
+
+CREATE TABLE IF NOT EXISTS cu_capabilities (
+    id UUID PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    cu_id UUID NOT NULL,
+    capability_id TEXT NOT NULL,
+    schema_version INTEGER NOT NULL,
+    spec JSONB NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    version BIGINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_cu_capabilities_cu
+        FOREIGN KEY (cu_id) REFERENCES cus (node_id) ON DELETE CASCADE,
+    CONSTRAINT chk_cu_capabilities_schema_version CHECK (schema_version > 0),
+    CONSTRAINT chk_cu_capabilities_version CHECK (version > 0),
+    CONSTRAINT chk_cu_capabilities_spec_object CHECK (jsonb_typeof(spec) = 'object')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cu_capabilities_active
+    ON cu_capabilities (tenant_id, cu_id, capability_id);
+CREATE INDEX IF NOT EXISTS idx_cu_capabilities_tenant_cu
+    ON cu_capabilities (tenant_id, cu_id);
+CREATE INDEX IF NOT EXISTS idx_cu_capabilities_id_enabled
+    ON cu_capabilities (capability_id, enabled);
 
 CREATE TABLE IF NOT EXISTS import_jobs (
     id UUID PRIMARY KEY,
@@ -124,3 +170,14 @@ CREATE TABLE IF NOT EXISTS import_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_import_jobs_tenant_id ON import_jobs (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_import_jobs_status ON import_jobs (status);
+
+-- ResolveScope reads the tree by path prefix and looks up capabilities and enabled bindings in bulk.
+CREATE INDEX IF NOT EXISTS idx_nodes_tenant_path
+    ON nodes (tenant_id, path text_pattern_ops)
+    WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_cu_capabilities_tenant_capability
+    ON cu_capabilities (tenant_id, capability_id)
+    WHERE enabled;
+CREATE INDEX IF NOT EXISTS idx_points_enabled_binding
+    ON points (tenant_id, cu_id, metric_id, access_mode)
+    WHERE deleted_at IS NULL AND enabled;

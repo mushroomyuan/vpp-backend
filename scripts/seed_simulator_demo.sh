@@ -52,9 +52,15 @@ create_cu() {
 }
 
 create_point() {
-  local cu_id="$1" key="$2" control="$3" desc="$4"
+  local cu_id="$1" metric_id="$2" access_mode="$3"
   post_json "$RESOURCE_HTTP/api/tenants/$TENANT_ID/cus/$cu_id/points" \
-    "{\"AssetID\":\"$ASSET_ID\",\"PointKey\":\"$key\",\"DataType\":\"POINT_DATA_TYPE_FLOAT\",\"ControlFlag\":$control,\"IsVirtual\":false,\"Description\":\"$desc\"}" >/dev/null
+    "{\"AssetID\":\"$ASSET_ID\",\"MetricID\":\"$metric_id\",\"ExternalAddress\":\"$metric_id\",\"AccessMode\":\"$access_mode\",\"Scale\":1,\"Offset\":0,\"Enabled\":true}" >/dev/null
+}
+
+create_capability() {
+  local cu_id="$1" capability_id="$2" spec="$3"
+  post_json "$RESOURCE_HTTP/api/tenants/$TENANT_ID/cus/$cu_id/capabilities" \
+    "{\"CapabilityID\":\"$capability_id\",\"SchemaVersion\":1,\"Spec\":$spec,\"Enabled\":true}" >/dev/null
 }
 
 create_mapping() {
@@ -70,10 +76,11 @@ BAT_RESP=$(create_cu "Sim Battery" "Battery" "sim-battery-001")
 BAT_ID=$(json_field "$BAT_RESP" "CUID")
 [[ -n "$BAT_ID" ]] || die "CreateCU Battery failed: $BAT_RESP"
 echo "    CUID=$BAT_ID ExternalID=sim-battery-001"
-create_point "$BAT_ID" "read_soc" false "State of charge %"
-create_point "$BAT_ID" "read_active_power" false "Active power kW"
-create_point "$BAT_ID" "write_power_setpoint" true "Power setpoint kW"
-create_point "$BAT_ID" "read_temperature" false "Cell temperature C"
+create_capability "$BAT_ID" "energy.storage.v1" \
+  '{"usable_energy_kwh":200,"max_charge_power_kw":50,"max_discharge_power_kw":50}'
+create_point "$BAT_ID" "energy_storage.state_of_charge.v1" "POINT_ACCESS_MODE_READ"
+create_point "$BAT_ID" "electrical.active_power.v1" "POINT_ACCESS_MODE_READ"
+create_point "$BAT_ID" "electrical.active_power_setpoint.v1" "POINT_ACCESS_MODE_WRITE"
 create_mapping "sim-battery-001" "$BAT_ID"
 
 echo "==> Creating PCS CU + points + mapping"
@@ -81,9 +88,9 @@ PCS_RESP=$(create_cu "Sim PCS" "PCS" "sim-pcs-001")
 PCS_ID=$(json_field "$PCS_RESP" "CUID")
 [[ -n "$PCS_ID" ]] || die "CreateCU PCS failed: $PCS_RESP"
 echo "    CUID=$PCS_ID ExternalID=sim-pcs-001"
-create_point "$PCS_ID" "read_active_power" false "Active power kW"
-create_point "$PCS_ID" "read_reactive_power" false "Reactive power kvar"
-create_point "$PCS_ID" "write_power_setpoint" true "Active power setpoint"
+create_point "$PCS_ID" "electrical.active_power.v1" "POINT_ACCESS_MODE_READ"
+create_point "$PCS_ID" "electrical.reactive_power.v1" "POINT_ACCESS_MODE_READ"
+create_point "$PCS_ID" "electrical.active_power_setpoint.v1" "POINT_ACCESS_MODE_WRITE"
 create_mapping "sim-pcs-001" "$PCS_ID"
 
 echo "==> Creating PV CU + points + mapping"
@@ -91,7 +98,7 @@ PV_RESP=$(create_cu "Sim PV" "PV" "sim-pv-001")
 PV_ID=$(json_field "$PV_RESP" "CUID")
 [[ -n "$PV_ID" ]] || die "CreateCU PV failed: $PV_RESP"
 echo "    CUID=$PV_ID ExternalID=sim-pv-001"
-create_point "$PV_ID" "read_active_power" false "PV active power kW"
+create_point "$PV_ID" "electrical.active_power.v1" "POINT_ACCESS_MODE_READ"
 create_mapping "sim-pv-001" "$PV_ID"
 
 echo "==> Creating Meter CU + points + mapping"
@@ -99,7 +106,7 @@ MTR_RESP=$(create_cu "Sim Meter" "Meter" "sim-meter-001")
 MTR_ID=$(json_field "$MTR_RESP" "CUID")
 [[ -n "$MTR_ID" ]] || die "CreateCU Meter failed: $MTR_RESP"
 echo "    CUID=$MTR_ID ExternalID=sim-meter-001"
-create_point "$MTR_ID" "read_active_power" false "Meter active power kW"
+create_point "$MTR_ID" "electrical.active_power.v1" "POINT_ACCESS_MODE_READ"
 create_mapping "sim-meter-001" "$MTR_ID"
 
 # Persist IDs for the testing guide / later scripts

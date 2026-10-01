@@ -208,91 +208,6 @@ func (x *CURuntime) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// PointRuntime is the latest cached point value in Redis.
-type PointRuntime struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *string                `protobuf:"bytes,1,opt,name=Value,proto3,oneof" json:"Value,omitempty"`
-	NumericValue  *float64               `protobuf:"fixed64,2,opt,name=NumericValue,proto3,oneof" json:"NumericValue,omitempty"`
-	QualityStatus *string                `protobuf:"bytes,3,opt,name=QualityStatus,proto3,oneof" json:"QualityStatus,omitempty"`
-	Sequence      int64                  `protobuf:"varint,4,opt,name=Sequence,proto3" json:"Sequence,omitempty"`
-	SampledAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=SampledAt,proto3" json:"SampledAt,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=UpdatedAt,proto3" json:"UpdatedAt,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PointRuntime) Reset() {
-	*x = PointRuntime{}
-	mi := &file_modules_runtime_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PointRuntime) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PointRuntime) ProtoMessage() {}
-
-func (x *PointRuntime) ProtoReflect() protoreflect.Message {
-	mi := &file_modules_runtime_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PointRuntime.ProtoReflect.Descriptor instead.
-func (*PointRuntime) Descriptor() ([]byte, []int) {
-	return file_modules_runtime_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *PointRuntime) GetValue() string {
-	if x != nil && x.Value != nil {
-		return *x.Value
-	}
-	return ""
-}
-
-func (x *PointRuntime) GetNumericValue() float64 {
-	if x != nil && x.NumericValue != nil {
-		return *x.NumericValue
-	}
-	return 0
-}
-
-func (x *PointRuntime) GetQualityStatus() string {
-	if x != nil && x.QualityStatus != nil {
-		return *x.QualityStatus
-	}
-	return ""
-}
-
-func (x *PointRuntime) GetSequence() int64 {
-	if x != nil {
-		return x.Sequence
-	}
-	return 0
-}
-
-func (x *PointRuntime) GetSampledAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.SampledAt
-	}
-	return nil
-}
-
-func (x *PointRuntime) GetUpdatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return nil
-}
-
 var File_modules_runtime_proto protoreflect.FileDescriptor
 
 const file_modules_runtime_proto_rawDesc = "" +
@@ -328,17 +243,7 @@ const file_modules_runtime_proto_rawDesc = "" +
 	"\n" +
 	"_LatencyMSB\f\n" +
 	"\n" +
-	"_LastError\"\xba\x02\n" +
-	"\fPointRuntime\x12\x19\n" +
-	"\x05Value\x18\x01 \x01(\tH\x00R\x05Value\x88\x01\x01\x12'\n" +
-	"\fNumericValue\x18\x02 \x01(\x01H\x01R\fNumericValue\x88\x01\x01\x12)\n" +
-	"\rQualityStatus\x18\x03 \x01(\tH\x02R\rQualityStatus\x88\x01\x01\x12\x1a\n" +
-	"\bSequence\x18\x04 \x01(\x03R\bSequence\x128\n" +
-	"\tSampledAt\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tSampledAt\x128\n" +
-	"\tUpdatedAt\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tUpdatedAtB\b\n" +
-	"\x06_ValueB\x0f\n" +
-	"\r_NumericValueB\x10\n" +
-	"\x0e_QualityStatusBGZEgithub.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepbb\x06proto3"
+	"_LastErrorBGZEgithub.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepbb\x06proto3"
 
 var (
 	file_modules_runtime_proto_rawDescOnce sync.Once
@@ -352,24 +257,21 @@ func file_modules_runtime_proto_rawDescGZIP() []byte {
 	return file_modules_runtime_proto_rawDescData
 }
 
-var file_modules_runtime_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_modules_runtime_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_modules_runtime_proto_goTypes = []any{
 	(*AssetRuntime)(nil),          // 0: resourcepb.AssetRuntime
 	(*CURuntime)(nil),             // 1: resourcepb.CURuntime
-	(*PointRuntime)(nil),          // 2: resourcepb.PointRuntime
-	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
+	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 }
 var file_modules_runtime_proto_depIdxs = []int32{
-	3, // 0: resourcepb.AssetRuntime.UpdatedAt:type_name -> google.protobuf.Timestamp
-	3, // 1: resourcepb.CURuntime.LastSeenAt:type_name -> google.protobuf.Timestamp
-	3, // 2: resourcepb.CURuntime.UpdatedAt:type_name -> google.protobuf.Timestamp
-	3, // 3: resourcepb.PointRuntime.SampledAt:type_name -> google.protobuf.Timestamp
-	3, // 4: resourcepb.PointRuntime.UpdatedAt:type_name -> google.protobuf.Timestamp
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	2, // 0: resourcepb.AssetRuntime.UpdatedAt:type_name -> google.protobuf.Timestamp
+	2, // 1: resourcepb.CURuntime.LastSeenAt:type_name -> google.protobuf.Timestamp
+	2, // 2: resourcepb.CURuntime.UpdatedAt:type_name -> google.protobuf.Timestamp
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_modules_runtime_proto_init() }
@@ -379,14 +281,13 @@ func file_modules_runtime_proto_init() {
 	}
 	file_modules_runtime_proto_msgTypes[0].OneofWrappers = []any{}
 	file_modules_runtime_proto_msgTypes[1].OneofWrappers = []any{}
-	file_modules_runtime_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_modules_runtime_proto_rawDesc), len(file_modules_runtime_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

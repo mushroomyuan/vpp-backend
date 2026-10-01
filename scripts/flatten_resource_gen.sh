@@ -21,6 +21,7 @@ rm -f \
   "${gen_dir}/point.pb.go" \
   "${gen_dir}/resource.pb.go" \
   "${gen_dir}/runtime.pb.go" \
+  "${gen_dir}/scope.pb.go" \
   "${gen_dir}/site.pb.go"
 
 mv "${gen_dir}/modules/"*.pb.go "${gen_dir}/"

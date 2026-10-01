@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	resourcepb "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
@@ -116,11 +115,10 @@ func mapPoints(points []*resourcepb.Point) []domain.PointDef {
 	out := make([]domain.PointDef, 0, len(points))
 	for _, p := range points {
 		out = append(out, domain.PointDef{
-			ID:          p.GetID(),
-			PointKey:    p.GetPointKey(),
-			DataType:    p.GetDataType().String(),
-			ControlFlag: p.GetControlFlag(),
-			IsVirtual:   p.GetIsVirtual(),
+			ID:       p.GetID(),
+			PointKey: p.GetMetricID(),
+			ControlFlag: p.GetAccessMode() == resourcepb.PointAccessMode_POINT_ACCESS_MODE_WRITE ||
+				p.GetAccessMode() == resourcepb.PointAccessMode_POINT_ACCESS_MODE_READ_WRITE,
 		})
 	}
 	return out
@@ -193,11 +191,10 @@ func (c *Client) listAllPoints(ctx context.Context, tenantID, cuID string) ([]*r
 	const limit int32 = 200
 	for offset := int32(0); ; offset += limit {
 		resp, err := c.client.ListPoints(ctx, &resourcepb.ListPointsRequest{
-			TenantID:  tenantID,
-			CUID:      cuID,
-			IsVirtual: wrapperspb.Bool(false),
-			Offset:    offset,
-			Limit:     limit,
+			TenantID: tenantID,
+			CUID:     cuID,
+			Offset:   offset,
+			Limit:    limit,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("ListPoints cu=%s: %w", cuID, err)

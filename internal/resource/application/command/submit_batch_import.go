@@ -141,7 +141,7 @@ func validatePointItems(items []types.PointItem) []types.BatchItemError {
 	var out []types.BatchItemError
 	for i, item := range items {
 		if err := item.Validate(); err != nil {
-			out = append(out, types.BatchItemError{Index: i, Name: item.PointKey, Reason: err.Error()})
+			out = append(out, types.BatchItemError{Index: i, Name: item.MetricID, Reason: err.Error()})
 		}
 	}
 	return out

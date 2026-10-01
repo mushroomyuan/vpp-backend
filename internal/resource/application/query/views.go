@@ -14,8 +14,7 @@ type CUView struct {
 	Runtime *model.CURuntime
 }
 
-// PointView combines point definition with latest cached value.
+// PointView is the persistent metric binding view. Runtime values belong to Telemetry.
 type PointView struct {
-	Point   *model.Point
-	Runtime *model.PointRuntime
+	Point *model.Point
 }

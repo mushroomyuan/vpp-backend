@@ -72,6 +72,8 @@ func TestResourceOf(t *testing.T) {
 		{"/api/tenants/default/resources/x/children", "resource:tree"},
 		{"/api/tenants/default/cus", "resource:cus"},
 		{"/api/tenants/default/resources/p/cus", "resource:cus"},
+		{"/api/tenants/default/capabilities/cap1", "resource:cus"},
+		{"/api/tenants/default/cus/c1/capabilities", "resource:cus"},
 		{"/api/tenants/default/points", "resource:points"},
 		{"/api/tenants/default/cus/c1/points", "resource:points"},
 		{"/api/import-jobs/abc", "resource:import-jobs"},

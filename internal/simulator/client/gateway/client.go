@@ -71,6 +71,8 @@ func (c *Client) IngestTelemetry(
 	}
 	metrics := make([]ingestMetric, 0, len(points))
 	for _, p := range points {
+		// PointKey is the canonical MetricID. Gateway stores it in the opaque
+		// telemetry name field and does not translate external addresses.
 		metrics = append(metrics, ingestMetric{Name: p.PointKey, Value: p.Value})
 	}
 	body, err := json.Marshal(ingestRequest{

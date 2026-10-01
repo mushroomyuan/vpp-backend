@@ -78,6 +78,7 @@ func TestCatalogOf(t *testing.T) {
 	}{
 		{telemetrypb.TelemetryService_QueryTelemetry_FullMethodName, "telemetry:telemetry", "read", true},
 		{telemetrypb.TelemetryService_GetSnapshot_FullMethodName, "telemetry:snapshots", "read", true},
+		{telemetrypb.TelemetryService_GetSnapshots_FullMethodName, "telemetry:snapshots", "read", true},
 		{telemetrypb.TelemetryService_GetFleetSnapshot_FullMethodName, "telemetry:snapshots", "read", true},
 		{telemetrypb.TelemetryService_QueryAggregation_FullMethodName, "telemetry:aggregation", "read", true},
 		{telemetrypb.TelemetryService_IngestTelemetry_FullMethodName, "", "", false},

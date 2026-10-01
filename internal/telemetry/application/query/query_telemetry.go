@@ -17,11 +17,11 @@ import (
 const maxQueryRange = 30 * 24 * time.Hour
 
 type QueryTelemetry struct {
-	TenantID   string
-	CUCode     string
-	MetricName string
-	StartTime  time.Time
-	EndTime    time.Time
+	TenantID  string
+	CUCode    string
+	MetricID  string
+	StartTime time.Time
+	EndTime   time.Time
 }
 
 type QueryTelemetryHandler = decorator.QueryHandler[QueryTelemetry, []*model.TelemetryRecord]
@@ -48,7 +48,7 @@ func (h queryTelemetryHandler) Handle(ctx context.Context, q QueryTelemetry) ([]
 		return nil, fmt.Errorf("%w (requested: %v)", types.ErrQueryRangeExceeded, q.EndTime.Sub(q.StartTime))
 	}
 
-	cond := model.NewQueryCondition(q.TenantID, q.CUCode, q.MetricName, q.StartTime, q.EndTime)
+	cond := model.NewQueryCondition(q.TenantID, q.CUCode, q.MetricID, q.StartTime, q.EndTime)
 	if err := cond.Validate(); err != nil {
 		return nil, err
 	}

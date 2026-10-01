@@ -71,6 +71,9 @@ func (r *PointRepositoryPostgres) Update(ctx context.Context, p *model.Point) er
 		return err
 	}
 	err = r.repo.UpdatePoint(ctx, row)
+	if errors.Is(err, postgres.ErrOptimisticLock) {
+		return domain.ErrVersionConflict
+	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return domain.ErrPointNotFound
 	}
@@ -98,11 +101,11 @@ func (r *PointRepositoryPostgres) List(ctx context.Context, f port.PointFilter) 
 		SiteID(f.SiteID).
 		CUID(f.CUID).
 		IDs(f.IDs...).
-		PointKeys(f.PointKeys...).
-		DataTypes(f.DataTypes...).
+		MetricIDs(f.MetricIDs...).
+		AccessModes(f.AccessModes...).
 		Paginate(f.Limit, f.Offset)
-	if f.IsVirtual != nil {
-		q = q.IsVirtual(*f.IsVirtual)
+	if f.Enabled != nil {
+		q = q.Enabled(*f.Enabled)
 	}
 	rows, totalCount, err := r.repo.ListPoints(ctx, q)
 	if err != nil {

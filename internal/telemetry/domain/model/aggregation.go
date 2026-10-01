@@ -22,11 +22,11 @@ const (
 // express the downsampling policy, which a TSDB (e.g. TimescaleDB continuous
 // aggregates, InfluxDB FLUX) can push down natively.
 type AggregationQuery struct {
-	TenantID   string
-	CUCode     string
-	MetricName string
-	StartTime  time.Time
-	EndTime    time.Time
+	TenantID  string
+	CUCode    string
+	MetricID  string
+	StartTime time.Time
+	EndTime   time.Time
 	// Step is the downsampling window size, e.g. time.Minute, 15*time.Minute.
 	Step      time.Duration
 	Functions []AggFunction
@@ -36,8 +36,8 @@ func (q AggregationQuery) Validate() error {
 	if q.TenantID == "" || q.CUCode == "" {
 		return errors.New("domain: aggregation query must specify tenant_id and cu_code")
 	}
-	if q.MetricName == "" {
-		return errors.New("domain: aggregation query must specify metric_name")
+	if err := RequireNumericMetricID(q.MetricID); err != nil {
+		return err
 	}
 	if q.StartTime.IsZero() || q.EndTime.IsZero() {
 		return errors.New("domain: aggregation query time range cannot be zero")
@@ -58,14 +58,14 @@ func (q AggregationQuery) Validate() error {
 // single Step-sized window. Fields are nil when the corresponding function was
 // not requested or when the window contained no samples.
 type AggregatedPoint struct {
-	CUCode     string
-	MetricName string
-	StartTime  time.Time
-	EndTime    time.Time
-	Avg        *float64
-	Max        *float64
-	Min        *float64
-	Sum        *float64
-	Count      *int64
-	Last       *float64
+	CUCode    string
+	MetricID  string
+	StartTime time.Time
+	EndTime   time.Time
+	Avg       *float64
+	Max       *float64
+	Min       *float64
+	Sum       *float64
+	Count     *int64
+	Last      *float64
 }

@@ -8,8 +8,9 @@ import "google/protobuf/timestamp.proto";
 import "common.proto";
 
 // MetricValue is a single measured data point within a telemetry push.
+// MetricID must be a numeric canonical metric from the shared contract registry.
 message MetricValue {
-  string Name = 1;
+  string MetricID = 1;
   double Value = 2;
   MetricType Type = 3;
   QualityStatus Quality = 4;
@@ -36,8 +37,8 @@ message IngestTelemetryResponse {
 message QueryTelemetryRequest {
   string TenantID = 1;
   string CUCode = 2;
-  // MetricName filters results to a single metric; omit to return all metrics.
-  string MetricName = 3;
+  // MetricID filters results to a single canonical metric; omit to return all metrics.
+  string MetricID = 3;
   google.protobuf.Timestamp StartTime = 4;
   google.protobuf.Timestamp EndTime = 5;
 }

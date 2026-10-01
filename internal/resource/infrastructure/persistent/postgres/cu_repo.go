@@ -41,7 +41,6 @@ func (r *CURepository) UpdateCU(ctx context.Context, m *CUModel) (err error) {
 			"protocol":        m.Protocol,
 			"protocol_config": m.ProtocolConfig,
 			"connection":      m.Connection,
-			"capability_tags": m.CapabilityTags,
 		})
 	if result.Error != nil {
 		return result.Error

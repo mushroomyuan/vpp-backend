@@ -107,20 +107,20 @@ func clamp(v, lo, hi float64) float64 {
 	return math.Min(hi, math.Max(lo, v))
 }
 
+const (
+	metricStateOfCharge       = "energy_storage.state_of_charge.v1"
+	metricActivePower         = "electrical.active_power.v1"
+	metricReactivePower       = "electrical.reactive_power.v1"
+	metricActivePowerSetpoint = "electrical.active_power_setpoint.v1"
+)
+
+// findPoint returns the first key that is present. Matching is exact: legacy
+// aliases and substring guesses are not accepted. Simulator points are canonical
+// MetricIDs, which Gateway forwards as opaque strings.
 func findPoint(keys []string, points map[string]domain.PointDef) string {
 	for _, k := range keys {
 		if _, ok := points[k]; ok {
 			return k
-		}
-	}
-	// fuzzy: any key containing substring
-	for _, want := range keys {
-		lw := strings.ToLower(want)
-		for k := range points {
-			if strings.Contains(strings.ToLower(k), strings.TrimPrefix(lw, "read_")) ||
-				strings.Contains(strings.ToLower(k), strings.TrimPrefix(lw, "write_")) {
-				return k
-			}
 		}
 	}
 	return ""
@@ -152,17 +152,15 @@ type battery struct {
 	socKey      string
 	powerKey    string
 	setpointKey string
-	tempKey     string
 	capacityKWh float64
 	maxPowerKW  float64
 }
 
 func newBattery(spec domain.DeviceSpec) *battery {
 	b := &battery{base: newBase(spec)}
-	b.socKey = findPoint([]string{"read_soc", "soc", "SOC"}, b.points)
-	b.powerKey = findPoint([]string{"read_active_power", "read_power", "p_act", "power"}, b.points)
-	b.setpointKey = findPoint([]string{"write_power_setpoint", "power_setpoint", "set_power"}, b.points)
-	b.tempKey = findPoint([]string{"read_temperature", "temperature", "temp"}, b.points)
+	b.socKey = findPoint([]string{metricStateOfCharge}, b.points)
+	b.powerKey = findPoint([]string{metricActivePower}, b.points)
+	b.setpointKey = findPoint([]string{metricActivePowerSetpoint}, b.points)
 
 	cap := spec.RatedCapacityKW
 	if cap <= 0 {
@@ -180,9 +178,6 @@ func newBattery(spec domain.DeviceSpec) *battery {
 	if b.setpointKey != "" {
 		b.setValue(b.setpointKey, 0)
 		b.writable[b.setpointKey] = true
-	}
-	if b.tempKey != "" {
-		b.setValue(b.tempKey, 28+b.noise(1))
 	}
 	return b
 }
@@ -206,9 +201,6 @@ func (d *battery) Tick(delta time.Duration) {
 		// discharge (positive power) decreases SOC
 		soc := d.getValue(d.socKey) - (power*hours)/d.capacityKWh*100
 		d.setValue(d.socKey, clamp(soc, 5, 95))
-	}
-	if d.tempKey != "" {
-		d.setValue(d.tempKey, clamp(d.getValue(d.tempKey)+d.noise(0.05), 20, 45))
 	}
 }
 
@@ -243,25 +235,22 @@ func (d *battery) Reset() {
 
 type pcs struct {
 	*base
-	pKey, qKey, setPKey, setQKey string
-	maxPowerKW                   float64
+	pKey, qKey, setPKey string
+	maxPowerKW          float64
 }
 
 func newPCS(spec domain.DeviceSpec) *pcs {
 	d := &pcs{base: newBase(spec)}
-	d.pKey = findPoint([]string{"read_active_power", "p_act", "power"}, d.points)
-	d.qKey = findPoint([]string{"read_reactive_power", "q_act", "reactive"}, d.points)
-	d.setPKey = findPoint([]string{"write_power_setpoint", "power_setpoint", "set_p"}, d.points)
-	d.setQKey = findPoint([]string{"write_reactive_setpoint", "q_setpoint", "set_q"}, d.points)
+	d.pKey = findPoint([]string{metricActivePower}, d.points)
+	d.qKey = findPoint([]string{metricReactivePower}, d.points)
+	d.setPKey = findPoint([]string{metricActivePowerSetpoint}, d.points)
 	d.maxPowerKW = spec.RatedCapacityKW
 	if d.maxPowerKW <= 0 {
 		d.maxPowerKW = 100
 	}
-	for _, k := range []string{d.setPKey, d.setQKey} {
-		if k != "" {
-			d.writable[k] = true
-			d.setValue(k, 0)
-		}
+	if d.setPKey != "" {
+		d.writable[d.setPKey] = true
+		d.setValue(d.setPKey, 0)
 	}
 	return d
 }
@@ -276,8 +265,8 @@ func (d *pcs) Tick(delta time.Duration) {
 	if d.setPKey != "" && d.pKey != "" {
 		d.setValue(d.pKey, clamp(d.getValue(d.setPKey)+d.noise(0.2), -d.maxPowerKW, d.maxPowerKW))
 	}
-	if d.setQKey != "" && d.qKey != "" {
-		d.setValue(d.qKey, clamp(d.getValue(d.setQKey)+d.noise(0.1), -d.maxPowerKW/2, d.maxPowerKW/2))
+	if d.qKey != "" {
+		d.setValue(d.qKey, clamp(d.getValue(d.qKey)+d.noise(0.1), -d.maxPowerKW/2, d.maxPowerKW/2))
 	}
 }
 
@@ -306,7 +295,7 @@ type pv struct {
 
 func newPV(spec domain.DeviceSpec) *pv {
 	d := &pv{base: newBase(spec)}
-	d.powerKey = findPoint([]string{"read_active_power", "p_act", "power", "read_power"}, d.points)
+	d.powerKey = findPoint([]string{metricActivePower}, d.points)
 	d.maxKW = spec.RatedCapacityKW
 	if d.maxKW <= 0 {
 		d.maxKW = 50
@@ -358,7 +347,7 @@ type meter struct {
 
 func newMeter(spec domain.DeviceSpec) *meter {
 	d := &meter{base: newBase(spec)}
-	d.powerKey = findPoint([]string{"read_active_power", "p_act", "power"}, d.points)
+	d.powerKey = findPoint([]string{metricActivePower}, d.points)
 	return d
 }
 

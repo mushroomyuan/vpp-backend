@@ -76,61 +76,6 @@ func (SiteStatus) EnumDescriptor() ([]byte, []int) {
 	return file_modules_common_proto_rawDescGZIP(), []int{0}
 }
 
-type PointDataType int32
-
-const (
-	PointDataType_POINT_DATA_TYPE_UNSPECIFIED PointDataType = 0
-	PointDataType_POINT_DATA_TYPE_FLOAT       PointDataType = 1
-	PointDataType_POINT_DATA_TYPE_INT         PointDataType = 2
-	PointDataType_POINT_DATA_TYPE_BOOL        PointDataType = 3
-	PointDataType_POINT_DATA_TYPE_ENUM        PointDataType = 4
-)
-
-// Enum value maps for PointDataType.
-var (
-	PointDataType_name = map[int32]string{
-		0: "POINT_DATA_TYPE_UNSPECIFIED",
-		1: "POINT_DATA_TYPE_FLOAT",
-		2: "POINT_DATA_TYPE_INT",
-		3: "POINT_DATA_TYPE_BOOL",
-		4: "POINT_DATA_TYPE_ENUM",
-	}
-	PointDataType_value = map[string]int32{
-		"POINT_DATA_TYPE_UNSPECIFIED": 0,
-		"POINT_DATA_TYPE_FLOAT":       1,
-		"POINT_DATA_TYPE_INT":         2,
-		"POINT_DATA_TYPE_BOOL":        3,
-		"POINT_DATA_TYPE_ENUM":        4,
-	}
-)
-
-func (x PointDataType) Enum() *PointDataType {
-	p := new(PointDataType)
-	*p = x
-	return p
-}
-
-func (x PointDataType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (PointDataType) Descriptor() protoreflect.EnumDescriptor {
-	return file_modules_common_proto_enumTypes[1].Descriptor()
-}
-
-func (PointDataType) Type() protoreflect.EnumType {
-	return &file_modules_common_proto_enumTypes[1]
-}
-
-func (x PointDataType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use PointDataType.Descriptor instead.
-func (PointDataType) EnumDescriptor() ([]byte, []int) {
-	return file_modules_common_proto_rawDescGZIP(), []int{1}
-}
-
 type JobType int32
 
 const (
@@ -167,11 +112,11 @@ func (x JobType) String() string {
 }
 
 func (JobType) Descriptor() protoreflect.EnumDescriptor {
-	return file_modules_common_proto_enumTypes[2].Descriptor()
+	return file_modules_common_proto_enumTypes[1].Descriptor()
 }
 
 func (JobType) Type() protoreflect.EnumType {
-	return &file_modules_common_proto_enumTypes[2]
+	return &file_modules_common_proto_enumTypes[1]
 }
 
 func (x JobType) Number() protoreflect.EnumNumber {
@@ -180,7 +125,7 @@ func (x JobType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use JobType.Descriptor instead.
 func (JobType) EnumDescriptor() ([]byte, []int) {
-	return file_modules_common_proto_rawDescGZIP(), []int{2}
+	return file_modules_common_proto_rawDescGZIP(), []int{1}
 }
 
 type JobStatus int32
@@ -222,11 +167,11 @@ func (x JobStatus) String() string {
 }
 
 func (JobStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_modules_common_proto_enumTypes[3].Descriptor()
+	return file_modules_common_proto_enumTypes[2].Descriptor()
 }
 
 func (JobStatus) Type() protoreflect.EnumType {
-	return &file_modules_common_proto_enumTypes[3]
+	return &file_modules_common_proto_enumTypes[2]
 }
 
 func (x JobStatus) Number() protoreflect.EnumNumber {
@@ -235,7 +180,7 @@ func (x JobStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use JobStatus.Descriptor instead.
 func (JobStatus) EnumDescriptor() ([]byte, []int) {
-	return file_modules_common_proto_rawDescGZIP(), []int{3}
+	return file_modules_common_proto_rawDescGZIP(), []int{2}
 }
 
 type ResourceLifecycleStatus int32
@@ -274,11 +219,11 @@ func (x ResourceLifecycleStatus) String() string {
 }
 
 func (ResourceLifecycleStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_modules_common_proto_enumTypes[4].Descriptor()
+	return file_modules_common_proto_enumTypes[3].Descriptor()
 }
 
 func (ResourceLifecycleStatus) Type() protoreflect.EnumType {
-	return &file_modules_common_proto_enumTypes[4]
+	return &file_modules_common_proto_enumTypes[3]
 }
 
 func (x ResourceLifecycleStatus) Number() protoreflect.EnumNumber {
@@ -287,7 +232,7 @@ func (x ResourceLifecycleStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ResourceLifecycleStatus.Descriptor instead.
 func (ResourceLifecycleStatus) EnumDescriptor() ([]byte, []int) {
-	return file_modules_common_proto_rawDescGZIP(), []int{4}
+	return file_modules_common_proto_rawDescGZIP(), []int{3}
 }
 
 type Location struct {
@@ -366,13 +311,7 @@ const file_modules_common_proto_rawDesc = "" +
 	"\x1eSITE_STATUS_UNDER_CONSTRUCTION\x10\x01\x12\x19\n" +
 	"\x15SITE_STATUS_OPERATING\x10\x02\x12\x15\n" +
 	"\x11SITE_STATUS_FAULT\x10\x03\x12\x17\n" +
-	"\x13SITE_STATUS_OFFLINE\x10\x04*\x98\x01\n" +
-	"\rPointDataType\x12\x1f\n" +
-	"\x1bPOINT_DATA_TYPE_UNSPECIFIED\x10\x00\x12\x19\n" +
-	"\x15POINT_DATA_TYPE_FLOAT\x10\x01\x12\x17\n" +
-	"\x13POINT_DATA_TYPE_INT\x10\x02\x12\x18\n" +
-	"\x14POINT_DATA_TYPE_BOOL\x10\x03\x12\x18\n" +
-	"\x14POINT_DATA_TYPE_ENUM\x10\x04*x\n" +
+	"\x13SITE_STATUS_OFFLINE\x10\x04*x\n" +
 	"\aJobType\x12\x1f\n" +
 	"\x1bIMPORT_JOB_TYPE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15IMPORT_JOB_TYPE_ASSET\x10\x01\x12\x16\n" +
@@ -402,15 +341,14 @@ func file_modules_common_proto_rawDescGZIP() []byte {
 	return file_modules_common_proto_rawDescData
 }
 
-var file_modules_common_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_modules_common_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_modules_common_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_modules_common_proto_goTypes = []any{
 	(SiteStatus)(0),              // 0: resourcepb.SiteStatus
-	(PointDataType)(0),           // 1: resourcepb.PointDataType
-	(JobType)(0),                 // 2: resourcepb.JobType
-	(JobStatus)(0),               // 3: resourcepb.JobStatus
-	(ResourceLifecycleStatus)(0), // 4: resourcepb.ResourceLifecycleStatus
-	(*Location)(nil),             // 5: resourcepb.Location
+	(JobType)(0),                 // 1: resourcepb.JobType
+	(JobStatus)(0),               // 2: resourcepb.JobStatus
+	(ResourceLifecycleStatus)(0), // 3: resourcepb.ResourceLifecycleStatus
+	(*Location)(nil),             // 4: resourcepb.Location
 }
 var file_modules_common_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -430,7 +368,7 @@ func file_modules_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_modules_common_proto_rawDesc), len(file_modules_common_proto_rawDesc)),
-			NumEnums:      5,
+			NumEnums:      4,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,

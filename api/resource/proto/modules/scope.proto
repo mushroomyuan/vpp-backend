@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package resourcepb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
+
+import "google/protobuf/struct.proto";
+import "modules/common.proto";
+import "modules/point.proto";
+
+// ScopeType is the Decision target expanded by ResolveScope.
+enum ScopeType {
+  SCOPE_TYPE_UNSPECIFIED = 0;
+  SCOPE_TYPE_SITE = 1;
+  SCOPE_TYPE_ASSET = 2;
+  SCOPE_TYPE_CU = 3;
+}
+
+// MetricAccessRequirement is the binding direction a policy requires.
+enum MetricAccessRequirement {
+  METRIC_ACCESS_REQUIREMENT_UNSPECIFIED = 0;
+  METRIC_ACCESS_REQUIREMENT_READ = 1;
+  METRIC_ACCESS_REQUIREMENT_WRITE = 2;
+}
+
+enum ScopeExclusionReason {
+  SCOPE_EXCLUSION_REASON_UNSPECIFIED = 0;
+  SCOPE_EXCLUSION_REASON_NOT_ACTIVE = 1;
+  SCOPE_EXCLUSION_REASON_MISSING_CAPABILITY = 2;
+  SCOPE_EXCLUSION_REASON_CAPABILITY_DISABLED = 3;
+}
+
+enum ScopePrecheckFailureReason {
+  SCOPE_PRECHECK_FAILURE_REASON_UNSPECIFIED = 0;
+  SCOPE_PRECHECK_FAILURE_REASON_INVALID_CAPABILITY_SPEC = 1;
+  SCOPE_PRECHECK_FAILURE_REASON_MISSING_METRIC_BINDING = 2;
+}
+
+message MetricRequirement {
+  string MetricID = 1;
+  MetricAccessRequirement Access = 2;
+}
+
+message ResolveScopeRequest {
+  string TenantID = 1;
+  ScopeType ScopeType = 2;
+  string ScopeID = 3;
+  // Every listed capability must be present. CUs without them are excluded.
+  repeated string RequiredCapabilityIDs = 4;
+  // Applied only to active CUs that satisfy RequiredCapabilityIDs.
+  repeated MetricRequirement RequiredMetrics = 5;
+}
+
+// ResolvedCapability is a CU capability instance without persistence identity
+// beyond the canonical capability id and its version.
+message ResolvedCapability {
+  string CapabilityID = 1;
+  int32 SchemaVersion = 2;
+  google.protobuf.Struct Spec = 3;
+  bool Enabled = 4;
+  int64 Version = 5;
+}
+
+// ResolvedMetricBinding is a CU metric binding. ExternalAddress is intentionally absent.
+message ResolvedMetricBinding {
+  string MetricID = 1;
+  PointAccessMode AccessMode = 2;
+  bool Enabled = 3;
+  int64 Revision = 4;
+  PointSafetyConstraint SafetyConstraint = 5;
+}
+
+message ResolvedCU {
+  string CUID = 1;
+  string AssetID = 2;
+  ResourceLifecycleStatus LifecycleStatus = 3;
+  int64 NodeVersion = 4;
+  repeated ResolvedCapability Capabilities = 5;
+  repeated ResolvedMetricBinding Bindings = 6;
+}
+
+message ScopeExclusion {
+  string CUID = 1;
+  string AssetID = 2;
+  ScopeExclusionReason Reason = 3;
+  string Detail = 4;
+}
+
+message ScopePrecheckFailure {
+  string CUID = 1;
+  string AssetID = 2;
+  ScopePrecheckFailureReason Reason = 3;
+  string Detail = 4;
+}
+
+message ResolveScopeResponse {
+  ScopeType ScopeType = 1;
+  string ScopeID = 2;
+  // Lowercase hex SHA-256 of the canonical scope snapshot.
+  string ResourceRevision = 3;
+  // True only when every active CU that matched the required capabilities
+  // also has a valid typed spec and the required metric bindings.
+  // Members is empty when PrecheckOK is false, so a failed precheck cannot
+  // be used as a smaller controllable set.
+  bool PrecheckOK = 4;
+  repeated ResolvedCU Members = 5;
+  repeated ScopeExclusion Exclusions = 6;
+  repeated ScopePrecheckFailure PrecheckFailures = 7;
+}

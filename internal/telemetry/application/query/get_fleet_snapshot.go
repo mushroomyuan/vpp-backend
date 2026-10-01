@@ -50,7 +50,7 @@ func (h getFleetSnapshotHandler) Handle(ctx context.Context, q GetFleetSnapshot)
 	}
 	views := make([]*SnapshotView, 0, len(snapshots))
 	for _, s := range snapshots {
-		views = append(views, snapshotToView(s, age))
+		views = append(views, snapshotToView(s, nil, age))
 	}
 	return views, nil
 }

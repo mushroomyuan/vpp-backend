@@ -16,7 +16,7 @@ type insertRow struct {
 	ts         time.Time
 	tenantID   string
 	cuCode     string
-	metricName string
+	metricID   string
 	metricType string
 	value      float64
 }
@@ -35,7 +35,7 @@ func recordsToInsertRows(records []*model.TelemetryRecord) []insertRow {
 				ts:         rec.Timestamp,
 				tenantID:   rec.TenantID,
 				cuCode:     rec.CUCode,
-				metricName: m.Name,
+				metricID:   m.MetricID,
 				metricType: string(m.Type),
 				value:      m.Value,
 			})
@@ -59,7 +59,7 @@ type rawRow struct {
 	ts         time.Time
 	tenantID   string
 	cuCode     string
-	metricName string
+	metricID   string
 	metricType string
 	value      float64
 }
@@ -86,7 +86,7 @@ func rawRowsToRecords(rows []rawRow) []*model.TelemetryRecord {
 			index[k] = tr
 			order = append(order, k)
 		}
-		tr.Metrics = append(tr.Metrics, model.NewMetric(r.metricName, r.value, model.MetricType(r.metricType)))
+		tr.Metrics = append(tr.Metrics, model.NewMetric(r.metricID, r.value, model.MetricType(r.metricType)))
 	}
 
 	out := make([]*model.TelemetryRecord, len(order))
@@ -107,15 +107,15 @@ func rawRowsToRecords(rows []rawRow) []*model.TelemetryRecord {
 //   - scanDests:  pointer receivers to scan into, in the same order
 //   - point:      the AggregatedPoint that will be populated after scanning
 func aggSelectClause(
-	cuCode, metricName string,
+	cuCode, metricID string,
 	bucket, stop time.Time,
 	requested map[model.AggFunction]bool,
 ) (selectCols string, scanDests []interface{}, point *model.AggregatedPoint) {
 	point = &model.AggregatedPoint{
-		CUCode:     cuCode,
-		MetricName: metricName,
-		StartTime:  bucket,
-		EndTime:    stop,
+		CUCode:    cuCode,
+		MetricID:  metricID,
+		StartTime: bucket,
+		EndTime:   stop,
 	}
 
 	var cols []string
@@ -151,7 +151,7 @@ func aggSelectClause(
 // It uses time_bucket($1::interval, ts) so the step is fully parameterized;
 // all filter values are positional parameters preventing SQL injection.
 //
-// Parameter order: $1=step, $2=tenantID, $3=cuCode, $4=metricName, $5=start, $6=end
+// Parameter order: $1=step, $2=tenantID, $3=cuCode, $4=metricID, $5=start, $6=end
 func buildAggSQL(requested map[model.AggFunction]bool) string {
 	aggExprs := make([]string, 0, 6)
 	if requested[model.AggAvg] {
@@ -178,12 +178,12 @@ func buildAggSQL(requested map[model.AggFunction]bool) string {
 SELECT
     time_bucket($1::interval, ts) AS bucket,
     time_bucket($1::interval, ts) + $1::interval AS bucket_end,
-    tenant_id, cu_code, metric_name,
+    tenant_id, cu_code, metric_id,
     %s
 FROM telemetry_records
 WHERE tenant_id   = $2
   AND cu_code     = $3
-  AND metric_name = $4
+  AND metric_id = $4
   AND ts >= $5
   AND ts <  $6
 GROUP BY 1, 2, 3, 4, 5

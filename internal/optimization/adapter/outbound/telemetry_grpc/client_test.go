@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	telemetrypb "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen"
 	"github.com/mushroomyuan/vpp-backend/platform/resilience"
@@ -56,9 +57,14 @@ func TestClient_GetSnapshot_ConvertsResponse(t *testing.T) {
 
 	srv := &fakeTelemetryServer{
 		resp: &telemetrypb.Snapshot{
-			CUCode:  "cu-1",
-			Metrics: map[string]float64{"soc": 42.5},
-			Stale:   false,
+			CUCode: "cu-1",
+			Metrics: []*telemetrypb.MetricState{{
+				MetricID:    "energy_storage.state_of_charge.v1",
+				DoubleValue: 42.5,
+				ObservedAt:  timestamppb.Now(),
+				Quality:     telemetrypb.QualityStatus_QUALITY_STATUS_GOOD,
+			}},
+			Stale: false,
 		},
 	}
 	dialer, cleanup := newBufconnTelemetryServer(t, srv)
@@ -80,8 +86,8 @@ func TestClient_GetSnapshot_ConvertsResponse(t *testing.T) {
 	if snap.CUCode != "cu-1" {
 		t.Errorf("CUCode = %q, want %q", snap.CUCode, "cu-1")
 	}
-	if snap.Metrics["soc"] != 42.5 {
-		t.Errorf("Metrics[soc] = %v, want 42.5", snap.Metrics["soc"])
+	if snap.Metrics["energy_storage.state_of_charge.v1"] != 42.5 {
+		t.Errorf("Metrics[soc] = %v, want 42.5", snap.Metrics["energy_storage.state_of_charge.v1"])
 	}
 	if snap.Stale {
 		t.Error("expected Stale = false")

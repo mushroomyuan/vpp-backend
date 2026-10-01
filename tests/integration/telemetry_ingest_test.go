@@ -44,8 +44,8 @@ func TestReceiveTelemetry_IngestsAndSnapshots(t *testing.T) {
 			ExternalID:     "device-telemetry-1",
 			Timestamp:      ts,
 			Metrics: []gatewaymodel.ExternalMetric{
-				{Name: "active_power", Value: 123.45},
-				{Name: "voltage", Value: 220.1},
+				{Name: "electrical.active_power.v1", Value: 123.45},
+				{Name: "energy_storage.state_of_charge.v1", Value: 55.5},
 			},
 		},
 	})
@@ -66,19 +66,28 @@ func TestReceiveTelemetry_IngestsAndSnapshots(t *testing.T) {
 
 	require.Equal(t, tenantID, snapshot.TenantID)
 	require.Equal(t, cuCode, snapshot.CUCode)
-	require.InDelta(t, 123.45, snapshot.Metrics["active_power"], 0.001)
-	require.InDelta(t, 220.1, snapshot.Metrics["voltage"], 0.001)
+	require.InDelta(t, 123.45, metricValue(snapshot, "electrical.active_power.v1"), 0.001)
+	require.InDelta(t, 55.5, metricValue(snapshot, "energy_storage.state_of_charge.v1"), 0.001)
 	require.False(t, snapshot.Stale)
 
 	// Also verify the raw TimescaleDB write via QueryTelemetry, confirming
 	// the chain landed real rows and not just the Redis cache.
 	records, err := e.Telemetry.Queries.QueryTelemetry.Handle(ctx, telemetryquery.QueryTelemetry{
-		TenantID:   tenantID,
-		CUCode:     cuCode,
-		MetricName: "active_power",
-		StartTime:  ts.Add(-time.Minute),
-		EndTime:    ts.Add(time.Minute),
+		TenantID:  tenantID,
+		CUCode:    cuCode,
+		MetricID:  "electrical.active_power.v1",
+		StartTime: ts.Add(-time.Minute),
+		EndTime:   ts.Add(time.Minute),
 	})
 	require.NoError(t, err, "QueryTelemetry")
 	require.NotEmpty(t, records, "expected at least one persisted telemetry_records row")
+}
+
+func metricValue(snapshot *telemetryquery.SnapshotView, metricID string) float64 {
+	for _, metric := range snapshot.Metrics {
+		if metric.MetricID == metricID {
+			return metric.Value
+		}
+	}
+	return 0
 }

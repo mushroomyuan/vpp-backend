@@ -13,10 +13,9 @@ func batterySpec() domain.DeviceSpec {
 	return domain.DeviceSpec{
 		CUCode: "cu-bess", Name: "BESS-1", Type: "battery", RatedCapacityKW: 100,
 		Points: []domain.PointDef{
-			{PointKey: "read_soc"},
-			{PointKey: "read_active_power"},
-			{PointKey: "write_power_setpoint", ControlFlag: true},
-			{PointKey: "read_temperature"},
+			{PointKey: metricStateOfCharge},
+			{PointKey: metricActivePower},
+			{PointKey: metricActivePowerSetpoint, ControlFlag: true},
 			{PointKey: "virtual_x", IsVirtual: true},
 		},
 	}
@@ -57,18 +56,18 @@ func TestNew_TypeRouting(t *testing.T) {
 func TestExecute_Guards(t *testing.T) {
 	t.Parallel()
 	d := New(batterySpec())
-	if err := d.Execute("read_soc", 50); !errors.Is(err, domain.ErrPointNotWritable) {
+	if err := d.Execute(metricStateOfCharge, 50); !errors.Is(err, domain.ErrPointNotWritable) {
 		t.Fatalf("err=%v", err)
 	}
 	if err := d.Execute("nope", 1); !errors.Is(err, domain.ErrPointUnknown) {
 		t.Fatalf("err=%v", err)
 	}
 	d.SetStatus(domain.StatusOffline)
-	if err := d.Execute("write_power_setpoint", 10); !errors.Is(err, domain.ErrDeviceOffline) {
+	if err := d.Execute(metricActivePowerSetpoint, 10); !errors.Is(err, domain.ErrDeviceOffline) {
 		t.Fatalf("err=%v", err)
 	}
 	d.SetStatus(domain.StatusOnline)
-	if err := d.Execute("write_power_setpoint", 10); err != nil {
+	if err := d.Execute(metricActivePowerSetpoint, 10); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -78,37 +77,37 @@ func TestBattery_SOCClampAndOfflineTick(t *testing.T) {
 	d := New(batterySpec()).(*battery)
 	d.Reset() // SOC=60, setpoint=0
 
-	if err := d.Execute("write_power_setpoint", 100); err != nil {
+	if err := d.Execute(metricActivePowerSetpoint, 100); err != nil {
 		t.Fatal(err)
 	}
 	d.Tick(time.Hour) // ~full discharge for 1h → SOC clamps to 5
-	soc := snapshotValue(d, "read_soc")
+	soc := snapshotValue(d, metricStateOfCharge)
 	if soc != 5 {
 		t.Fatalf("SOC after discharge = %v, want 5", soc)
 	}
 
 	d.Reset()
-	if err := d.Execute("write_power_setpoint", -100); err != nil {
+	if err := d.Execute(metricActivePowerSetpoint, -100); err != nil {
 		t.Fatal(err)
 	}
 	d.Tick(time.Hour) // charge → clamp 95
-	soc = snapshotValue(d, "read_soc")
+	soc = snapshotValue(d, metricStateOfCharge)
 	if soc != 95 {
 		t.Fatalf("SOC after charge = %v, want 95", soc)
 	}
 
 	// Setpoint Execute clamps to ±maxPower
-	if err := d.Execute("write_power_setpoint", 999); err != nil {
+	if err := d.Execute(metricActivePowerSetpoint, 999); err != nil {
 		t.Fatal(err)
 	}
-	if v := snapshotValue(d, "write_power_setpoint"); v != 100 {
+	if v := snapshotValue(d, metricActivePowerSetpoint); v != 100 {
 		t.Fatalf("setpoint clamp = %v", v)
 	}
 
-	before := snapshotValue(d, "read_soc")
+	before := snapshotValue(d, metricStateOfCharge)
 	d.SetStatus(domain.StatusOffline)
 	d.Tick(time.Hour)
-	if snapshotValue(d, "read_soc") != before {
+	if snapshotValue(d, metricStateOfCharge) != before {
 		t.Fatal("offline Tick should freeze SOC")
 	}
 }
@@ -128,24 +127,23 @@ func TestPCS_TracksSetpoints(t *testing.T) {
 	d := New(domain.DeviceSpec{
 		CUCode: "cu-pcs", Type: "pcs", RatedCapacityKW: 50,
 		Points: []domain.PointDef{
-			{PointKey: "read_active_power"},
-			{PointKey: "read_reactive_power"},
-			{PointKey: "write_power_setpoint", ControlFlag: true},
-			{PointKey: "write_reactive_setpoint", ControlFlag: true},
+			{PointKey: metricActivePower},
+			{PointKey: metricReactivePower},
+			{PointKey: metricActivePowerSetpoint, ControlFlag: true},
 		},
 	}).(*pcs)
 
-	if err := d.Execute("write_power_setpoint", 20); err != nil {
-		t.Fatal(err)
-	}
-	if err := d.Execute("write_reactive_setpoint", 10); err != nil {
+	if err := d.Execute(metricActivePowerSetpoint, 20); err != nil {
 		t.Fatal(err)
 	}
 	d.Tick(time.Second)
-	p := snapshotValue(d, "read_active_power")
-	q := snapshotValue(d, "read_reactive_power")
-	if math.Abs(p-20) > 1 || math.Abs(q-10) > 1 {
-		t.Fatalf("P=%v Q=%v", p, q)
+	p := snapshotValue(d, metricActivePower)
+	if math.Abs(p-20) > 1 {
+		t.Fatalf("P=%v", p)
+	}
+	q := snapshotValue(d, metricReactivePower)
+	if math.IsNaN(q) {
+		t.Fatal("reactive power point missing")
 	}
 }
 
@@ -153,11 +151,11 @@ func TestPV_PowerNonNegativeAndCapped(t *testing.T) {
 	t.Parallel()
 	d := New(domain.DeviceSpec{
 		CUCode: "cu-pv", Type: "pv", RatedCapacityKW: 40,
-		Points: []domain.PointDef{{PointKey: "read_active_power"}},
+		Points: []domain.PointDef{{PointKey: metricActivePower}},
 	})
 	for i := 0; i < 5; i++ {
 		d.Tick(time.Second)
-		p := snapshotValue(d, "read_active_power")
+		p := snapshotValue(d, metricActivePower)
 		if p < 0 || p > 40 {
 			t.Fatalf("power=%v out of [0,40]", p)
 		}
@@ -168,14 +166,14 @@ func TestMeter_Clamp(t *testing.T) {
 	t.Parallel()
 	d := New(domain.DeviceSpec{
 		CUCode: "cu-m", Type: "meter",
-		Points: []domain.PointDef{{PointKey: "read_active_power"}},
+		Points: []domain.PointDef{{PointKey: metricActivePower}},
 	}).(*meter)
 	// Force extreme then tick — clamp should hold.
 	d.mu.Lock()
-	d.values["read_active_power"] = 250
+	d.values[metricActivePower] = 250
 	d.mu.Unlock()
 	d.Tick(time.Second)
-	p := snapshotValue(d, "read_active_power")
+	p := snapshotValue(d, metricActivePower)
 	if p < -200 || p > 200 {
 		t.Fatalf("meter power=%v", p)
 	}
@@ -199,18 +197,17 @@ func TestPassthrough_SkipsControlPoints(t *testing.T) {
 	}
 }
 
-func TestFindPoint_ExactAndFuzzy(t *testing.T) {
+func TestFindPoint_ExactCanonicalID(t *testing.T) {
 	t.Parallel()
 	points := map[string]domain.PointDef{
-		"read_soc":             {PointKey: "read_soc"},
-		"write_power_setpoint": {PointKey: "write_power_setpoint"},
+		metricStateOfCharge:       {PointKey: metricStateOfCharge},
+		metricActivePowerSetpoint: {PointKey: metricActivePowerSetpoint},
 	}
-	if got := findPoint([]string{"soc", "read_soc"}, points); got != "read_soc" {
-		// first exact match in list: "soc" missing, then "read_soc"
+	if got := findPoint([]string{"soc", metricStateOfCharge}, points); got != metricStateOfCharge {
 		t.Fatalf("exact got %q", got)
 	}
-	if got := findPoint([]string{"write_power"}, points); got != "write_power_setpoint" {
-		t.Fatalf("fuzzy got %q", got)
+	if got := findPoint([]string{"read_soc", "write_power_setpoint"}, points); got != "" {
+		t.Fatalf("legacy alias got %q", got)
 	}
 	if got := findPoint([]string{"nope"}, points); got != "" {
 		t.Fatal(got)

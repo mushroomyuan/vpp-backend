@@ -118,6 +118,120 @@
         ]
       }
     },
+    "/api/tenants/{TenantID}/capabilities/{ID}": {
+      "get": {
+        "operationId": "ResourceService_GetCUCapability",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbCUCapability"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      },
+      "delete": {
+        "operationId": "ResourceService_DeleteCUCapability",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      },
+      "put": {
+        "operationId": "ResourceService_UpdateCUCapability",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceServiceUpdateCUCapabilityBody"
+            }
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
     "/api/tenants/{TenantID}/cus": {
       "get": {
         "operationId": "ResourceService_ListCUs",
@@ -161,7 +275,7 @@
             "type": "string"
           },
           {
-            "name": "Capability",
+            "name": "CapabilityIDs",
             "in": "query",
             "required": false,
             "type": "array",
@@ -199,6 +313,100 @@
             "required": false,
             "type": "integer",
             "format": "int32"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      }
+    },
+    "/api/tenants/{TenantID}/cus/{CUID}/capabilities": {
+      "get": {
+        "operationId": "ResourceService_ListCUCapabilities",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbListCUCapabilitiesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "CUID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "CapabilityIDs",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "EnabledOnly",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "ResourceService"
+        ]
+      },
+      "post": {
+        "operationId": "ResourceService_CreateCUCapability",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/resourcepbCreateCUCapabilityResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "CUID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceServiceCreateCUCapabilityBody"
+            }
           }
         ],
         "tags": [
@@ -366,7 +574,7 @@
             "type": "string"
           },
           {
-            "name": "PointKeys",
+            "name": "MetricIDs",
             "in": "query",
             "required": false,
             "type": "array",
@@ -376,18 +584,24 @@
             "collectionFormat": "multi"
           },
           {
-            "name": "IsVirtual",
+            "name": "Enabled",
             "in": "query",
             "required": false,
             "type": "boolean"
           },
           {
-            "name": "DataTypes",
+            "name": "AccessModes",
             "in": "query",
             "required": false,
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "POINT_ACCESS_MODE_UNSPECIFIED",
+                "POINT_ACCESS_MODE_READ",
+                "POINT_ACCESS_MODE_WRITE",
+                "POINT_ACCESS_MODE_READ_WRITE"
+              ]
             },
             "collectionFormat": "multi"
           },
@@ -1409,12 +1623,6 @@
         "Type": {
           "type": "string"
         },
-        "CapabilityTags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
         "Metadata": {
           "type": "object"
         },
@@ -1438,38 +1646,52 @@
         }
       }
     },
+    "ResourceServiceCreateCUCapabilityBody": {
+      "type": "object",
+      "properties": {
+        "CapabilityID": {
+          "type": "string"
+        },
+        "SchemaVersion": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Spec": {
+          "type": "object"
+        },
+        "Enabled": {
+          "type": "boolean"
+        }
+      }
+    },
     "ResourceServiceCreatePointBody": {
       "type": "object",
       "properties": {
         "AssetID": {
           "type": "string"
         },
-        "PointKey": {
+        "MetricID": {
           "type": "string"
         },
         "ExternalAddress": {
           "type": "string"
         },
-        "DataType": {
-          "$ref": "#/definitions/resourcepbPointDataType"
+        "AccessMode": {
+          "$ref": "#/definitions/resourcepbPointAccessMode"
         },
-        "ExtConfig": {
-          "type": "object"
+        "Scale": {
+          "type": "number",
+          "format": "double"
         },
-        "Description": {
-          "type": "string"
+        "Offset": {
+          "type": "number",
+          "format": "double"
         },
-        "ControlFlag": {
+        "Enabled": {
           "type": "boolean"
         },
-        "IsVirtual": {
-          "type": "boolean"
-        },
-        "SafetyThresholds": {
-          "type": "object"
-        },
-        "CacheKeyAlias": {
-          "type": "string"
+        "SafetyConstraint": {
+          "$ref": "#/definitions/resourcepbPointSafetyConstraint"
         }
       }
     },
@@ -1551,12 +1773,6 @@
         "Type": {
           "type": "string"
         },
-        "CapabilityTags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
         "Metadata": {
           "type": "object"
         },
@@ -1577,35 +1793,54 @@
         }
       }
     },
+    "ResourceServiceUpdateCUCapabilityBody": {
+      "type": "object",
+      "properties": {
+        "SchemaVersion": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Spec": {
+          "type": "object"
+        },
+        "Enabled": {
+          "type": "boolean"
+        },
+        "ExpectedVersion": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "ResourceServiceUpdatePointBody": {
       "type": "object",
       "properties": {
-        "PointKey": {
+        "MetricID": {
           "type": "string"
         },
         "ExternalAddress": {
           "type": "string"
         },
-        "DataType": {
-          "$ref": "#/definitions/resourcepbPointDataType"
+        "AccessMode": {
+          "$ref": "#/definitions/resourcepbPointAccessMode"
         },
-        "ExtConfig": {
-          "type": "object"
+        "Scale": {
+          "type": "number",
+          "format": "double"
         },
-        "Description": {
-          "type": "string"
+        "Offset": {
+          "type": "number",
+          "format": "double"
         },
-        "ControlFlag": {
+        "Enabled": {
           "type": "boolean"
         },
-        "IsVirtual": {
-          "type": "boolean"
+        "SafetyConstraint": {
+          "$ref": "#/definitions/resourcepbPointSafetyConstraint"
         },
-        "SafetyThresholds": {
-          "type": "object"
-        },
-        "CacheKeyAlias": {
-          "type": "string"
+        "ExpectedRevision": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -1824,12 +2059,6 @@
         "Type": {
           "type": "string"
         },
-        "CapabilityTags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
         "Metadata": {
           "type": "object"
         },
@@ -1872,6 +2101,37 @@
       },
       "title": "CU import — scope: tenant + resource"
     },
+    "resourcepbCUCapability": {
+      "type": "object",
+      "properties": {
+        "ID": {
+          "type": "string"
+        },
+        "TenantID": {
+          "type": "string"
+        },
+        "CUID": {
+          "type": "string"
+        },
+        "CapabilityID": {
+          "type": "string"
+        },
+        "SchemaVersion": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Spec": {
+          "type": "object"
+        },
+        "Enabled": {
+          "type": "boolean"
+        },
+        "Version": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "resourcepbCUItem": {
       "type": "object",
       "properties": {
@@ -1883,12 +2143,6 @@
         },
         "Type": {
           "type": "string"
-        },
-        "CapabilityTags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         },
         "Metadata": {
           "type": "object"
@@ -1957,6 +2211,14 @@
       "type": "object",
       "properties": {
         "AssetID": {
+          "type": "string"
+        }
+      }
+    },
+    "resourcepbCreateCUCapabilityResponse": {
+      "type": "object",
+      "properties": {
+        "CapabilityInstanceID": {
           "type": "string"
         }
       }
@@ -2110,6 +2372,18 @@
         }
       }
     },
+    "resourcepbListCUCapabilitiesResponse": {
+      "type": "object",
+      "properties": {
+        "Capabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/resourcepbCUCapability"
+          }
+        }
+      }
+    },
     "resourcepbListCUsResponse": {
       "type": "object",
       "properties": {
@@ -2198,37 +2472,44 @@
         "CUID": {
           "type": "string"
         },
-        "PointKey": {
+        "MetricID": {
           "type": "string"
         },
         "ExternalAddress": {
           "type": "string"
         },
-        "DataType": {
-          "$ref": "#/definitions/resourcepbPointDataType"
+        "AccessMode": {
+          "$ref": "#/definitions/resourcepbPointAccessMode"
         },
-        "ExtConfig": {
-          "type": "object"
+        "Scale": {
+          "type": "number",
+          "format": "double"
         },
-        "Description": {
-          "type": "string"
+        "Offset": {
+          "type": "number",
+          "format": "double"
         },
-        "ControlFlag": {
+        "Enabled": {
           "type": "boolean"
         },
-        "IsVirtual": {
-          "type": "boolean"
+        "Revision": {
+          "type": "string",
+          "format": "int64"
         },
-        "SafetyThresholds": {
-          "type": "object"
-        },
-        "CacheKeyAlias": {
-          "type": "string"
-        },
-        "Runtime": {
-          "$ref": "#/definitions/resourcepbPointRuntime"
+        "SafetyConstraint": {
+          "$ref": "#/definitions/resourcepbPointSafetyConstraint"
         }
       }
+    },
+    "resourcepbPointAccessMode": {
+      "type": "string",
+      "enum": [
+        "POINT_ACCESS_MODE_UNSPECIFIED",
+        "POINT_ACCESS_MODE_READ",
+        "POINT_ACCESS_MODE_WRITE",
+        "POINT_ACCESS_MODE_READ_WRITE"
+      ],
+      "default": "POINT_ACCESS_MODE_UNSPECIFIED"
     },
     "resourcepbPointBatch": {
       "type": "object",
@@ -2252,76 +2533,54 @@
       },
       "title": "Point import — scope: tenant + asset + CU"
     },
-    "resourcepbPointDataType": {
-      "type": "string",
-      "enum": [
-        "POINT_DATA_TYPE_UNSPECIFIED",
-        "POINT_DATA_TYPE_FLOAT",
-        "POINT_DATA_TYPE_INT",
-        "POINT_DATA_TYPE_BOOL",
-        "POINT_DATA_TYPE_ENUM"
-      ],
-      "default": "POINT_DATA_TYPE_UNSPECIFIED"
-    },
     "resourcepbPointItem": {
       "type": "object",
       "properties": {
-        "PointKey": {
+        "MetricID": {
           "type": "string"
         },
         "ExternalAddress": {
           "type": "string"
         },
-        "DataType": {
-          "$ref": "#/definitions/resourcepbPointDataType"
+        "AccessMode": {
+          "$ref": "#/definitions/resourcepbPointAccessMode"
         },
-        "ExtConfig": {
-          "type": "object"
-        },
-        "Description": {
-          "type": "string"
-        },
-        "ControlFlag": {
-          "type": "boolean"
-        },
-        "IsVirtual": {
-          "type": "boolean"
-        },
-        "SafetyThresholds": {
-          "type": "object"
-        },
-        "CacheKeyAlias": {
-          "type": "string"
-        }
-      }
-    },
-    "resourcepbPointRuntime": {
-      "type": "object",
-      "properties": {
-        "Value": {
-          "type": "string"
-        },
-        "NumericValue": {
+        "Scale": {
           "type": "number",
           "format": "double"
         },
-        "QualityStatus": {
-          "type": "string"
+        "Offset": {
+          "type": "number",
+          "format": "double"
         },
-        "Sequence": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "SafetyConstraint": {
+          "$ref": "#/definitions/resourcepbPointSafetyConstraint"
+        }
+      }
+    },
+    "resourcepbPointSafetyConstraint": {
+      "type": "object",
+      "properties": {
+        "MinValue": {
+          "type": "number",
+          "format": "double"
+        },
+        "MaxValue": {
+          "type": "number",
+          "format": "double"
+        },
+        "MaxChangePerSecond": {
+          "type": "number",
+          "format": "double"
+        },
+        "Version": {
           "type": "string",
           "format": "int64"
-        },
-        "SampledAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "UpdatedAt": {
-          "type": "string",
-          "format": "date-time"
         }
-      },
-      "description": "PointRuntime is the latest cached point value in Redis."
+      }
     },
     "resourcepbResource": {
       "type": "object",

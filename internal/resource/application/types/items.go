@@ -56,7 +56,6 @@ type CUItem struct {
 	Protocol       *string
 	ProtocolConfig map[string]any
 	Connection     *model.ConnectionConfig
-	CapabilityTags []string
 	Description    *string
 	Metadata       map[string]any
 }
@@ -77,23 +76,30 @@ func (c CUItem) Validate() error {
 
 // PointItem is the per-record input for batch point creation under a CU.
 type PointItem struct {
-	PointKey         string
+	MetricID         string
 	ExternalAddress  string
-	DataType         model.DataType
-	ExtConfig        map[string]any
-	Description      string
-	ControlFlag      bool
-	IsVirtual        bool
-	SafetyThresholds map[string]any
-	CacheKeyAlias    string
+	AccessMode       model.AccessMode
+	Scale            float64
+	Offset           float64
+	Enabled          bool
+	SafetyConstraint *model.PointSafetyConstraint
 }
 
 func (p PointItem) Validate() error {
-	if p.PointKey == "" {
-		return errors.New("PointKey is required")
-	}
-	if !p.DataType.IsValid() {
-		return errors.New("invalid DataType")
+	_, err := model.NewPoint(model.CreatePointParams{
+		ID:               "00000000-0000-0000-0000-000000000000",
+		AssetID:          "00000000-0000-0000-0000-000000000001",
+		CUID:             "00000000-0000-0000-0000-000000000002",
+		MetricID:         p.MetricID,
+		ExternalAddress:  p.ExternalAddress,
+		AccessMode:       p.AccessMode,
+		Scale:            p.Scale,
+		Offset:           p.Offset,
+		Enabled:          p.Enabled,
+		SafetyConstraint: p.SafetyConstraint,
+	})
+	if err != nil {
+		return err
 	}
 	return nil
 }

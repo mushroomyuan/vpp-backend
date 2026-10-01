@@ -30,7 +30,8 @@ message CU {
   string ParentID = 3;
   string Name = 4;
   string Type = 5;
-  repeated string CapabilityTags = 6;
+  reserved 6;
+  reserved "CapabilityTags";
   google.protobuf.Struct Metadata = 7;
   string Protocol = 8;
   google.protobuf.Struct ProtocolConfig = 9;
@@ -45,7 +46,8 @@ message CreateCURequest {
   string ParentID = 2;
   string Name = 3;
   string Type = 4;
-  repeated string CapabilityTags = 5;
+  reserved 5;
+  reserved "CapabilityTags";
   google.protobuf.Struct Metadata = 6;
   string Protocol = 7;
   google.protobuf.Struct ProtocolConfig = 8;
@@ -67,7 +69,8 @@ message UpdateCURequest {
   string ID = 2;
   string Name = 3;
   string Type = 4;
-  repeated string CapabilityTags = 5;
+  reserved 5;
+  reserved "CapabilityTags";
   google.protobuf.Struct Metadata = 6;
   string Protocol = 7;
   google.protobuf.Struct ProtocolConfig = 8;
@@ -86,7 +89,7 @@ message ListCUsRequest {
   string SiteID = 2;
   string AssetID = 3;
   string ParentID = 4;
-  repeated string Capability = 5;
+  repeated string CapabilityIDs = 5;
   repeated string IDs = 6;
   string NameLike = 7;
   int32 Offset = 8;
@@ -101,7 +104,8 @@ message CUItem {
   string ParentID = 1;
   string Name = 2;
   string Type = 3;
-  repeated string CapabilityTags = 4;
+  reserved 4;
+  reserved "CapabilityTags";
   google.protobuf.Struct Metadata = 5;
   string Protocol = 6;
   google.protobuf.Struct ProtocolConfig = 7;

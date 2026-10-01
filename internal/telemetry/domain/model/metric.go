@@ -1,6 +1,10 @@
 package model
 
-import "errors"
+import (
+	"fmt"
+
+	"github.com/mushroomyuan/vpp-backend/api/contracts"
+)
 
 // MetricType distinguishes continuous measurements from discrete state values.
 type MetricType string
@@ -14,8 +18,6 @@ const (
 )
 
 // QualityStatus follows the IEC 60870-5 / OPC-UA data quality convention.
-// Only QualityGood data is written into the Snapshot; degraded-quality samples
-// are stored in the time-series but excluded from real-time state.
 type QualityStatus string
 
 const (
@@ -25,36 +27,52 @@ const (
 )
 
 // Metric is a single measured value inside a TelemetryRecord.
+// MetricID is a numeric canonical metric from the shared contract registry.
 type Metric struct {
-	Name    string
-	Value   float64
-	Type    MetricType
-	Quality QualityStatus
+	MetricID string
+	Value    float64
+	Type     MetricType
+	Quality  QualityStatus
 }
 
 // NewMetric creates a Metric with default QualityGood status.
-func NewMetric(name string, value float64, typ MetricType) Metric {
-	return Metric{Name: name, Value: value, Type: typ, Quality: QualityGood}
+func NewMetric(metricID string, value float64, typ MetricType) Metric {
+	return Metric{MetricID: metricID, Value: value, Type: typ, Quality: QualityGood}
 }
 
 // NewMetricWithQuality creates a Metric with an explicit quality status.
-func NewMetricWithQuality(name string, value float64, typ MetricType, quality QualityStatus) Metric {
-	return Metric{Name: name, Value: value, Type: typ, Quality: quality}
+func NewMetricWithQuality(metricID string, value float64, typ MetricType, quality QualityStatus) Metric {
+	return Metric{MetricID: metricID, Value: value, Type: typ, Quality: quality}
+}
+
+// RequireNumericMetricID accepts only registered canonical metrics whose
+// value kind is float64. Int, bool, and enum kinds stay in the contract
+// registry and are not ingested this round.
+func RequireNumericMetricID(raw string) error {
+	id, err := contracts.ParseMetricID(raw)
+	if err != nil {
+		return fmt.Errorf("invalid metric id: %w", err)
+	}
+	desc, ok := contracts.LookupMetric(id)
+	if !ok || desc.ValueKind != contracts.ValueKindFloat64 {
+		return fmt.Errorf("invalid metric id %q: only numeric canonical metrics are accepted", raw)
+	}
+	return nil
 }
 
 func (m Metric) Validate() error {
-	if m.Name == "" {
-		return errors.New("domain: metric name cannot be empty")
+	if err := RequireNumericMetricID(m.MetricID); err != nil {
+		return fmt.Errorf("domain: %w", err)
 	}
 	switch m.Quality {
 	case QualityGood, QualityBad, QualityUncertain:
 	default:
-		return errors.New("domain: invalid quality status")
+		return fmt.Errorf("domain: invalid quality status")
 	}
 	switch m.Type {
 	case Analog, Discrete:
 	default:
-		return errors.New("domain: invalid metric type")
+		return fmt.Errorf("domain: invalid metric type")
 	}
 	return nil
 }

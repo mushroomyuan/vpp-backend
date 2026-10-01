@@ -18,6 +18,7 @@ type Server struct {
 	// query handlers
 	queryTelemetry   query.QueryTelemetryHandler
 	getSnapshot      query.GetSnapshotHandler
+	getSnapshots     query.GetSnapshotsHandler
 	getFleetSnapshot query.GetFleetSnapshotHandler
 	queryAggregation query.QueryAggregationHandler
 }
@@ -28,6 +29,7 @@ func NewServer(app application.Application) *Server {
 		ingestTelemetry:  app.Commands.IngestTelemetry,
 		queryTelemetry:   app.Queries.QueryTelemetry,
 		getSnapshot:      app.Queries.GetSnapshot,
+		getSnapshots:     app.Queries.GetSnapshots,
 		getFleetSnapshot: app.Queries.GetFleetSnapshot,
 		queryAggregation: app.Queries.QueryAggregation,
 	}

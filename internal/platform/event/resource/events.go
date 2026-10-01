@@ -68,7 +68,8 @@ type PointCreatedPayload struct {
 	TenantID string `json:"tenant_id"`
 	AssetID  string `json:"asset_id,omitempty"`
 	CUID     string `json:"cu_id,omitempty"`
-	PointKey string `json:"point_key"`
+	MetricID string `json:"metric_id"`
+	Revision int64  `json:"revision"`
 }
 
 // PointUpdatedPayload carries identifying fields when a measurement point is
@@ -76,7 +77,8 @@ type PointCreatedPayload struct {
 type PointUpdatedPayload struct {
 	PointID  string `json:"point_id"`
 	TenantID string `json:"tenant_id"`
-	PointKey string `json:"point_key"`
+	MetricID string `json:"metric_id"`
+	Revision int64  `json:"revision"`
 }
 
 // PointDeletedPayload is published when a measurement point is soft-deleted.

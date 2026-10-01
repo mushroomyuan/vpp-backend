@@ -45,26 +45,6 @@ type CURuntimeCache interface {
 	CURuntimeWriter
 }
 
-// --- Point Runtime ---
-
-type PointRuntimeReader interface {
-	GetPointRuntime(ctx context.Context, tenantID, pointID string) (*model.PointRuntime, error)
-	// Point 批量查询量极大（一个 CU 下成百上千个点）
-	MGetPointRuntimes(ctx context.Context, tenantID string, pointIDs []string) (map[string]*model.PointRuntime, error)
-}
-
-type PointRuntimeWriter interface {
-	SetPointRuntime(ctx context.Context, r *model.PointRuntime) error
-	// 批量写入：设备上报往往是一批点同时到达
-	MSetPointRuntimes(ctx context.Context, runtimes []*model.PointRuntime) error
-	DeletePointRuntime(ctx context.Context, tenantID, pointID string) error
-}
-
-type PointRuntimeCache interface {
-	PointRuntimeReader
-	PointRuntimeWriter
-}
-
 type AssetRuntimePatch struct {
 	Online                *bool
 	CurrentPowerKW        *float64

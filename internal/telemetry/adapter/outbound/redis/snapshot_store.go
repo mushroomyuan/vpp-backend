@@ -56,11 +56,11 @@ func (s *SnapshotStore) Find(ctx context.Context, tenantID, cuCode string) (*mod
 	if err != nil {
 		return nil, fmt.Errorf("redis get snapshot: %w", err)
 	}
-	var snap model.Snapshot
-	if err := json.Unmarshal([]byte(val), &snap); err != nil {
+	snap, err := unmarshalSnapshot(val)
+	if err != nil {
 		return nil, fmt.Errorf("unmarshal snapshot: %w", err)
 	}
-	return &snap, nil
+	return snap, nil
 }
 
 // FindAll returns the latest snapshots for every CU belonging to tenantID.
@@ -86,12 +86,11 @@ func (s *SnapshotStore) FindAll(ctx context.Context, tenantID string) ([]*model.
 			if err != nil {
 				return nil, fmt.Errorf("redis get snapshot %s: %w", key, err)
 			}
-			var snap model.Snapshot
-			if err := json.Unmarshal([]byte(val), &snap); err != nil {
+			snap, err := unmarshalSnapshot(val)
+			if err != nil {
 				return nil, fmt.Errorf("unmarshal snapshot %s: %w", key, err)
 			}
-			cp := snap
-			snapshots = append(snapshots, &cp)
+			snapshots = append(snapshots, snap)
 		}
 		if nextCursor == 0 {
 			break
@@ -99,6 +98,49 @@ func (s *SnapshotStore) FindAll(ctx context.Context, tenantID string) ([]*model.
 		cursor = nextCursor
 	}
 	return snapshots, nil
+}
+
+// FindByCUs loads the requested CU snapshots with one MGET.
+// Missing keys are omitted. Order follows cuCodes.
+func (s *SnapshotStore) FindByCUs(ctx context.Context, tenantID string, cuCodes []string) ([]*model.Snapshot, error) {
+	if len(cuCodes) == 0 {
+		return nil, nil
+	}
+	keys := make([]string, len(cuCodes))
+	for i, cuCode := range cuCodes {
+		keys[i] = snapshotKey(tenantID, cuCode)
+	}
+	vals, err := s.client.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, fmt.Errorf("redis mget snapshots: %w", err)
+	}
+	snapshots := make([]*model.Snapshot, 0, len(vals))
+	for i, val := range vals {
+		if val == nil {
+			continue
+		}
+		raw, ok := val.(string)
+		if !ok {
+			return nil, fmt.Errorf("redis mget snapshot %s: unexpected value type %T", keys[i], val)
+		}
+		snap, err := unmarshalSnapshot(raw)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal snapshot %s: %w", keys[i], err)
+		}
+		snapshots = append(snapshots, snap)
+	}
+	return snapshots, nil
+}
+
+func unmarshalSnapshot(raw string) (*model.Snapshot, error) {
+	var snap model.Snapshot
+	if err := json.Unmarshal([]byte(raw), &snap); err != nil {
+		return nil, err
+	}
+	if snap.Metrics == nil {
+		snap.Metrics = make(map[string]model.MetricState)
+	}
+	return &snap, nil
 }
 
 var _ port.SnapshotRepository = (*SnapshotStore)(nil)

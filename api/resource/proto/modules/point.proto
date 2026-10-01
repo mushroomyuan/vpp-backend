@@ -4,40 +4,51 @@ package resourcepb;
 
 option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
 
-import "google/protobuf/struct.proto";
 import "google/protobuf/wrappers.proto";
-import "modules/common.proto";
-import "modules/runtime.proto";
+
+enum PointAccessMode {
+  POINT_ACCESS_MODE_UNSPECIFIED = 0;
+  POINT_ACCESS_MODE_READ = 1;
+  POINT_ACCESS_MODE_WRITE = 2;
+  POINT_ACCESS_MODE_READ_WRITE = 3;
+}
+
+message PointSafetyConstraint {
+  google.protobuf.DoubleValue MinValue = 1;
+  google.protobuf.DoubleValue MaxValue = 2;
+  google.protobuf.DoubleValue MaxChangePerSecond = 3;
+  int64 Version = 4;
+}
 
 message Point {
   string ID = 1;
   string AssetID = 2;
   string CUID = 3;
-  string PointKey = 4;
+  string MetricID = 4;
   string ExternalAddress = 5;
-  PointDataType DataType = 6;
-  google.protobuf.Struct ExtConfig = 7;
-  string Description = 8;
-  bool ControlFlag = 9;
-  bool IsVirtual = 10;
-  google.protobuf.Struct SafetyThresholds = 11;
-  string CacheKeyAlias = 12;
-  PointRuntime Runtime = 13;
+  PointAccessMode AccessMode = 6;
+  double Scale = 7;
+  double Offset = 8;
+  bool Enabled = 9;
+  int64 Revision = 10;
+  PointSafetyConstraint SafetyConstraint = 11;
+  reserved 12, 13;
+  reserved "CacheKeyAlias", "Runtime";
 }
 
 message CreatePointRequest {
   string TenantID = 1;
   string AssetID = 2;
   string CUID = 3;
-  string PointKey = 4;
+  string MetricID = 4;
   string ExternalAddress = 5;
-  PointDataType DataType = 6;
-  google.protobuf.Struct ExtConfig = 7;
-  string Description = 8;
-  bool ControlFlag = 9;
-  bool IsVirtual = 10;
-  google.protobuf.Struct SafetyThresholds = 11;
-  string CacheKeyAlias = 12;
+  PointAccessMode AccessMode = 6;
+  google.protobuf.DoubleValue Scale = 7;
+  google.protobuf.DoubleValue Offset = 8;
+  bool Enabled = 9;
+  PointSafetyConstraint SafetyConstraint = 10;
+  reserved 11, 12;
+  reserved "SafetyThresholds", "CacheKeyAlias";
 }
 
 message CreatePointResponse {
@@ -47,15 +58,16 @@ message CreatePointResponse {
 message UpdatePointRequest {
   string TenantID = 1;
   string ID = 2;
-  string PointKey = 3;
+  string MetricID = 3;
   string ExternalAddress = 4;
-  PointDataType DataType = 5;
-  google.protobuf.Struct ExtConfig = 6;
-  string Description = 7;
-  bool ControlFlag = 8;
-  bool IsVirtual = 9;
-  google.protobuf.Struct SafetyThresholds = 10;
-  string CacheKeyAlias = 11;
+  PointAccessMode AccessMode = 5;
+  google.protobuf.DoubleValue Scale = 6;
+  google.protobuf.DoubleValue Offset = 7;
+  bool Enabled = 8;
+  PointSafetyConstraint SafetyConstraint = 9;
+  int64 ExpectedRevision = 10;
+  reserved 11;
+  reserved "CacheKeyAlias";
 }
 
 message DeletePointRequest {
@@ -72,9 +84,9 @@ message ListPointsRequest {
   string TenantID = 1;
   string SiteID = 2;
   string CUID = 3;
-  repeated string PointKeys = 4;
-  google.protobuf.BoolValue IsVirtual = 5;
-  repeated string DataTypes = 6;
+  repeated string MetricIDs = 4;
+  google.protobuf.BoolValue Enabled = 5;
+  repeated PointAccessMode AccessModes = 6;
   repeated string IDs = 7;
   int32 Offset = 8;
   int32 Limit = 9;
@@ -85,15 +97,15 @@ message ListPointsResponse {
 }
 
 message PointItem {
-  string PointKey = 1;
+  string MetricID = 1;
   string ExternalAddress = 2;
-  PointDataType DataType = 3;
-  google.protobuf.Struct ExtConfig = 4;
-  string Description = 5;
-  bool ControlFlag = 6;
-  bool IsVirtual = 7;
-  google.protobuf.Struct SafetyThresholds = 8;
-  string CacheKeyAlias = 9;
+  PointAccessMode AccessMode = 3;
+  google.protobuf.DoubleValue Scale = 4;
+  google.protobuf.DoubleValue Offset = 5;
+  bool Enabled = 6;
+  PointSafetyConstraint SafetyConstraint = 7;
+  reserved 8, 9;
+  reserved "SafetyThresholds", "CacheKeyAlias";
 }
 
 

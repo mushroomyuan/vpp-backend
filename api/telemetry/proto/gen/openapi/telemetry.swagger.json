@@ -7,7 +7,7 @@
   "tags": [
     {
       "name": "TelemetryService",
-      "description": "TelemetryService exposes APIs for ingesting, querying, and aggregating\ntime-series telemetry data from Control Units (CUs).\n\nWrite path:  IngestTelemetry (saves to TSDB + updates real-time Snapshot + publishes SOE)\nRead paths:\n  - QueryTelemetry    — raw historical records (≤ 30-day window)\n  - GetSnapshot       — current real-time state of a single CU\n  - GetFleetSnapshot  — current real-time state of all CUs in a tenant\n  - QueryAggregation  — downsampled/aggregated time-series (≤ 30-day window)"
+      "description": "TelemetryService exposes APIs for ingesting, querying, and aggregating\ntime-series telemetry data from Control Units (CUs).\n\nWrite path:  IngestTelemetry (saves to TSDB + updates real-time Snapshot + publishes SOE)\nRead paths:\n  - QueryTelemetry    — raw historical records (≤ 30-day window)\n  - GetSnapshot       — current real-time state of a single CU\n  - GetSnapshots      — current state for an explicit CU list and metric set\n  - GetFleetSnapshot  — current real-time state of all CUs in a tenant\n  - QueryAggregation  — downsampled/aggregated time-series (≤ 30-day window)"
     }
   ],
   "consumes": [
@@ -49,7 +49,7 @@
             "type": "string"
           },
           {
-            "name": "MetricName",
+            "name": "MetricID",
             "in": "query",
             "required": false,
             "type": "string"
@@ -179,8 +179,8 @@
             "type": "string"
           },
           {
-            "name": "MetricName",
-            "description": "MetricName filters results to a single metric; omit to return all metrics.",
+            "name": "MetricID",
+            "description": "MetricID filters results to a single canonical metric; omit to return all metrics.",
             "in": "query",
             "required": false,
             "type": "string"
@@ -288,6 +288,65 @@
           "TelemetryService"
         ]
       }
+    },
+    "/api/tenants/{TenantID}/snapshots:batch": {
+      "get": {
+        "summary": "GetSnapshots returns real-time snapshots for the requested CUs and metric IDs.\nDecision uses this instead of scanning the tenant fleet.",
+        "operationId": "TelemetryService_GetSnapshots",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/telemetrypbGetSnapshotsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "TenantID",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "CUCodes",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "MetricIDs",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "StaleAgeSeconds",
+            "description": "StaleAgeSeconds overrides the server-side default (300 s / 5 min).\nPass 0 to use the default. It only affects Snapshot.Stale (CU-level).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "TelemetryService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -356,7 +415,7 @@
         "CUCode": {
           "type": "string"
         },
-        "MetricName": {
+        "MetricID": {
           "type": "string"
         },
         "WindowStart": {
@@ -409,6 +468,19 @@
         }
       }
     },
+    "telemetrypbGetSnapshotsResponse": {
+      "type": "object",
+      "properties": {
+        "Snapshots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/telemetrypbSnapshot"
+          },
+          "description": "Snapshots follows the request CU order. CUs with no stored snapshot are omitted.\nA returned snapshot contains only the requested metric IDs that are present."
+        }
+      }
+    },
     "telemetrypbIngestTelemetryResponse": {
       "type": "object",
       "properties": {
@@ -418,6 +490,26 @@
           "description": "SOECount is the number of discrete state-change events produced by this push."
         }
       }
+    },
+    "telemetrypbMetricState": {
+      "type": "object",
+      "properties": {
+        "MetricID": {
+          "type": "string"
+        },
+        "DoubleValue": {
+          "type": "number",
+          "format": "double"
+        },
+        "ObservedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "Quality": {
+          "$ref": "#/definitions/telemetrypbQualityStatus"
+        }
+      },
+      "description": "MetricState is the latest sample of one canonical numeric metric.\ndouble_value is the only value representation this round. Later Int/Bool/Enum\nsupport must add new fields and leave double_value in place."
     },
     "telemetrypbMetricType": {
       "type": "string",
@@ -432,7 +524,7 @@
     "telemetrypbMetricValue": {
       "type": "object",
       "properties": {
-        "Name": {
+        "MetricID": {
           "type": "string"
         },
         "Value": {
@@ -446,7 +538,7 @@
           "$ref": "#/definitions/telemetrypbQualityStatus"
         }
       },
-      "description": "MetricValue is a single measured data point within a telemetry push."
+      "description": "MetricValue is a single measured data point within a telemetry push.\nMetricID must be a numeric canonical metric from the shared contract registry."
     },
     "telemetrypbQualityStatus": {
       "type": "string",
@@ -493,23 +585,23 @@
           "type": "string"
         },
         "Metrics": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "number",
-            "format": "double"
-          },
-          "description": "Metrics maps metric name → latest good-quality value."
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/telemetrypbMetricState"
+          }
         },
         "UpdatedAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "UpdatedAt is the timestamp of the latest ingest applied to this CU."
         },
         "Stale": {
           "type": "boolean",
-          "description": "Stale is true when the snapshot has not been updated within the requested\nStaleAgeSeconds threshold (or the server default of 5 minutes)."
+          "description": "Stale is true when UpdatedAt is older than the requested StaleAgeSeconds\nthreshold (or the server default of 5 minutes). Per-metric freshness is\nObservedAt on each MetricState."
         }
       },
-      "description": "Snapshot holds the latest known good-quality metric values for a single CU.\nIt is the real-time \"current state\" view populated on every successful ingest."
+      "description": "Snapshot holds the latest per-metric state for a single CU.\nEach metric keeps its own value, observation time, and quality. A bad or\nuncertain sample replaces the previous state instead of leaving an older\ngood value in place."
     },
     "telemetrypbTelemetryRecord": {
       "type": "object",

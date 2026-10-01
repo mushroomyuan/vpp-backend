@@ -148,7 +148,7 @@ curl -s -X POST http://127.0.0.1:8084/api/v1/runtime/reload | jq .
 curl -s http://127.0.0.1:8084/api/v1/runtime | jq '{device_count, devices: [.devices[] | {name,type,cu_code,external_id,status}]}'
 ```
 
-期望：`device_count == 4`，Battery 上能看到 `read_soc` 等点。
+期望：`device_count == 4`，Battery 上能看到 `energy_storage.state_of_charge.v1` 等点。
 
 ---
 
@@ -184,7 +184,7 @@ curl -s $SIM/api/v1/devices/$BAT_EXT | jq .
 
 - `healthz.status == ok`
 - 4 台设备，`status` 多为 `online`
-- Battery 有 `read_soc` / `read_active_power` / `write_power_setpoint` 等 points
+- Battery 有 `energy_storage.state_of_charge.v1` / `electrical.active_power.v1` / `electrical.active_power_setpoint.v1` 等 points
 
 ---
 
@@ -214,12 +214,12 @@ curl -s $SIM/api/v1/devices/$BAT_EXT | jq '.points'
 ```bash
 curl -s -X POST $SIM/api/v1/devices/$BAT_EXT/command \
   -H 'Content-Type: application/json' \
-  -d '{"point_key":"write_power_setpoint","value":25}' | jq .
+  -d '{"point_key":"electrical.active_power_setpoint.v1","value":25}' | jq .
 
 curl -s $SIM/api/v1/devices/$BAT_EXT | jq '.points'
 ```
 
-**通过标准：** `write_power_setpoint` ≈ 25；随后 Tick 后 `read_active_power` 接近设定值，`read_soc` 缓慢下降。
+**通过标准：** `electrical.active_power_setpoint.v1` ≈ 25；随后 Tick 后 `electrical.active_power.v1` 接近设定值，`energy_storage.state_of_charge.v1` 缓慢下降。
 
 负向：
 
@@ -227,7 +227,7 @@ curl -s $SIM/api/v1/devices/$BAT_EXT | jq '.points'
 # 只读点应失败
 curl -s -X POST $SIM/api/v1/devices/$BAT_EXT/command \
   -H 'Content-Type: application/json' \
-  -d '{"point_key":"read_soc","value":50}' | jq .
+  -d '{"point_key":"energy_storage.state_of_charge.v1","value":50}' | jq .
 # 期望 error 含 not writable
 ```
 
@@ -261,7 +261,7 @@ grpcurl -plaintext 127.0.0.1:5003 describe telemetrypb.TelemetryService
 
 - Simulator 日志无持续 `telemetry publish failed`
 - Gateway 无 mapping not found
-- Telemetry 快照中有 `read_soc` / `read_active_power` 等
+- Telemetry 快照中有 `energy_storage.state_of_charge.v1` / `electrical.active_power.v1` 等
 
 手动补发一条（排查用）：
 
@@ -269,7 +269,7 @@ grpcurl -plaintext 127.0.0.1:5003 describe telemetrypb.TelemetryService
 curl -s -o /dev/null -w '%{http_code}\n' -X POST \
   "$GW/api/v1/tenants/$TENANT/telemetry:ingest" \
   -H 'Content-Type: application/json' \
-  -d "{\"external_system\":\"simulator\",\"external_id\":\"$BAT_EXT\",\"metrics\":[{\"name\":\"read_soc\",\"value\":61.2}]}"
+  -d "{\"external_system\":\"simulator\",\"external_id\":\"$BAT_EXT\",\"metrics\":[{\"name\":\"energy_storage.state_of_charge.v1\",\"value\":61.2}]}"
 # 期望 204
 ```
 
@@ -285,7 +285,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST \
 # 直接打 Simulator 命令 API（模拟 Gateway 行为）
 curl -s -X POST $SIM/api/v1/commands \
   -H 'Content-Type: application/json' \
-  -d "{\"command_id\":\"cmd-manual-1\",\"external_id\":\"$BAT_EXT\",\"point_key\":\"write_power_setpoint\",\"value\":-15}" | jq .
+  -d "{\"command_id\":\"cmd-manual-1\",\"external_id\":\"$BAT_EXT\",\"point_key\":\"electrical.active_power_setpoint.v1\",\"value\":-15}" | jq .
 
 curl -s $SIM/api/v1/devices/$BAT_EXT | jq '.points'
 ```
@@ -297,7 +297,7 @@ grpcurl -plaintext -d "{
   \"CommandID\": \"cmd-gw-1\",
   \"TenantID\": \"$TENANT\",
   \"CUCode\": \"$BAT_CU\",
-  \"PointKey\": \"write_power_setpoint\",
+  \"PointKey\": \"electrical.active_power_setpoint.v1\",
   \"FloatValue\": 10
 }" 127.0.0.1:5005 gatewaypb.GatewayService/ExecuteCommand
 ```
@@ -327,7 +327,7 @@ grpcurl -plaintext -d "{
     \"ExecutionPolicy\": \"sequential\",
     \"Commands\": [{
       \"CUCode\": \"$BAT_CU\",
-      \"PointKey\": \"write_power_setpoint\",
+      \"PointKey\": \"electrical.active_power_setpoint.v1\",
       \"FloatValue\": 30,
       \"TimeoutSeconds\": 30,
       \"MaxRetries\": 1
@@ -353,7 +353,7 @@ grpcurl -plaintext -d "{
 | ---------- | ------------------------------------------- |
 | SubmitTask | `Status=running`（或很快 completed）             |
 | GetTask    | `Status=completed`，Command `succeeded`      |
-| Simulator  | `write_power_setpoint≈30`                   |
+| Simulator  | `electrical.active_power_setpoint.v1≈30`   |
 | Gateway 日志 | `simulator: command delivered`（不是仅 ems_log） |
 | Kafka      | `vpp.command.events` 有成功事件（可选消费验证）          |
 
@@ -381,7 +381,7 @@ curl -s $SIM/api/v1/devices/$BAT_EXT | jq '{status,fault}'
 # 命令应被拒
 curl -s -X POST $SIM/api/v1/commands \
   -H 'Content-Type: application/json' \
-  -d "{\"command_id\":\"x\",\"external_id\":\"$BAT_EXT\",\"point_key\":\"write_power_setpoint\",\"value\":1}" | jq .
+  -d "{\"command_id\":\"x\",\"external_id\":\"$BAT_EXT\",\"point_key\":\"electrical.active_power_setpoint.v1\",\"value\":1}" | jq .
 # 期望 accepted=false / 409
 
 # 清除
@@ -447,7 +447,7 @@ curl -s -X POST $SIM/api/v1/runtime/reload | jq .
 curl -s -o /dev/null -w '%{http_code}\n' -X POST \
   "$GW/api/v1/tenants/$TENANT/telemetry:ingest" \
   -H 'Content-Type: application/json' \
-  -d '{"external_system":"simulator","external_id":"no-such-device","metrics":[{"name":"read_soc","value":1}]}'
+  -d '{"external_system":"simulator","external_id":"no-such-device","metrics":[{"name":"energy_storage.state_of_charge.v1","value":1}]}'
 # 期望 404
 ```
 

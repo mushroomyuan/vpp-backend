@@ -24,7 +24,7 @@ type Config struct {
 // InfluxDB data model:
 //
 //	measurement : "telemetry"
-//	tags        : tenant_id, cu_code, metric_name, metric_type
+//	tags        : tenant_id, cu_code, metric_id, metric_type
 //	fields      : value (float64)
 //	timestamp   : TelemetryRecord.Timestamp  (nanosecond precision)
 const measurement = "telemetry"
@@ -79,7 +79,7 @@ func (s *TelemetryStore) SaveBatch(ctx context.Context, records []*model.Telemet
 				map[string]string{
 					"tenant_id":   rec.TenantID,
 					"cu_code":     rec.CUCode,
-					"metric_name": m.Name,
+					"metric_id":   m.MetricID,
 					"metric_type": string(m.Type),
 				},
 				map[string]interface{}{"value": m.Value},
@@ -121,7 +121,7 @@ func (s *TelemetryStore) Query(
 		ts := rec.Time()
 		cuCode, _ := rec.ValueByKey("cu_code").(string)
 		tenantID, _ := rec.ValueByKey("tenant_id").(string)
-		metricName, _ := rec.ValueByKey("metric_name").(string)
+		metricID, _ := rec.ValueByKey("metric_id").(string)
 		metricType, _ := rec.ValueByKey("metric_type").(string)
 		val, _ := rec.Value().(float64)
 
@@ -136,7 +136,7 @@ func (s *TelemetryStore) Query(
 			index[k] = tr
 			order = append(order, k)
 		}
-		tr.Metrics = append(tr.Metrics, model.NewMetric(metricName, val, model.MetricType(metricType)))
+		tr.Metrics = append(tr.Metrics, model.NewMetric(metricID, val, model.MetricType(metricType)))
 	}
 	if err := result.Err(); err != nil {
 		return nil, fmt.Errorf("iterate influxdb result: %w", err)
@@ -177,10 +177,10 @@ func (s *AggregationStore) Query(
 	for result.Next() {
 		rec := result.Record()
 		p := &model.AggregatedPoint{
-			CUCode:     asString(rec.ValueByKey("cu_code")),
-			MetricName: asString(rec.ValueByKey("metric_name")),
-			StartTime:  rec.Start(),
-			EndTime:    rec.Stop(),
+			CUCode:    asString(rec.ValueByKey("cu_code")),
+			MetricID:  asString(rec.ValueByKey("metric_id")),
+			StartTime: rec.Start(),
+			EndTime:   rec.Stop(),
 		}
 		if requested[model.AggAvg] {
 			p.Avg = asFloat64Ptr(rec.ValueByKey("avg"))

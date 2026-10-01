@@ -17,9 +17,15 @@ import (
 //	telemetry_15m      — continuous aggregate; bucket = 15 minutes
 //
 // The continuous aggregate covers AVG / MAX / MIN / SUM / COUNT / LAST for
-// every (tenant_id, cu_code, metric_name) group and is refreshed automatically
+// every (tenant_id, cu_code, metric_id) group and is refreshed automatically
 // by TimescaleDB's background worker within a 5-minute schedule.
+//
+// A pre-existing table that still uses metric_name is dropped and recreated.
+// There is no production history to preserve and no dual-write.
 func ApplySchema(ctx context.Context, pool *pgxpool.Pool) error {
+	if err := dropLegacyMetricNameSchema(ctx, pool); err != nil {
+		return err
+	}
 	statements := []struct {
 		name string
 		sql  string
@@ -30,11 +36,11 @@ func ApplySchema(ctx context.Context, pool *pgxpool.Pool) error {
 				ts          TIMESTAMPTZ      NOT NULL,
 				tenant_id   TEXT             NOT NULL,
 				cu_code     TEXT             NOT NULL,
-				metric_name TEXT             NOT NULL,
+				metric_id   TEXT             NOT NULL,
 				metric_type TEXT             NOT NULL,
 				value       DOUBLE PRECISION NOT NULL,
 				CONSTRAINT telemetry_records_pkey
-					PRIMARY KEY (ts, tenant_id, cu_code, metric_name)
+					PRIMARY KEY (ts, tenant_id, cu_code, metric_id)
 			)`,
 		},
 		{
@@ -63,7 +69,7 @@ func ApplySchema(ctx context.Context, pool *pgxpool.Pool) error {
 				time_bucket('15 minutes', ts)  AS bucket,
 				tenant_id,
 				cu_code,
-				metric_name,
+				metric_id,
 				AVG(value)           AS avg,
 				MAX(value)           AS max,
 				MIN(value)           AS min,
@@ -91,6 +97,33 @@ func ApplySchema(ctx context.Context, pool *pgxpool.Pool) error {
 		if _, err := pool.Exec(ctx, s.sql); err != nil {
 			return fmt.Errorf("timescaledb schema [%s]: %w", s.name, err)
 		}
+	}
+	return nil
+}
+
+func dropLegacyMetricNameSchema(ctx context.Context, pool *pgxpool.Pool) error {
+	var legacy bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+			  AND table_name = 'telemetry_records'
+			  AND column_name = 'metric_name'
+		)`).Scan(&legacy)
+	if err != nil {
+		return fmt.Errorf("timescaledb schema [detect legacy metric_name]: %w", err)
+	}
+	if !legacy {
+		return nil
+	}
+	// Policy removal errors when the view is already gone; the drops below are authoritative.
+	_, _ = pool.Exec(ctx, `SELECT remove_continuous_aggregate_policy('telemetry_15m', if_exists => TRUE)`)
+	if _, err := pool.Exec(ctx, `DROP MATERIALIZED VIEW IF EXISTS telemetry_15m CASCADE`); err != nil {
+		return fmt.Errorf("timescaledb schema [drop legacy telemetry_15m]: %w", err)
+	}
+	if _, err := pool.Exec(ctx, `DROP TABLE IF EXISTS telemetry_records CASCADE`); err != nil {
+		return fmt.Errorf("timescaledb schema [drop legacy telemetry_records]: %w", err)
 	}
 	return nil
 }

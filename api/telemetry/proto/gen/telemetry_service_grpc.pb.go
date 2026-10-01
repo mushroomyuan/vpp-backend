@@ -22,6 +22,7 @@ const (
 	TelemetryService_IngestTelemetry_FullMethodName  = "/telemetrypb.TelemetryService/IngestTelemetry"
 	TelemetryService_QueryTelemetry_FullMethodName   = "/telemetrypb.TelemetryService/QueryTelemetry"
 	TelemetryService_GetSnapshot_FullMethodName      = "/telemetrypb.TelemetryService/GetSnapshot"
+	TelemetryService_GetSnapshots_FullMethodName     = "/telemetrypb.TelemetryService/GetSnapshots"
 	TelemetryService_GetFleetSnapshot_FullMethodName = "/telemetrypb.TelemetryService/GetFleetSnapshot"
 	TelemetryService_QueryAggregation_FullMethodName = "/telemetrypb.TelemetryService/QueryAggregation"
 )
@@ -37,6 +38,7 @@ const (
 // Read paths:
 //   - QueryTelemetry    — raw historical records (≤ 30-day window)
 //   - GetSnapshot       — current real-time state of a single CU
+//   - GetSnapshots      — current state for an explicit CU list and metric set
 //   - GetFleetSnapshot  — current real-time state of all CUs in a tenant
 //   - QueryAggregation  — downsampled/aggregated time-series (≤ 30-day window)
 type TelemetryServiceClient interface {
@@ -49,6 +51,9 @@ type TelemetryServiceClient interface {
 	// GetSnapshot returns the latest real-time snapshot for a single CU.
 	// Returns NOT_FOUND if no data has been ingested for the CU yet.
 	GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (*Snapshot, error)
+	// GetSnapshots returns real-time snapshots for the requested CUs and metric IDs.
+	// Decision uses this instead of scanning the tenant fleet.
+	GetSnapshots(ctx context.Context, in *GetSnapshotsRequest, opts ...grpc.CallOption) (*GetSnapshotsResponse, error)
 	// GetFleetSnapshot returns real-time snapshots for every CU in a tenant.
 	// Used by dashboards and fleet-level staleness checks.
 	GetFleetSnapshot(ctx context.Context, in *GetFleetSnapshotRequest, opts ...grpc.CallOption) (*GetFleetSnapshotResponse, error)
@@ -96,6 +101,16 @@ func (c *telemetryServiceClient) GetSnapshot(ctx context.Context, in *GetSnapsho
 	return out, nil
 }
 
+func (c *telemetryServiceClient) GetSnapshots(ctx context.Context, in *GetSnapshotsRequest, opts ...grpc.CallOption) (*GetSnapshotsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSnapshotsResponse)
+	err := c.cc.Invoke(ctx, TelemetryService_GetSnapshots_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *telemetryServiceClient) GetFleetSnapshot(ctx context.Context, in *GetFleetSnapshotRequest, opts ...grpc.CallOption) (*GetFleetSnapshotResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetFleetSnapshotResponse)
@@ -127,6 +142,7 @@ func (c *telemetryServiceClient) QueryAggregation(ctx context.Context, in *Query
 // Read paths:
 //   - QueryTelemetry    — raw historical records (≤ 30-day window)
 //   - GetSnapshot       — current real-time state of a single CU
+//   - GetSnapshots      — current state for an explicit CU list and metric set
 //   - GetFleetSnapshot  — current real-time state of all CUs in a tenant
 //   - QueryAggregation  — downsampled/aggregated time-series (≤ 30-day window)
 type TelemetryServiceServer interface {
@@ -139,6 +155,9 @@ type TelemetryServiceServer interface {
 	// GetSnapshot returns the latest real-time snapshot for a single CU.
 	// Returns NOT_FOUND if no data has been ingested for the CU yet.
 	GetSnapshot(context.Context, *GetSnapshotRequest) (*Snapshot, error)
+	// GetSnapshots returns real-time snapshots for the requested CUs and metric IDs.
+	// Decision uses this instead of scanning the tenant fleet.
+	GetSnapshots(context.Context, *GetSnapshotsRequest) (*GetSnapshotsResponse, error)
 	// GetFleetSnapshot returns real-time snapshots for every CU in a tenant.
 	// Used by dashboards and fleet-level staleness checks.
 	GetFleetSnapshot(context.Context, *GetFleetSnapshotRequest) (*GetFleetSnapshotResponse, error)
@@ -163,6 +182,9 @@ func (UnimplementedTelemetryServiceServer) QueryTelemetry(context.Context, *Quer
 }
 func (UnimplementedTelemetryServiceServer) GetSnapshot(context.Context, *GetSnapshotRequest) (*Snapshot, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetSnapshot not implemented")
+}
+func (UnimplementedTelemetryServiceServer) GetSnapshots(context.Context, *GetSnapshotsRequest) (*GetSnapshotsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSnapshots not implemented")
 }
 func (UnimplementedTelemetryServiceServer) GetFleetSnapshot(context.Context, *GetFleetSnapshotRequest) (*GetFleetSnapshotResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetFleetSnapshot not implemented")
@@ -244,6 +266,24 @@ func _TelemetryService_GetSnapshot_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TelemetryService_GetSnapshots_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSnapshotsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TelemetryServiceServer).GetSnapshots(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TelemetryService_GetSnapshots_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TelemetryServiceServer).GetSnapshots(ctx, req.(*GetSnapshotsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _TelemetryService_GetFleetSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetFleetSnapshotRequest)
 	if err := dec(in); err != nil {
@@ -298,6 +338,10 @@ var TelemetryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSnapshot",
 			Handler:    _TelemetryService_GetSnapshot_Handler,
+		},
+		{
+			MethodName: "GetSnapshots",
+			Handler:    _TelemetryService_GetSnapshots_Handler,
 		},
 		{
 			MethodName: "GetFleetSnapshot",

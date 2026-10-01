@@ -255,15 +255,15 @@ gengateway:
 	@./scripts/gengateway.sh
 
 fmt:
-	goimports -l -w internal/
+	goimports -l -w internal/ api/contracts/
 
 lint:
 	@./scripts/lint.sh
 
-# Run go mod tidy for the nine internal modules (platform + services).
+# Run go mod tidy for the shared contract module and nine internal modules.
 tidy:
 	@failed=0; \
-	for dir in internal/platform internal/resource internal/telemetry \
+	for dir in api/contracts internal/platform internal/resource internal/telemetry \
 		internal/gateway internal/dispatch internal/simulator internal/alarm \
 		internal/optimization internal/forecast; do \
 		echo "==> go mod tidy ($$dir)"; \
@@ -274,14 +274,14 @@ tidy:
 			failed=1; \
 		fi; \
 	done; \
-	echo "tidy done (9 modules)"; \
+	echo "tidy done (10 modules)"; \
 	exit $$failed
 
-# Run go vet ./... for the nine internal modules. Mirrors the CI `test` job so
+# Run go vet ./... for the shared contract module and nine internal modules. Mirrors the CI `test` job so
 # a local `make vet` failure predicts a CI failure.
 vet:
 	@failed=0; \
-	for dir in internal/platform internal/resource internal/telemetry \
+	for dir in api/contracts internal/platform internal/resource internal/telemetry \
 		internal/gateway internal/dispatch internal/simulator internal/alarm \
 		internal/optimization internal/forecast; do \
 		echo "==> go vet ($$dir)"; \
@@ -292,14 +292,14 @@ vet:
 			failed=1; \
 		fi; \
 	done; \
-	echo "vet done (9 modules)"; \
+	echo "vet done (10 modules)"; \
 	exit $$failed
 
-# Run go test ./... -race for the nine internal modules. Mirrors the CI `test`
+# Run go test ./... -race for the shared contract module and nine internal modules. Mirrors the CI `test`
 # job's matrix so a local `make test` failure predicts a CI failure.
 test:
 	@failed=0; \
-	for dir in internal/platform internal/resource internal/telemetry \
+	for dir in api/contracts internal/platform internal/resource internal/telemetry \
 		internal/gateway internal/dispatch internal/simulator internal/alarm \
 		internal/optimization internal/forecast; do \
 		echo "==> go test ($$dir)"; \
@@ -310,7 +310,7 @@ test:
 			failed=1; \
 		fi; \
 	done; \
-	echo "test done (9 modules)"; \
+	echo "test done (10 modules)"; \
 	exit $$failed
 
 # Real dispatch/gateway application layers wired to ephemeral Postgres+Kafka

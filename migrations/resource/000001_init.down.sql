@@ -1,4 +1,6 @@
 DROP TABLE IF EXISTS import_jobs;
+DROP TABLE IF EXISTS point_safety_constraints;
+DROP TABLE IF EXISTS cu_capabilities;
 DROP TABLE IF EXISTS points;
 DROP TABLE IF EXISTS cus;
 DROP TABLE IF EXISTS assets;

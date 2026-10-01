@@ -49,8 +49,6 @@ type CU struct {
 
 	ProtocolConfig map[string]any
 	Connection     *ConnectionConfig
-
-	CapabilityTags []string
 }
 
 // CreateCUParams 创建参数 (只包含业务必填字段)
@@ -68,7 +66,6 @@ type CreateCUParams struct {
 	Description    *string
 	Connection     *ConnectionConfig
 	ProtocolConfig map[string]any
-	CapabilityTags []string
 }
 
 // NewCU 创建 CU 聚合根
@@ -102,17 +99,12 @@ func NewCU(params CreateCUParams) (*CU, error) {
 		Protocol:       params.Protocol,
 		Connection:     params.Connection,
 		ProtocolConfig: params.ProtocolConfig,
-		CapabilityTags: params.CapabilityTags,
 	}
 
 	// 3. 初始化空集合
 	if cu.ProtocolConfig == nil {
 		cu.ProtocolConfig = make(map[string]any)
 	}
-	if cu.CapabilityTags == nil {
-		cu.CapabilityTags = []string{}
-	}
-
 	// 4. 业务规则校验
 	if err := cu.Validate(); err != nil {
 		return nil, err
@@ -179,50 +171,6 @@ func (cu *CU) UpdateConnection(conn ConnectionConfig) error {
 // only checks the persistent lifecycle status.
 func (cu *CU) CanControl() bool {
 	return cu.LifecycleStatus == NodeLifecycleActive
-}
-
-// AddCapability 添加能力标签
-func (cu *CU) AddCapability(tag string) error {
-	tag = strings.TrimSpace(tag)
-	if tag == "" {
-		return errors.New("capability tag cannot be empty")
-	}
-
-	// 检查是否已存在
-	for _, t := range cu.CapabilityTags {
-		if t == tag {
-			return nil // 已存在,不重复添加
-		}
-	}
-
-	cu.CapabilityTags = append(cu.CapabilityTags, tag)
-	cu.UpdatedAt = time.Now()
-	cu.Version++
-
-	return nil
-}
-
-// RemoveCapability 移除能力标签
-func (cu *CU) RemoveCapability(tag string) {
-	filtered := make([]string, 0, len(cu.CapabilityTags))
-	for _, t := range cu.CapabilityTags {
-		if t != tag {
-			filtered = append(filtered, t)
-		}
-	}
-
-	cu.CapabilityTags = filtered
-	cu.UpdatedAt = time.Now()
-	cu.Version++
-}
-
-func (cu *CU) HasCapability(tag string) bool {
-	for _, t := range cu.CapabilityTags {
-		if t == tag {
-			return true
-		}
-	}
-	return false
 }
 
 // UpdateProtocolConfig 更新协议配置

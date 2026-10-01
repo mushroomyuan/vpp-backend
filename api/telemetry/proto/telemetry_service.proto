@@ -17,6 +17,7 @@ import "aggregation.proto";
 // Read paths:
 //   - QueryTelemetry    — raw historical records (≤ 30-day window)
 //   - GetSnapshot       — current real-time state of a single CU
+//   - GetSnapshots      — current state for an explicit CU list and metric set
 //   - GetFleetSnapshot  — current real-time state of all CUs in a tenant
 //   - QueryAggregation  — downsampled/aggregated time-series (≤ 30-day window)
 service TelemetryService {
@@ -49,6 +50,14 @@ service TelemetryService {
   rpc GetSnapshot(GetSnapshotRequest) returns (Snapshot) {
     option (google.api.http) = {
       get: "/api/tenants/{TenantID}/cus/{CUCode}/snapshot"
+    };
+  }
+
+  // GetSnapshots returns real-time snapshots for the requested CUs and metric IDs.
+  // Decision uses this instead of scanning the tenant fleet.
+  rpc GetSnapshots(GetSnapshotsRequest) returns (GetSnapshotsResponse) {
+    option (google.api.http) = {
+      get: "/api/tenants/{TenantID}/snapshots:batch"
     };
   }
 

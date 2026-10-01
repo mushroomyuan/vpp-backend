@@ -5,17 +5,31 @@ package telemetrypb;
 option go_package = "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen;telemetrypb";
 
 import "google/protobuf/timestamp.proto";
+import "common.proto";
 
-// Snapshot holds the latest known good-quality metric values for a single CU.
-// It is the real-time "current state" view populated on every successful ingest.
+// MetricState is the latest sample of one canonical numeric metric.
+// double_value is the only value representation this round. Later Int/Bool/Enum
+// support must add new fields and leave double_value in place.
+message MetricState {
+  string MetricID = 1;
+  double DoubleValue = 2;
+  google.protobuf.Timestamp ObservedAt = 3;
+  QualityStatus Quality = 4;
+}
+
+// Snapshot holds the latest per-metric state for a single CU.
+// Each metric keeps its own value, observation time, and quality. A bad or
+// uncertain sample replaces the previous state instead of leaving an older
+// good value in place.
 message Snapshot {
   string TenantID = 1;
   string CUCode = 2;
-  // Metrics maps metric name → latest good-quality value.
-  map<string, double> Metrics = 3;
+  repeated MetricState Metrics = 3;
+  // UpdatedAt is the timestamp of the latest ingest applied to this CU.
   google.protobuf.Timestamp UpdatedAt = 4;
-  // Stale is true when the snapshot has not been updated within the requested
-  // StaleAgeSeconds threshold (or the server default of 5 minutes).
+  // Stale is true when UpdatedAt is older than the requested StaleAgeSeconds
+  // threshold (or the server default of 5 minutes). Per-metric freshness is
+  // ObservedAt on each MetricState.
   bool Stale = 5;
 }
 
@@ -27,6 +41,26 @@ message GetSnapshotRequest {
   // StaleAgeSeconds overrides the server-side default (300 s / 5 min).
   // Pass 0 to use the default.
   int64 StaleAgeSeconds = 3;
+}
+
+// ── Explicit CU batch snapshot ────────────────────────────────────────────────
+
+// GetSnapshotsRequest returns snapshots for an explicit CU list.
+// CUCodes are resource CU identifiers, the same values stored as Snapshot.CUCode.
+// Callers must name the CUs and metric IDs they need; this RPC does not scan a tenant.
+message GetSnapshotsRequest {
+  string TenantID = 1;
+  repeated string CUCodes = 2;
+  repeated string MetricIDs = 3;
+  // StaleAgeSeconds overrides the server-side default (300 s / 5 min).
+  // Pass 0 to use the default. It only affects Snapshot.Stale (CU-level).
+  int64 StaleAgeSeconds = 4;
+}
+
+message GetSnapshotsResponse {
+  // Snapshots follows the request CU order. CUs with no stored snapshot are omitted.
+  // A returned snapshot contains only the requested metric IDs that are present.
+  repeated Snapshot Snapshots = 1;
 }
 
 // ── Fleet (all CUs in a tenant) snapshot ─────────────────────────────────────

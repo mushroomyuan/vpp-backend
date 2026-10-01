@@ -32,8 +32,11 @@ type Commands struct {
 	ChangeResourceLifecycle command.ChangeResourceLifecycleHandler
 
 	// CU
-	CreateCU command.CreateCUHandler
-	UpdateCU command.UpdateCUHandler
+	CreateCU           command.CreateCUHandler
+	UpdateCU           command.UpdateCUHandler
+	CreateCUCapability command.CreateCUCapabilityHandler
+	UpdateCUCapability command.UpdateCUCapabilityHandler
+	DeleteCUCapability command.DeleteCUCapabilityHandler
 
 	// Point
 	CreatePoint command.CreatePointHandler
@@ -59,12 +62,17 @@ type Queries struct {
 	ExportResourceTree query.ExportResourceTreeHandler
 
 	// CU
-	GetCU   query.GetCUHandler
-	ListCUs query.ListCUsHandler
+	GetCU              query.GetCUHandler
+	ListCUs            query.ListCUsHandler
+	GetCUCapability    query.GetCUCapabilityHandler
+	ListCUCapabilities query.ListCUCapabilitiesHandler
 
 	// Point
 	GetPoint   query.GetPointHandler
 	ListPoints query.ListPointsHandler
+
+	// Scope
+	ResolveScope query.ResolveScopeHandler
 
 	// Job
 	GetJob query.GetJobHandler
@@ -77,17 +85,18 @@ type Workers struct {
 
 type Dependencies struct {
 	// Repositories (ports)
-	SiteRepo  port.SiteRepository
-	AssetRepo port.AssetRepository
-	CURepo    port.CURepository
-	PointRepo port.PointRepository
-	JobRepo   port.JobRepository
-	NodeRepo  port.NodeRepository
+	SiteRepo         port.SiteRepository
+	AssetRepo        port.AssetRepository
+	CURepo           port.CURepository
+	CUCapabilityRepo port.CUCapabilityRepository
+	PointRepo        port.PointRepository
+	JobRepo          port.JobRepository
+	NodeRepo         port.NodeRepository
+	ScopeRepo        port.ScopeRepository
 
 	// Runtime readers (Redis-backed hot state)
 	AssetRuntime port.AssetRuntimeReader
 	CURuntime    port.CURuntimeReader
-	PointRuntime port.PointRuntimeReader
 
 	// Cross-cutting
 	Metrics decorator.MetricsClient
@@ -109,8 +118,11 @@ func NewApplication(deps Dependencies) Application {
 	if deps.CURuntime == nil {
 		panic("NewApplication: CURuntime is required")
 	}
-	if deps.PointRuntime == nil {
-		panic("NewApplication: PointRuntime is required")
+	if deps.CUCapabilityRepo == nil {
+		panic("NewApplication: CUCapabilityRepo is required")
+	}
+	if deps.ScopeRepo == nil {
+		panic("NewApplication: ScopeRepo is required")
 	}
 
 	pub := deps.EventPublisher // may be nil; handlers guard with nil check
@@ -139,8 +151,11 @@ func NewApplication(deps Dependencies) Application {
 			ChangeResourceLifecycle: command.NewChangeResourceLifecycleHandler(deps.NodeRepo, deps.Metrics, pub),
 
 			// CU
-			CreateCU: command.NewCreateCUHandler(deps.CURepo, deps.NodeRepo, deps.Metrics, pub),
-			UpdateCU: command.NewUpdateCUHandler(deps.CURepo, deps.NodeRepo, deps.Metrics, pub),
+			CreateCU:           command.NewCreateCUHandler(deps.CURepo, deps.NodeRepo, deps.Metrics, pub),
+			UpdateCU:           command.NewUpdateCUHandler(deps.CURepo, deps.NodeRepo, deps.Metrics, pub),
+			CreateCUCapability: command.NewCreateCUCapabilityHandler(deps.CUCapabilityRepo, deps.CURepo, deps.Metrics),
+			UpdateCUCapability: command.NewUpdateCUCapabilityHandler(deps.CUCapabilityRepo, deps.Metrics),
+			DeleteCUCapability: command.NewDeleteCUCapabilityHandler(deps.CUCapabilityRepo, deps.Metrics),
 
 			// Point
 			CreatePoint: command.NewCreatePointHandler(deps.PointRepo, deps.NodeRepo, deps.Metrics, pub),
@@ -165,12 +180,16 @@ func NewApplication(deps Dependencies) Application {
 			ExportResourceTree: query.NewExportResourceTreeHandler(deps.NodeRepo, deps.Metrics),
 
 			// CU
-			GetCU:   query.NewGetCUHandler(deps.CURepo, deps.CURuntime, deps.Metrics),
-			ListCUs: query.NewListCUsHandler(deps.CURepo, deps.CURuntime, deps.Metrics),
+			GetCU:              query.NewGetCUHandler(deps.CURepo, deps.CURuntime, deps.Metrics),
+			ListCUs:            query.NewListCUsHandler(deps.CURepo, deps.CURuntime, deps.Metrics),
+			GetCUCapability:    query.NewGetCUCapabilityHandler(deps.CUCapabilityRepo, deps.Metrics),
+			ListCUCapabilities: query.NewListCUCapabilitiesHandler(deps.CUCapabilityRepo, deps.Metrics),
 
 			// Point
-			GetPoint:   query.NewGetPointHandler(deps.PointRepo, deps.PointRuntime, deps.Metrics),
-			ListPoints: query.NewListPointsHandler(deps.PointRepo, deps.PointRuntime, deps.Metrics),
+			GetPoint:   query.NewGetPointHandler(deps.PointRepo, deps.Metrics),
+			ListPoints: query.NewListPointsHandler(deps.PointRepo, deps.Metrics),
+
+			ResolveScope: query.NewResolveScopeHandler(deps.ScopeRepo, deps.Metrics),
 
 			// Job
 			GetJob: query.NewGetJobHandler(deps.JobRepo, deps.Metrics),

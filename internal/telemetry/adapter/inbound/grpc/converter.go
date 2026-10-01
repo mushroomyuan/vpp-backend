@@ -118,10 +118,10 @@ func ingestRequestToCommand(req *telemetrypb.IngestTelemetryRequest) command.Ing
 	metrics := make([]command.MetricInput, 0, len(req.GetMetrics()))
 	for _, m := range req.GetMetrics() {
 		metrics = append(metrics, command.MetricInput{
-			Name:    m.GetName(),
-			Value:   m.GetValue(),
-			Type:    metricTypeProtoToDomain(m.GetType()),
-			Quality: qualityStatusProtoToDomain(m.GetQuality()),
+			MetricID: m.GetMetricID(),
+			Value:    m.GetValue(),
+			Type:     metricTypeProtoToDomain(m.GetType()),
+			Quality:  qualityStatusProtoToDomain(m.GetQuality()),
 		})
 	}
 	ts := time.Now()
@@ -140,10 +140,10 @@ func ingestRequestToCommand(req *telemetrypb.IngestTelemetryRequest) command.Ing
 
 func metricDomainToProto(m model.Metric) *telemetrypb.MetricValue {
 	return &telemetrypb.MetricValue{
-		Name:    m.Name,
-		Value:   m.Value,
-		Type:    metricTypeDomainToProto(m.Type),
-		Quality: qualityStatusDomainToProto(m.Quality),
+		MetricID: m.MetricID,
+		Value:    m.Value,
+		Type:     metricTypeDomainToProto(m.Type),
+		Quality:  qualityStatusDomainToProto(m.Quality),
 	}
 }
 
@@ -169,10 +169,19 @@ func snapshotViewToProto(v *query.SnapshotView) *telemetrypb.Snapshot {
 	if v == nil {
 		return nil
 	}
+	metrics := make([]*telemetrypb.MetricState, 0, len(v.Metrics))
+	for _, m := range v.Metrics {
+		metrics = append(metrics, &telemetrypb.MetricState{
+			MetricID:    m.MetricID,
+			DoubleValue: m.Value,
+			ObservedAt:  timestamppb.New(m.ObservedAt),
+			Quality:     qualityStatusDomainToProto(m.Quality),
+		})
+	}
 	return &telemetrypb.Snapshot{
 		TenantID:  v.TenantID,
 		CUCode:    v.CUCode,
-		Metrics:   v.Metrics,
+		Metrics:   metrics,
 		UpdatedAt: timestamppb.New(v.UpdatedAt),
 		Stale:     v.Stale,
 	}
@@ -184,7 +193,7 @@ func aggregatedPointDomainToProto(p *model.AggregatedPoint) *telemetrypb.Aggrega
 	}
 	pb := &telemetrypb.AggregatedPoint{
 		CUCode:      p.CUCode,
-		MetricName:  p.MetricName,
+		MetricID:    p.MetricID,
 		WindowStart: timestamppb.New(p.StartTime),
 		WindowEnd:   timestamppb.New(p.EndTime),
 		Avg:         p.Avg,

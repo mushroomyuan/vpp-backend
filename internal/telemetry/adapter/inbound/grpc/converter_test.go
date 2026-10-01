@@ -74,16 +74,16 @@ func TestIngestRequestToCommand(t *testing.T) {
 		CUCode:    "cu",
 		Timestamp: timestamppb.New(ts),
 		Metrics: []*telemetrypb.MetricValue{{
-			Name:    "p",
-			Value:   1.5,
-			Type:    telemetrypb.MetricType_METRIC_TYPE_ANALOG,
-			Quality: telemetrypb.QualityStatus_QUALITY_STATUS_GOOD,
+			MetricID: "electrical.active_power.v1",
+			Value:    1.5,
+			Type:     telemetrypb.MetricType_METRIC_TYPE_ANALOG,
+			Quality:  telemetrypb.QualityStatus_QUALITY_STATUS_GOOD,
 		}},
 	})
 	if cmd.TenantID != "t" || cmd.CUCode != "cu" || !cmd.Timestamp.Equal(ts) {
 		t.Fatalf("%+v", cmd)
 	}
-	if len(cmd.Metrics) != 1 || cmd.Metrics[0].Name != "p" || cmd.Metrics[0].Type != model.Analog {
+	if len(cmd.Metrics) != 1 || cmd.Metrics[0].MetricID != "electrical.active_power.v1" || cmd.Metrics[0].Type != model.Analog {
 		t.Fatalf("metrics = %+v", cmd.Metrics)
 	}
 }

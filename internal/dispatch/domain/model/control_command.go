@@ -23,8 +23,11 @@ type ControlCommand struct {
 	ActionID string
 	TenantID string
 
-	CUCode   string
-	PointKey string // maps to gateway proto ExecuteCommandRequest.point_key
+	CUCode string
+	// PointKey is the gateway ExecuteCommandRequest.point_key wire field.
+	// This round it carries a canonical MetricID string. Gateway forwards that
+	// string unchanged and does not translate external addresses.
+	PointKey string
 
 	Value CommandValue
 

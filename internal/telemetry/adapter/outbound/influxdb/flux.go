@@ -18,7 +18,7 @@ import (
 //	  |> range(start: 2024-01-01T00:00:00Z, stop: 2024-01-31T23:59:59Z)
 //	  |> filter(fn: (r) => r._measurement == "telemetry")
 //	  |> filter(fn: (r) => r.tenant_id == "t1" and r.cu_code == "CU001")
-//	  |> filter(fn: (r) => r.metric_name == "active_power")
+//	  |> filter(fn: (r) => r.metric_id == "electrical.active_power.v1")
 func buildRawQuery(bucket string, c model.QueryCondition) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "from(bucket: %q)\n", bucket)
@@ -30,8 +30,8 @@ func buildRawQuery(bucket string, c model.QueryCondition) string {
 	fmt.Fprintf(&sb, "  |> filter(fn: (r) => r.tenant_id == %q and r.cu_code == %q)\n",
 		sanitize(c.TenantID), sanitize(c.CUCode),
 	)
-	if c.MetricName != "" {
-		fmt.Fprintf(&sb, "  |> filter(fn: (r) => r.metric_name == %q)\n", sanitize(c.MetricName))
+	if c.MetricID != "" {
+		fmt.Fprintf(&sb, "  |> filter(fn: (r) => r.metric_id == %q)\n", sanitize(c.MetricID))
 	}
 	return sb.String()
 }
@@ -52,7 +52,7 @@ func buildRawQuery(bucket string, c model.QueryCondition) string {
 //	avg_tbl = base |> aggregateWindow(every: 1m, fn: mean, createEmpty: false) |> map(...)
 //	max_tbl = base |> aggregateWindow(every: 1m, fn: max,  createEmpty: false) |> map(...)
 //	union(tables: [avg_tbl, max_tbl])
-//	  |> pivot(rowKey: ["_time", "tenant_id", "cu_code", "metric_name"], ...)
+//	  |> pivot(rowKey: ["_time", "tenant_id", "cu_code", "metric_id"], ...)
 func buildAggQuery(bucket string, q model.AggregationQuery) string {
 	stepStr := formatDuration(q.Step)
 
@@ -63,8 +63,8 @@ func buildAggQuery(bucket string, q model.AggregationQuery) string {
 		q.EndTime.UTC().Format(time.RFC3339),
 	)
 	sb.WriteString("  |> filter(fn: (r) => r._measurement == \"telemetry\")\n")
-	fmt.Fprintf(&sb, "  |> filter(fn: (r) => r.tenant_id == %q and r.cu_code == %q and r.metric_name == %q)\n",
-		sanitize(q.TenantID), sanitize(q.CUCode), sanitize(q.MetricName),
+	fmt.Fprintf(&sb, "  |> filter(fn: (r) => r.tenant_id == %q and r.cu_code == %q and r.metric_id == %q)\n",
+		sanitize(q.TenantID), sanitize(q.CUCode), sanitize(q.MetricID),
 	)
 	sb.WriteString("  |> filter(fn: (r) => r._field == \"value\")\n\n")
 
@@ -88,7 +88,7 @@ func buildAggQuery(bucket string, q model.AggregationQuery) string {
 	}
 
 	fmt.Fprintf(&sb, "\nunion(tables: [%s])\n", strings.Join(tableNames, ", "))
-	sb.WriteString("  |> pivot(rowKey: [\"_time\", \"tenant_id\", \"cu_code\", \"metric_name\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n")
+	sb.WriteString("  |> pivot(rowKey: [\"_time\", \"tenant_id\", \"cu_code\", \"metric_id\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n")
 
 	return sb.String()
 }

@@ -9,7 +9,9 @@ import "google/api/annotations.proto";
 import "modules/site.proto";
 import "modules/resource.proto";
 import "modules/cu.proto";
+import "modules/capability.proto";
 import "modules/point.proto";
+import "modules/scope.proto";
 import "modules/job.proto";
 import "modules/asset.proto";
 
@@ -113,6 +115,28 @@ service ResourceService {
     };
   }
 
+  rpc CreateCUCapability(CreateCUCapabilityRequest) returns (CreateCUCapabilityResponse) {
+    option (google.api.http) = {
+      post: "/api/tenants/{TenantID}/cus/{CUID}/capabilities"
+      body: "*"
+    };
+  }
+  rpc GetCUCapability(GetCUCapabilityRequest) returns (CUCapability) {
+    option (google.api.http) = {get: "/api/tenants/{TenantID}/capabilities/{ID}"};
+  }
+  rpc ListCUCapabilities(ListCUCapabilitiesRequest) returns (ListCUCapabilitiesResponse) {
+    option (google.api.http) = {get: "/api/tenants/{TenantID}/cus/{CUID}/capabilities"};
+  }
+  rpc UpdateCUCapability(UpdateCUCapabilityRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/api/tenants/{TenantID}/capabilities/{ID}"
+      body: "*"
+    };
+  }
+  rpc DeleteCUCapability(DeleteCUCapabilityRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/tenants/{TenantID}/capabilities/{ID}"};
+  }
+
   rpc CreatePoint(CreatePointRequest) returns (CreatePointResponse) {
     option (google.api.http) = {
       post: "/api/tenants/{TenantID}/cus/{CUID}/points"
@@ -150,4 +174,9 @@ service ResourceService {
       body: "*"
     };
   }
+
+  // ResolveScope is an internal Decision RPC. It expands a site, asset, or CU
+  // by node path and returns the capability and metric-binding snapshot needed
+  // to plan control. It has no public HTTP mapping.
+  rpc ResolveScope(ResolveScopeRequest) returns (ResolveScopeResponse);
 }

@@ -14,73 +14,85 @@ type Server struct {
 	resourcepb.UnimplementedResourceServiceServer
 
 	// CQRS handlers (command side)
-	createSite        command.CreateSiteHandler
-	updateSite        command.UpdateSiteHandler
-	createAsset       command.CreateAssetHandler
-	updateAsset       command.UpdateAssetHandler
-	deleteResource    command.DeleteResourceHandler
-	moveResource      command.MoveResourceHandler
-	batchMoveResource command.BatchMoveResourcesHandler
-	renameResource    command.RenameResourceHandler
-	changeLifecycle   command.ChangeResourceLifecycleHandler
-	submitBatchImport command.SubmitBatchImportHandler
-	createCU          command.CreateCUHandler
-	updateCU          command.UpdateCUHandler
-	createPoint       command.CreatePointHandler
-	updatePoint       command.UpdatePointHandler
-	deletePoint       command.DeletePointHandler
-	retryJob          command.RetryJobHandler
+	createSite         command.CreateSiteHandler
+	updateSite         command.UpdateSiteHandler
+	createAsset        command.CreateAssetHandler
+	updateAsset        command.UpdateAssetHandler
+	deleteResource     command.DeleteResourceHandler
+	moveResource       command.MoveResourceHandler
+	batchMoveResource  command.BatchMoveResourcesHandler
+	renameResource     command.RenameResourceHandler
+	changeLifecycle    command.ChangeResourceLifecycleHandler
+	submitBatchImport  command.SubmitBatchImportHandler
+	createCU           command.CreateCUHandler
+	updateCU           command.UpdateCUHandler
+	createCUCapability command.CreateCUCapabilityHandler
+	updateCUCapability command.UpdateCUCapabilityHandler
+	deleteCUCapability command.DeleteCUCapabilityHandler
+	createPoint        command.CreatePointHandler
+	updatePoint        command.UpdatePointHandler
+	deletePoint        command.DeletePointHandler
+	retryJob           command.RetryJobHandler
 
 	// CQRS handlers (query side)
-	getSite           query.GetSiteHandler
-	listSites         query.ListSitesHandler
-	getAsset          query.GetAssetHandler
-	listAssets        query.ListAssetsHandler
-	getResourceDetail query.GetResourceDetailHandler
-	listChildren      query.ListChildrenHandler
-	getBreadcrumb     query.GetBreadcrumbHandler
-	exportTree        query.ExportResourceTreeHandler
-	getCU             query.GetCUHandler
-	listCUs           query.ListCUsHandler
-	getPoint          query.GetPointHandler
-	listPoints        query.ListPointsHandler
-	getJob            query.GetJobHandler
+	getSite            query.GetSiteHandler
+	listSites          query.ListSitesHandler
+	getAsset           query.GetAssetHandler
+	listAssets         query.ListAssetsHandler
+	getResourceDetail  query.GetResourceDetailHandler
+	listChildren       query.ListChildrenHandler
+	getBreadcrumb      query.GetBreadcrumbHandler
+	exportTree         query.ExportResourceTreeHandler
+	getCU              query.GetCUHandler
+	listCUs            query.ListCUsHandler
+	getCUCapability    query.GetCUCapabilityHandler
+	listCUCapabilities query.ListCUCapabilitiesHandler
+	getPoint           query.GetPointHandler
+	listPoints         query.ListPointsHandler
+	getJob             query.GetJobHandler
+	resolveScope       query.ResolveScopeHandler
 }
 
 // NewServer constructs a Server from a fully-wired application.Application.
 func NewServer(app application.Application) *Server {
 	return &Server{
 		// command handlers
-		createSite:        app.Commands.CreateSite,
-		updateSite:        app.Commands.UpdateSite,
-		createAsset:       app.Commands.CreateAsset,
-		updateAsset:       app.Commands.UpdateAsset,
-		deleteResource:    app.Commands.DeleteResource,
-		moveResource:      app.Commands.MoveResource,
-		batchMoveResource: app.Commands.BatchMoveResources,
-		renameResource:    app.Commands.RenameResource,
-		changeLifecycle:   app.Commands.ChangeResourceLifecycle,
-		submitBatchImport: app.Commands.SubmitBatchImport,
-		createCU:          app.Commands.CreateCU,
-		updateCU:          app.Commands.UpdateCU,
-		createPoint:       app.Commands.CreatePoint,
-		updatePoint:       app.Commands.UpdatePoint,
-		deletePoint:       app.Commands.DeletePoint,
-		retryJob:          app.Commands.RetryJob,
+		createSite:         app.Commands.CreateSite,
+		updateSite:         app.Commands.UpdateSite,
+		createAsset:        app.Commands.CreateAsset,
+		updateAsset:        app.Commands.UpdateAsset,
+		deleteResource:     app.Commands.DeleteResource,
+		moveResource:       app.Commands.MoveResource,
+		batchMoveResource:  app.Commands.BatchMoveResources,
+		renameResource:     app.Commands.RenameResource,
+		changeLifecycle:    app.Commands.ChangeResourceLifecycle,
+		submitBatchImport:  app.Commands.SubmitBatchImport,
+		createCU:           app.Commands.CreateCU,
+		updateCU:           app.Commands.UpdateCU,
+		createCUCapability: app.Commands.CreateCUCapability,
+		updateCUCapability: app.Commands.UpdateCUCapability,
+		deleteCUCapability: app.Commands.DeleteCUCapability,
+		createPoint:        app.Commands.CreatePoint,
+		updatePoint:        app.Commands.UpdatePoint,
+		deletePoint:        app.Commands.DeletePoint,
+		retryJob:           app.Commands.RetryJob,
 
 		// query handlers
-		getSite:           app.Queries.GetSite,
-		listSites:         app.Queries.ListSites,
-		getAsset:          app.Queries.GetAsset,
-		listAssets:        app.Queries.ListAssets,
-		getResourceDetail: app.Queries.GetResourceDetail,
-		listChildren:      app.Queries.ListChildren,
-		getBreadcrumb:     app.Queries.GetBreadcrumb,
-		exportTree:        app.Queries.ExportResourceTree,
-		getCU:             app.Queries.GetCU,
-		listCUs:           app.Queries.ListCUs,
-		getPoint:          app.Queries.GetPoint,
-		listPoints:        app.Queries.ListPoints,
-		getJob:            app.Queries.GetJob,
+		getSite:            app.Queries.GetSite,
+		listSites:          app.Queries.ListSites,
+		getAsset:           app.Queries.GetAsset,
+		listAssets:         app.Queries.ListAssets,
+		getResourceDetail:  app.Queries.GetResourceDetail,
+		listChildren:       app.Queries.ListChildren,
+		getBreadcrumb:      app.Queries.GetBreadcrumb,
+		exportTree:         app.Queries.ExportResourceTree,
+		getCU:              app.Queries.GetCU,
+		listCUs:            app.Queries.ListCUs,
+		getCUCapability:    app.Queries.GetCUCapability,
+		listCUCapabilities: app.Queries.ListCUCapabilities,
+		getPoint:           app.Queries.GetPoint,
+		listPoints:         app.Queries.ListPoints,
+		getJob:             app.Queries.GetJob,
+		resolveScope:       app.Queries.ResolveScope,
 	}
 }

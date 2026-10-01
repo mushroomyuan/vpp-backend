@@ -23,9 +23,10 @@ const (
 )
 
 // MetricValue is a single measured data point within a telemetry push.
+// MetricID must be a numeric canonical metric from the shared contract registry.
 type MetricValue struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	MetricID      string                 `protobuf:"bytes,1,opt,name=MetricID,proto3" json:"MetricID,omitempty"`
 	Value         float64                `protobuf:"fixed64,2,opt,name=Value,proto3" json:"Value,omitempty"`
 	Type          MetricType             `protobuf:"varint,3,opt,name=Type,proto3,enum=telemetrypb.MetricType" json:"Type,omitempty"`
 	Quality       QualityStatus          `protobuf:"varint,4,opt,name=Quality,proto3,enum=telemetrypb.QualityStatus" json:"Quality,omitempty"`
@@ -63,9 +64,9 @@ func (*MetricValue) Descriptor() ([]byte, []int) {
 	return file_telemetry_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *MetricValue) GetName() string {
+func (x *MetricValue) GetMetricID() string {
 	if x != nil {
-		return x.Name
+		return x.MetricID
 	}
 	return ""
 }
@@ -210,8 +211,8 @@ type QueryTelemetryRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	TenantID string                 `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
 	CUCode   string                 `protobuf:"bytes,2,opt,name=CUCode,proto3" json:"CUCode,omitempty"`
-	// MetricName filters results to a single metric; omit to return all metrics.
-	MetricName    string                 `protobuf:"bytes,3,opt,name=MetricName,proto3" json:"MetricName,omitempty"`
+	// MetricID filters results to a single canonical metric; omit to return all metrics.
+	MetricID      string                 `protobuf:"bytes,3,opt,name=MetricID,proto3" json:"MetricID,omitempty"`
 	StartTime     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=StartTime,proto3" json:"StartTime,omitempty"`
 	EndTime       *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=EndTime,proto3" json:"EndTime,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -262,9 +263,9 @@ func (x *QueryTelemetryRequest) GetCUCode() string {
 	return ""
 }
 
-func (x *QueryTelemetryRequest) GetMetricName() string {
+func (x *QueryTelemetryRequest) GetMetricID() string {
 	if x != nil {
-		return x.MetricName
+		return x.MetricID
 	}
 	return ""
 }
@@ -400,9 +401,9 @@ var File_telemetry_proto protoreflect.FileDescriptor
 
 const file_telemetry_proto_rawDesc = "" +
 	"\n" +
-	"\x0ftelemetry.proto\x12\vtelemetrypb\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\fcommon.proto\"\x9a\x01\n" +
-	"\vMetricValue\x12\x12\n" +
-	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\x14\n" +
+	"\x0ftelemetry.proto\x12\vtelemetrypb\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\fcommon.proto\"\xa2\x01\n" +
+	"\vMetricValue\x12\x1a\n" +
+	"\bMetricID\x18\x01 \x01(\tR\bMetricID\x12\x14\n" +
 	"\x05Value\x18\x02 \x01(\x01R\x05Value\x12+\n" +
 	"\x04Type\x18\x03 \x01(\x0e2\x17.telemetrypb.MetricTypeR\x04Type\x124\n" +
 	"\aQuality\x18\x04 \x01(\x0e2\x1a.telemetrypb.QualityStatusR\aQuality\"\xba\x01\n" +
@@ -412,13 +413,11 @@ const file_telemetry_proto_rawDesc = "" +
 	"\tTimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tTimestamp\x122\n" +
 	"\aMetrics\x18\x04 \x03(\v2\x18.telemetrypb.MetricValueR\aMetrics\"5\n" +
 	"\x17IngestTelemetryResponse\x12\x1a\n" +
-	"\bSOECount\x18\x01 \x01(\x05R\bSOECount\"\xdb\x01\n" +
+	"\bSOECount\x18\x01 \x01(\x05R\bSOECount\"\xd7\x01\n" +
 	"\x15QueryTelemetryRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x16\n" +
-	"\x06CUCode\x18\x02 \x01(\tR\x06CUCode\x12\x1e\n" +
-	"\n" +
-	"MetricName\x18\x03 \x01(\tR\n" +
-	"MetricName\x128\n" +
+	"\x06CUCode\x18\x02 \x01(\tR\x06CUCode\x12\x1a\n" +
+	"\bMetricID\x18\x03 \x01(\tR\bMetricID\x128\n" +
 	"\tStartTime\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tStartTime\x124\n" +
 	"\aEndTime\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\aEndTime\"\xb3\x01\n" +
 	"\x0fTelemetryRecord\x12\x1a\n" +

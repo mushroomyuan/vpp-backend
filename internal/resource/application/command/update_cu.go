@@ -19,7 +19,6 @@ type UpdateCU struct {
 	ID             string
 	Name           string
 	Type           string
-	CapabilityTags []string
 	Provider       *string
 	ExternalID     *string
 	Protocol       *string
@@ -81,10 +80,6 @@ func (h updateCUHandler) Handle(ctx context.Context, cmd UpdateCU) (struct{}, er
 		cu.SubType = &t
 	} else {
 		cu.SubType = nil
-	}
-
-	if cmd.CapabilityTags != nil {
-		cu.CapabilityTags = append([]string(nil), cmd.CapabilityTags...)
 	}
 
 	if cmd.Metadata != nil {

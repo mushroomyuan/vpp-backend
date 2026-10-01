@@ -98,9 +98,21 @@ func (c *Client) GetSnapshot(ctx context.Context, tenantID, cuCode string) (port
 	if err != nil {
 		return port.Snapshot{}, fmt.Errorf("telemetry_grpc: GetSnapshot: %w", err)
 	}
+	metrics := make(map[string]float64, len(resp.GetMetrics()))
+	degraded := false
+	for _, state := range resp.GetMetrics() {
+		if state == nil {
+			continue
+		}
+		metrics[state.GetMetricID()] = state.GetDoubleValue()
+		if state.GetQuality() != telemetrypb.QualityStatus_QUALITY_STATUS_GOOD {
+			degraded = true
+		}
+	}
 	return port.Snapshot{
 		CUCode:  resp.GetCUCode(),
-		Metrics: resp.GetMetrics(),
-		Stale:   resp.GetStale(),
+		Metrics: metrics,
+		// A non-GOOD sample must not be treated as a trustworthy current value.
+		Stale: resp.GetStale() || degraded,
 	}, nil
 }

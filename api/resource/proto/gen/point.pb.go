@@ -9,7 +9,6 @@ package resourcepb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
@@ -23,28 +22,146 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type PointAccessMode int32
+
+const (
+	PointAccessMode_POINT_ACCESS_MODE_UNSPECIFIED PointAccessMode = 0
+	PointAccessMode_POINT_ACCESS_MODE_READ        PointAccessMode = 1
+	PointAccessMode_POINT_ACCESS_MODE_WRITE       PointAccessMode = 2
+	PointAccessMode_POINT_ACCESS_MODE_READ_WRITE  PointAccessMode = 3
+)
+
+// Enum value maps for PointAccessMode.
+var (
+	PointAccessMode_name = map[int32]string{
+		0: "POINT_ACCESS_MODE_UNSPECIFIED",
+		1: "POINT_ACCESS_MODE_READ",
+		2: "POINT_ACCESS_MODE_WRITE",
+		3: "POINT_ACCESS_MODE_READ_WRITE",
+	}
+	PointAccessMode_value = map[string]int32{
+		"POINT_ACCESS_MODE_UNSPECIFIED": 0,
+		"POINT_ACCESS_MODE_READ":        1,
+		"POINT_ACCESS_MODE_WRITE":       2,
+		"POINT_ACCESS_MODE_READ_WRITE":  3,
+	}
+)
+
+func (x PointAccessMode) Enum() *PointAccessMode {
+	p := new(PointAccessMode)
+	*p = x
+	return p
+}
+
+func (x PointAccessMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PointAccessMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_modules_point_proto_enumTypes[0].Descriptor()
+}
+
+func (PointAccessMode) Type() protoreflect.EnumType {
+	return &file_modules_point_proto_enumTypes[0]
+}
+
+func (x PointAccessMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PointAccessMode.Descriptor instead.
+func (PointAccessMode) EnumDescriptor() ([]byte, []int) {
+	return file_modules_point_proto_rawDescGZIP(), []int{0}
+}
+
+type PointSafetyConstraint struct {
+	state              protoimpl.MessageState  `protogen:"open.v1"`
+	MinValue           *wrapperspb.DoubleValue `protobuf:"bytes,1,opt,name=MinValue,proto3" json:"MinValue,omitempty"`
+	MaxValue           *wrapperspb.DoubleValue `protobuf:"bytes,2,opt,name=MaxValue,proto3" json:"MaxValue,omitempty"`
+	MaxChangePerSecond *wrapperspb.DoubleValue `protobuf:"bytes,3,opt,name=MaxChangePerSecond,proto3" json:"MaxChangePerSecond,omitempty"`
+	Version            int64                   `protobuf:"varint,4,opt,name=Version,proto3" json:"Version,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *PointSafetyConstraint) Reset() {
+	*x = PointSafetyConstraint{}
+	mi := &file_modules_point_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PointSafetyConstraint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PointSafetyConstraint) ProtoMessage() {}
+
+func (x *PointSafetyConstraint) ProtoReflect() protoreflect.Message {
+	mi := &file_modules_point_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PointSafetyConstraint.ProtoReflect.Descriptor instead.
+func (*PointSafetyConstraint) Descriptor() ([]byte, []int) {
+	return file_modules_point_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *PointSafetyConstraint) GetMinValue() *wrapperspb.DoubleValue {
+	if x != nil {
+		return x.MinValue
+	}
+	return nil
+}
+
+func (x *PointSafetyConstraint) GetMaxValue() *wrapperspb.DoubleValue {
+	if x != nil {
+		return x.MaxValue
+	}
+	return nil
+}
+
+func (x *PointSafetyConstraint) GetMaxChangePerSecond() *wrapperspb.DoubleValue {
+	if x != nil {
+		return x.MaxChangePerSecond
+	}
+	return nil
+}
+
+func (x *PointSafetyConstraint) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
 type Point struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	ID               string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
 	AssetID          string                 `protobuf:"bytes,2,opt,name=AssetID,proto3" json:"AssetID,omitempty"`
 	CUID             string                 `protobuf:"bytes,3,opt,name=CUID,proto3" json:"CUID,omitempty"`
-	PointKey         string                 `protobuf:"bytes,4,opt,name=PointKey,proto3" json:"PointKey,omitempty"`
+	MetricID         string                 `protobuf:"bytes,4,opt,name=MetricID,proto3" json:"MetricID,omitempty"`
 	ExternalAddress  string                 `protobuf:"bytes,5,opt,name=ExternalAddress,proto3" json:"ExternalAddress,omitempty"`
-	DataType         PointDataType          `protobuf:"varint,6,opt,name=DataType,proto3,enum=resourcepb.PointDataType" json:"DataType,omitempty"`
-	ExtConfig        *structpb.Struct       `protobuf:"bytes,7,opt,name=ExtConfig,proto3" json:"ExtConfig,omitempty"`
-	Description      string                 `protobuf:"bytes,8,opt,name=Description,proto3" json:"Description,omitempty"`
-	ControlFlag      bool                   `protobuf:"varint,9,opt,name=ControlFlag,proto3" json:"ControlFlag,omitempty"`
-	IsVirtual        bool                   `protobuf:"varint,10,opt,name=IsVirtual,proto3" json:"IsVirtual,omitempty"`
-	SafetyThresholds *structpb.Struct       `protobuf:"bytes,11,opt,name=SafetyThresholds,proto3" json:"SafetyThresholds,omitempty"`
-	CacheKeyAlias    string                 `protobuf:"bytes,12,opt,name=CacheKeyAlias,proto3" json:"CacheKeyAlias,omitempty"`
-	Runtime          *PointRuntime          `protobuf:"bytes,13,opt,name=Runtime,proto3" json:"Runtime,omitempty"`
+	AccessMode       PointAccessMode        `protobuf:"varint,6,opt,name=AccessMode,proto3,enum=resourcepb.PointAccessMode" json:"AccessMode,omitempty"`
+	Scale            float64                `protobuf:"fixed64,7,opt,name=Scale,proto3" json:"Scale,omitempty"`
+	Offset           float64                `protobuf:"fixed64,8,opt,name=Offset,proto3" json:"Offset,omitempty"`
+	Enabled          bool                   `protobuf:"varint,9,opt,name=Enabled,proto3" json:"Enabled,omitempty"`
+	Revision         int64                  `protobuf:"varint,10,opt,name=Revision,proto3" json:"Revision,omitempty"`
+	SafetyConstraint *PointSafetyConstraint `protobuf:"bytes,11,opt,name=SafetyConstraint,proto3" json:"SafetyConstraint,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Point) Reset() {
 	*x = Point{}
-	mi := &file_modules_point_proto_msgTypes[0]
+	mi := &file_modules_point_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -56,7 +173,7 @@ func (x *Point) String() string {
 func (*Point) ProtoMessage() {}
 
 func (x *Point) ProtoReflect() protoreflect.Message {
-	mi := &file_modules_point_proto_msgTypes[0]
+	mi := &file_modules_point_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -69,7 +186,7 @@ func (x *Point) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Point.ProtoReflect.Descriptor instead.
 func (*Point) Descriptor() ([]byte, []int) {
-	return file_modules_point_proto_rawDescGZIP(), []int{0}
+	return file_modules_point_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Point) GetID() string {
@@ -93,9 +210,9 @@ func (x *Point) GetCUID() string {
 	return ""
 }
 
-func (x *Point) GetPointKey() string {
+func (x *Point) GetMetricID() string {
 	if x != nil {
-		return x.PointKey
+		return x.MetricID
 	}
 	return ""
 }
@@ -107,83 +224,67 @@ func (x *Point) GetExternalAddress() string {
 	return ""
 }
 
-func (x *Point) GetDataType() PointDataType {
+func (x *Point) GetAccessMode() PointAccessMode {
 	if x != nil {
-		return x.DataType
+		return x.AccessMode
 	}
-	return PointDataType_POINT_DATA_TYPE_UNSPECIFIED
+	return PointAccessMode_POINT_ACCESS_MODE_UNSPECIFIED
 }
 
-func (x *Point) GetExtConfig() *structpb.Struct {
+func (x *Point) GetScale() float64 {
 	if x != nil {
-		return x.ExtConfig
+		return x.Scale
 	}
-	return nil
+	return 0
 }
 
-func (x *Point) GetDescription() string {
+func (x *Point) GetOffset() float64 {
 	if x != nil {
-		return x.Description
+		return x.Offset
 	}
-	return ""
+	return 0
 }
 
-func (x *Point) GetControlFlag() bool {
+func (x *Point) GetEnabled() bool {
 	if x != nil {
-		return x.ControlFlag
-	}
-	return false
-}
-
-func (x *Point) GetIsVirtual() bool {
-	if x != nil {
-		return x.IsVirtual
+		return x.Enabled
 	}
 	return false
 }
 
-func (x *Point) GetSafetyThresholds() *structpb.Struct {
+func (x *Point) GetRevision() int64 {
 	if x != nil {
-		return x.SafetyThresholds
+		return x.Revision
 	}
-	return nil
+	return 0
 }
 
-func (x *Point) GetCacheKeyAlias() string {
+func (x *Point) GetSafetyConstraint() *PointSafetyConstraint {
 	if x != nil {
-		return x.CacheKeyAlias
-	}
-	return ""
-}
-
-func (x *Point) GetRuntime() *PointRuntime {
-	if x != nil {
-		return x.Runtime
+		return x.SafetyConstraint
 	}
 	return nil
 }
 
 type CreatePointRequest struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	TenantID         string                 `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
-	AssetID          string                 `protobuf:"bytes,2,opt,name=AssetID,proto3" json:"AssetID,omitempty"`
-	CUID             string                 `protobuf:"bytes,3,opt,name=CUID,proto3" json:"CUID,omitempty"`
-	PointKey         string                 `protobuf:"bytes,4,opt,name=PointKey,proto3" json:"PointKey,omitempty"`
-	ExternalAddress  string                 `protobuf:"bytes,5,opt,name=ExternalAddress,proto3" json:"ExternalAddress,omitempty"`
-	DataType         PointDataType          `protobuf:"varint,6,opt,name=DataType,proto3,enum=resourcepb.PointDataType" json:"DataType,omitempty"`
-	ExtConfig        *structpb.Struct       `protobuf:"bytes,7,opt,name=ExtConfig,proto3" json:"ExtConfig,omitempty"`
-	Description      string                 `protobuf:"bytes,8,opt,name=Description,proto3" json:"Description,omitempty"`
-	ControlFlag      bool                   `protobuf:"varint,9,opt,name=ControlFlag,proto3" json:"ControlFlag,omitempty"`
-	IsVirtual        bool                   `protobuf:"varint,10,opt,name=IsVirtual,proto3" json:"IsVirtual,omitempty"`
-	SafetyThresholds *structpb.Struct       `protobuf:"bytes,11,opt,name=SafetyThresholds,proto3" json:"SafetyThresholds,omitempty"`
-	CacheKeyAlias    string                 `protobuf:"bytes,12,opt,name=CacheKeyAlias,proto3" json:"CacheKeyAlias,omitempty"`
+	state            protoimpl.MessageState  `protogen:"open.v1"`
+	TenantID         string                  `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
+	AssetID          string                  `protobuf:"bytes,2,opt,name=AssetID,proto3" json:"AssetID,omitempty"`
+	CUID             string                  `protobuf:"bytes,3,opt,name=CUID,proto3" json:"CUID,omitempty"`
+	MetricID         string                  `protobuf:"bytes,4,opt,name=MetricID,proto3" json:"MetricID,omitempty"`
+	ExternalAddress  string                  `protobuf:"bytes,5,opt,name=ExternalAddress,proto3" json:"ExternalAddress,omitempty"`
+	AccessMode       PointAccessMode         `protobuf:"varint,6,opt,name=AccessMode,proto3,enum=resourcepb.PointAccessMode" json:"AccessMode,omitempty"`
+	Scale            *wrapperspb.DoubleValue `protobuf:"bytes,7,opt,name=Scale,proto3" json:"Scale,omitempty"`
+	Offset           *wrapperspb.DoubleValue `protobuf:"bytes,8,opt,name=Offset,proto3" json:"Offset,omitempty"`
+	Enabled          bool                    `protobuf:"varint,9,opt,name=Enabled,proto3" json:"Enabled,omitempty"`
+	SafetyConstraint *PointSafetyConstraint  `protobuf:"bytes,10,opt,name=SafetyConstraint,proto3" json:"SafetyConstraint,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CreatePointRequest) Reset() {
 	*x = CreatePointRequest{}
-	mi := &file_modules_point_proto_msgTypes[1]
+	mi := &file_modules_point_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -195,7 +296,7 @@ func (x *CreatePointRequest) String() string {
 func (*CreatePointRequest) ProtoMessage() {}
 
 func (x *CreatePointRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_modules_point_proto_msgTypes[1]
+	mi := &file_modules_point_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -208,7 +309,7 @@ func (x *CreatePointRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePointRequest.ProtoReflect.Descriptor instead.
 func (*CreatePointRequest) Descriptor() ([]byte, []int) {
-	return file_modules_point_proto_rawDescGZIP(), []int{1}
+	return file_modules_point_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CreatePointRequest) GetTenantID() string {
@@ -232,9 +333,9 @@ func (x *CreatePointRequest) GetCUID() string {
 	return ""
 }
 
-func (x *CreatePointRequest) GetPointKey() string {
+func (x *CreatePointRequest) GetMetricID() string {
 	if x != nil {
-		return x.PointKey
+		return x.MetricID
 	}
 	return ""
 }
@@ -246,53 +347,39 @@ func (x *CreatePointRequest) GetExternalAddress() string {
 	return ""
 }
 
-func (x *CreatePointRequest) GetDataType() PointDataType {
+func (x *CreatePointRequest) GetAccessMode() PointAccessMode {
 	if x != nil {
-		return x.DataType
+		return x.AccessMode
 	}
-	return PointDataType_POINT_DATA_TYPE_UNSPECIFIED
+	return PointAccessMode_POINT_ACCESS_MODE_UNSPECIFIED
 }
 
-func (x *CreatePointRequest) GetExtConfig() *structpb.Struct {
+func (x *CreatePointRequest) GetScale() *wrapperspb.DoubleValue {
 	if x != nil {
-		return x.ExtConfig
+		return x.Scale
 	}
 	return nil
 }
 
-func (x *CreatePointRequest) GetDescription() string {
+func (x *CreatePointRequest) GetOffset() *wrapperspb.DoubleValue {
 	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *CreatePointRequest) GetControlFlag() bool {
-	if x != nil {
-		return x.ControlFlag
-	}
-	return false
-}
-
-func (x *CreatePointRequest) GetIsVirtual() bool {
-	if x != nil {
-		return x.IsVirtual
-	}
-	return false
-}
-
-func (x *CreatePointRequest) GetSafetyThresholds() *structpb.Struct {
-	if x != nil {
-		return x.SafetyThresholds
+		return x.Offset
 	}
 	return nil
 }
 
-func (x *CreatePointRequest) GetCacheKeyAlias() string {
+func (x *CreatePointRequest) GetEnabled() bool {
 	if x != nil {
-		return x.CacheKeyAlias
+		return x.Enabled
 	}
-	return ""
+	return false
+}
+
+func (x *CreatePointRequest) GetSafetyConstraint() *PointSafetyConstraint {
+	if x != nil {
+		return x.SafetyConstraint
+	}
+	return nil
 }
 
 type CreatePointResponse struct {
@@ -304,7 +391,7 @@ type CreatePointResponse struct {
 
 func (x *CreatePointResponse) Reset() {
 	*x = CreatePointResponse{}
-	mi := &file_modules_point_proto_msgTypes[2]
+	mi := &file_modules_point_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -316,7 +403,7 @@ func (x *CreatePointResponse) String() string {
 func (*CreatePointResponse) ProtoMessage() {}
 
 func (x *CreatePointResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_modules_point_proto_msgTypes[2]
+	mi := &file_modules_point_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -329,7 +416,7 @@ func (x *CreatePointResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePointResponse.ProtoReflect.Descriptor instead.
 func (*CreatePointResponse) Descriptor() ([]byte, []int) {
-	return file_modules_point_proto_rawDescGZIP(), []int{2}
+	return file_modules_point_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CreatePointResponse) GetPointID() string {
@@ -340,25 +427,24 @@ func (x *CreatePointResponse) GetPointID() string {
 }
 
 type UpdatePointRequest struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	TenantID         string                 `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
-	ID               string                 `protobuf:"bytes,2,opt,name=ID,proto3" json:"ID,omitempty"`
-	PointKey         string                 `protobuf:"bytes,3,opt,name=PointKey,proto3" json:"PointKey,omitempty"`
-	ExternalAddress  string                 `protobuf:"bytes,4,opt,name=ExternalAddress,proto3" json:"ExternalAddress,omitempty"`
-	DataType         PointDataType          `protobuf:"varint,5,opt,name=DataType,proto3,enum=resourcepb.PointDataType" json:"DataType,omitempty"`
-	ExtConfig        *structpb.Struct       `protobuf:"bytes,6,opt,name=ExtConfig,proto3" json:"ExtConfig,omitempty"`
-	Description      string                 `protobuf:"bytes,7,opt,name=Description,proto3" json:"Description,omitempty"`
-	ControlFlag      bool                   `protobuf:"varint,8,opt,name=ControlFlag,proto3" json:"ControlFlag,omitempty"`
-	IsVirtual        bool                   `protobuf:"varint,9,opt,name=IsVirtual,proto3" json:"IsVirtual,omitempty"`
-	SafetyThresholds *structpb.Struct       `protobuf:"bytes,10,opt,name=SafetyThresholds,proto3" json:"SafetyThresholds,omitempty"`
-	CacheKeyAlias    string                 `protobuf:"bytes,11,opt,name=CacheKeyAlias,proto3" json:"CacheKeyAlias,omitempty"`
+	state            protoimpl.MessageState  `protogen:"open.v1"`
+	TenantID         string                  `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
+	ID               string                  `protobuf:"bytes,2,opt,name=ID,proto3" json:"ID,omitempty"`
+	MetricID         string                  `protobuf:"bytes,3,opt,name=MetricID,proto3" json:"MetricID,omitempty"`
+	ExternalAddress  string                  `protobuf:"bytes,4,opt,name=ExternalAddress,proto3" json:"ExternalAddress,omitempty"`
+	AccessMode       PointAccessMode         `protobuf:"varint,5,opt,name=AccessMode,proto3,enum=resourcepb.PointAccessMode" json:"AccessMode,omitempty"`
+	Scale            *wrapperspb.DoubleValue `protobuf:"bytes,6,opt,name=Scale,proto3" json:"Scale,omitempty"`
+	Offset           *wrapperspb.DoubleValue `protobuf:"bytes,7,opt,name=Offset,proto3" json:"Offset,omitempty"`
+	Enabled          bool                    `protobuf:"varint,8,opt,name=Enabled,proto3" json:"Enabled,omitempty"`
+	SafetyConstraint *PointSafetyConstraint  `protobuf:"bytes,9,opt,name=SafetyConstraint,proto3" json:"SafetyConstraint,omitempty"`
+	ExpectedRevision int64                   `protobuf:"varint,10,opt,name=ExpectedRevision,proto3" json:"ExpectedRevision,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UpdatePointRequest) Reset() {
 	*x = UpdatePointRequest{}
-	mi := &file_modules_point_proto_msgTypes[3]
+	mi := &file_modules_point_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -370,7 +456,7 @@ func (x *UpdatePointRequest) String() string {
 func (*UpdatePointRequest) ProtoMessage() {}
 
 func (x *UpdatePointRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_modules_point_proto_msgTypes[3]
+	mi := &file_modules_point_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -383,7 +469,7 @@ func (x *UpdatePointRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePointRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePointRequest) Descriptor() ([]byte, []int) {
-	return file_modules_point_proto_rawDescGZIP(), []int{3}
+	return file_modules_point_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *UpdatePointRequest) GetTenantID() string {
@@ -400,9 +486,9 @@ func (x *UpdatePointRequest) GetID() string {
 	return ""
 }
 
-func (x *UpdatePointRequest) GetPointKey() string {
+func (x *UpdatePointRequest) GetMetricID() string {
 	if x != nil {
-		return x.PointKey
+		return x.MetricID
 	}
 	return ""
 }
@@ -414,53 +500,46 @@ func (x *UpdatePointRequest) GetExternalAddress() string {
 	return ""
 }
 
-func (x *UpdatePointRequest) GetDataType() PointDataType {
+func (x *UpdatePointRequest) GetAccessMode() PointAccessMode {
 	if x != nil {
-		return x.DataType
+		return x.AccessMode
 	}
-	return PointDataType_POINT_DATA_TYPE_UNSPECIFIED
+	return PointAccessMode_POINT_ACCESS_MODE_UNSPECIFIED
 }
 
-func (x *UpdatePointRequest) GetExtConfig() *structpb.Struct {
+func (x *UpdatePointRequest) GetScale() *wrapperspb.DoubleValue {
 	if x != nil {
-		return x.ExtConfig
+		return x.Scale
 	}
 	return nil
 }
 
-func (x *UpdatePointRequest) GetDescription() string {
+func (x *UpdatePointRequest) GetOffset() *wrapperspb.DoubleValue {
 	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *UpdatePointRequest) GetControlFlag() bool {
-	if x != nil {
-		return x.ControlFlag
-	}
-	return false
-}
-
-func (x *UpdatePointRequest) GetIsVirtual() bool {
-	if x != nil {
-		return x.IsVirtual
-	}
-	return false
-}
-
-func (x *UpdatePointRequest) GetSafetyThresholds() *structpb.Struct {
-	if x != nil {
-		return x.SafetyThresholds
+		return x.Offset
 	}
 	return nil
 }
 
-func (x *UpdatePointRequest) GetCacheKeyAlias() string {
+func (x *UpdatePointRequest) GetEnabled() bool {
 	if x != nil {
-		return x.CacheKeyAlias
+		return x.Enabled
 	}
-	return ""
+	return false
+}
+
+func (x *UpdatePointRequest) GetSafetyConstraint() *PointSafetyConstraint {
+	if x != nil {
+		return x.SafetyConstraint
+	}
+	return nil
+}
+
+func (x *UpdatePointRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
 }
 
 type DeletePointRequest struct {
@@ -473,7 +552,7 @@ type DeletePointRequest struct {
 
 func (x *DeletePointRequest) Reset() {
 	*x = DeletePointRequest{}
-	mi := &file_modules_point_proto_msgTypes[4]
+	mi := &file_modules_point_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -485,7 +564,7 @@ func (x *DeletePointRequest) String() string {
 func (*DeletePointRequest) ProtoMessage() {}
 
 func (x *DeletePointRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_modules_point_proto_msgTypes[4]
+	mi := &file_modules_point_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -498,7 +577,7 @@ func (x *DeletePointRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePointRequest.ProtoReflect.Descriptor instead.
 func (*DeletePointRequest) Descriptor() ([]byte, []int) {
-	return file_modules_point_proto_rawDescGZIP(), []int{4}
+	return file_modules_point_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DeletePointRequest) GetTenantID() string {
@@ -525,7 +604,7 @@ type GetPointRequest struct {
 
 func (x *GetPointRequest) Reset() {
 	*x = GetPointRequest{}
-	mi := &file_modules_point_proto_msgTypes[5]
+	mi := &file_modules_point_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -537,7 +616,7 @@ func (x *GetPointRequest) String() string {
 func (*GetPointRequest) ProtoMessage() {}
 
 func (x *GetPointRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_modules_point_proto_msgTypes[5]
+	mi := &file_modules_point_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -550,7 +629,7 @@ func (x *GetPointRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPointRequest.ProtoReflect.Descriptor instead.
 func (*GetPointRequest) Descriptor() ([]byte, []int) {
-	return file_modules_point_proto_rawDescGZIP(), []int{5}
+	return file_modules_point_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetPointRequest) GetTenantID() string {
@@ -572,9 +651,9 @@ type ListPointsRequest struct {
 	TenantID      string                 `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
 	SiteID        string                 `protobuf:"bytes,2,opt,name=SiteID,proto3" json:"SiteID,omitempty"`
 	CUID          string                 `protobuf:"bytes,3,opt,name=CUID,proto3" json:"CUID,omitempty"`
-	PointKeys     []string               `protobuf:"bytes,4,rep,name=PointKeys,proto3" json:"PointKeys,omitempty"`
-	IsVirtual     *wrapperspb.BoolValue  `protobuf:"bytes,5,opt,name=IsVirtual,proto3" json:"IsVirtual,omitempty"`
-	DataTypes     []string               `protobuf:"bytes,6,rep,name=DataTypes,proto3" json:"DataTypes,omitempty"`
+	MetricIDs     []string               `protobuf:"bytes,4,rep,name=MetricIDs,proto3" json:"MetricIDs,omitempty"`
+	Enabled       *wrapperspb.BoolValue  `protobuf:"bytes,5,opt,name=Enabled,proto3" json:"Enabled,omitempty"`
+	AccessModes   []PointAccessMode      `protobuf:"varint,6,rep,packed,name=AccessModes,proto3,enum=resourcepb.PointAccessMode" json:"AccessModes,omitempty"`
 	IDs           []string               `protobuf:"bytes,7,rep,name=IDs,proto3" json:"IDs,omitempty"`
 	Offset        int32                  `protobuf:"varint,8,opt,name=Offset,proto3" json:"Offset,omitempty"`
 	Limit         int32                  `protobuf:"varint,9,opt,name=Limit,proto3" json:"Limit,omitempty"`
@@ -584,7 +663,7 @@ type ListPointsRequest struct {
 
 func (x *ListPointsRequest) Reset() {
 	*x = ListPointsRequest{}
-	mi := &file_modules_point_proto_msgTypes[6]
+	mi := &file_modules_point_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -596,7 +675,7 @@ func (x *ListPointsRequest) String() string {
 func (*ListPointsRequest) ProtoMessage() {}
 
 func (x *ListPointsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_modules_point_proto_msgTypes[6]
+	mi := &file_modules_point_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -609,7 +688,7 @@ func (x *ListPointsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPointsRequest.ProtoReflect.Descriptor instead.
 func (*ListPointsRequest) Descriptor() ([]byte, []int) {
-	return file_modules_point_proto_rawDescGZIP(), []int{6}
+	return file_modules_point_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListPointsRequest) GetTenantID() string {
@@ -633,23 +712,23 @@ func (x *ListPointsRequest) GetCUID() string {
 	return ""
 }
 
-func (x *ListPointsRequest) GetPointKeys() []string {
+func (x *ListPointsRequest) GetMetricIDs() []string {
 	if x != nil {
-		return x.PointKeys
+		return x.MetricIDs
 	}
 	return nil
 }
 
-func (x *ListPointsRequest) GetIsVirtual() *wrapperspb.BoolValue {
+func (x *ListPointsRequest) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
-		return x.IsVirtual
+		return x.Enabled
 	}
 	return nil
 }
 
-func (x *ListPointsRequest) GetDataTypes() []string {
+func (x *ListPointsRequest) GetAccessModes() []PointAccessMode {
 	if x != nil {
-		return x.DataTypes
+		return x.AccessModes
 	}
 	return nil
 }
@@ -684,7 +763,7 @@ type ListPointsResponse struct {
 
 func (x *ListPointsResponse) Reset() {
 	*x = ListPointsResponse{}
-	mi := &file_modules_point_proto_msgTypes[7]
+	mi := &file_modules_point_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -696,7 +775,7 @@ func (x *ListPointsResponse) String() string {
 func (*ListPointsResponse) ProtoMessage() {}
 
 func (x *ListPointsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_modules_point_proto_msgTypes[7]
+	mi := &file_modules_point_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -709,7 +788,7 @@ func (x *ListPointsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPointsResponse.ProtoReflect.Descriptor instead.
 func (*ListPointsResponse) Descriptor() ([]byte, []int) {
-	return file_modules_point_proto_rawDescGZIP(), []int{7}
+	return file_modules_point_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListPointsResponse) GetPoints() []*Point {
@@ -720,23 +799,21 @@ func (x *ListPointsResponse) GetPoints() []*Point {
 }
 
 type PointItem struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	PointKey         string                 `protobuf:"bytes,1,opt,name=PointKey,proto3" json:"PointKey,omitempty"`
-	ExternalAddress  string                 `protobuf:"bytes,2,opt,name=ExternalAddress,proto3" json:"ExternalAddress,omitempty"`
-	DataType         PointDataType          `protobuf:"varint,3,opt,name=DataType,proto3,enum=resourcepb.PointDataType" json:"DataType,omitempty"`
-	ExtConfig        *structpb.Struct       `protobuf:"bytes,4,opt,name=ExtConfig,proto3" json:"ExtConfig,omitempty"`
-	Description      string                 `protobuf:"bytes,5,opt,name=Description,proto3" json:"Description,omitempty"`
-	ControlFlag      bool                   `protobuf:"varint,6,opt,name=ControlFlag,proto3" json:"ControlFlag,omitempty"`
-	IsVirtual        bool                   `protobuf:"varint,7,opt,name=IsVirtual,proto3" json:"IsVirtual,omitempty"`
-	SafetyThresholds *structpb.Struct       `protobuf:"bytes,8,opt,name=SafetyThresholds,proto3" json:"SafetyThresholds,omitempty"`
-	CacheKeyAlias    string                 `protobuf:"bytes,9,opt,name=CacheKeyAlias,proto3" json:"CacheKeyAlias,omitempty"`
+	state            protoimpl.MessageState  `protogen:"open.v1"`
+	MetricID         string                  `protobuf:"bytes,1,opt,name=MetricID,proto3" json:"MetricID,omitempty"`
+	ExternalAddress  string                  `protobuf:"bytes,2,opt,name=ExternalAddress,proto3" json:"ExternalAddress,omitempty"`
+	AccessMode       PointAccessMode         `protobuf:"varint,3,opt,name=AccessMode,proto3,enum=resourcepb.PointAccessMode" json:"AccessMode,omitempty"`
+	Scale            *wrapperspb.DoubleValue `protobuf:"bytes,4,opt,name=Scale,proto3" json:"Scale,omitempty"`
+	Offset           *wrapperspb.DoubleValue `protobuf:"bytes,5,opt,name=Offset,proto3" json:"Offset,omitempty"`
+	Enabled          bool                    `protobuf:"varint,6,opt,name=Enabled,proto3" json:"Enabled,omitempty"`
+	SafetyConstraint *PointSafetyConstraint  `protobuf:"bytes,7,opt,name=SafetyConstraint,proto3" json:"SafetyConstraint,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *PointItem) Reset() {
 	*x = PointItem{}
-	mi := &file_modules_point_proto_msgTypes[8]
+	mi := &file_modules_point_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -748,7 +825,7 @@ func (x *PointItem) String() string {
 func (*PointItem) ProtoMessage() {}
 
 func (x *PointItem) ProtoReflect() protoreflect.Message {
-	mi := &file_modules_point_proto_msgTypes[8]
+	mi := &file_modules_point_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -761,12 +838,12 @@ func (x *PointItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PointItem.ProtoReflect.Descriptor instead.
 func (*PointItem) Descriptor() ([]byte, []int) {
-	return file_modules_point_proto_rawDescGZIP(), []int{8}
+	return file_modules_point_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *PointItem) GetPointKey() string {
+func (x *PointItem) GetMetricID() string {
 	if x != nil {
-		return x.PointKey
+		return x.MetricID
 	}
 	return ""
 }
@@ -778,53 +855,39 @@ func (x *PointItem) GetExternalAddress() string {
 	return ""
 }
 
-func (x *PointItem) GetDataType() PointDataType {
+func (x *PointItem) GetAccessMode() PointAccessMode {
 	if x != nil {
-		return x.DataType
+		return x.AccessMode
 	}
-	return PointDataType_POINT_DATA_TYPE_UNSPECIFIED
+	return PointAccessMode_POINT_ACCESS_MODE_UNSPECIFIED
 }
 
-func (x *PointItem) GetExtConfig() *structpb.Struct {
+func (x *PointItem) GetScale() *wrapperspb.DoubleValue {
 	if x != nil {
-		return x.ExtConfig
+		return x.Scale
 	}
 	return nil
 }
 
-func (x *PointItem) GetDescription() string {
+func (x *PointItem) GetOffset() *wrapperspb.DoubleValue {
 	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *PointItem) GetControlFlag() bool {
-	if x != nil {
-		return x.ControlFlag
-	}
-	return false
-}
-
-func (x *PointItem) GetIsVirtual() bool {
-	if x != nil {
-		return x.IsVirtual
-	}
-	return false
-}
-
-func (x *PointItem) GetSafetyThresholds() *structpb.Struct {
-	if x != nil {
-		return x.SafetyThresholds
+		return x.Offset
 	}
 	return nil
 }
 
-func (x *PointItem) GetCacheKeyAlias() string {
+func (x *PointItem) GetEnabled() bool {
 	if x != nil {
-		return x.CacheKeyAlias
+		return x.Enabled
 	}
-	return ""
+	return false
+}
+
+func (x *PointItem) GetSafetyConstraint() *PointSafetyConstraint {
+	if x != nil {
+		return x.SafetyConstraint
+	}
+	return nil
 }
 
 var File_modules_point_proto protoreflect.FileDescriptor
@@ -832,79 +895,91 @@ var File_modules_point_proto protoreflect.FileDescriptor
 const file_modules_point_proto_rawDesc = "" +
 	"\n" +
 	"\x13modules/point.proto\x12\n" +
-	"resourcepb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x14modules/common.proto\x1a\x15modules/runtime.proto\"\xfa\x03\n" +
+	"resourcepb\x1a\x1egoogle/protobuf/wrappers.proto\"\xf3\x01\n" +
+	"\x15PointSafetyConstraint\x128\n" +
+	"\bMinValue\x18\x01 \x01(\v2\x1c.google.protobuf.DoubleValueR\bMinValue\x128\n" +
+	"\bMaxValue\x18\x02 \x01(\v2\x1c.google.protobuf.DoubleValueR\bMaxValue\x12L\n" +
+	"\x12MaxChangePerSecond\x18\x03 \x01(\v2\x1c.google.protobuf.DoubleValueR\x12MaxChangePerSecond\x12\x18\n" +
+	"\aVersion\x18\x04 \x01(\x03R\aVersion\"\x9f\x03\n" +
 	"\x05Point\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x18\n" +
 	"\aAssetID\x18\x02 \x01(\tR\aAssetID\x12\x12\n" +
 	"\x04CUID\x18\x03 \x01(\tR\x04CUID\x12\x1a\n" +
-	"\bPointKey\x18\x04 \x01(\tR\bPointKey\x12(\n" +
-	"\x0fExternalAddress\x18\x05 \x01(\tR\x0fExternalAddress\x125\n" +
-	"\bDataType\x18\x06 \x01(\x0e2\x19.resourcepb.PointDataTypeR\bDataType\x125\n" +
-	"\tExtConfig\x18\a \x01(\v2\x17.google.protobuf.StructR\tExtConfig\x12 \n" +
-	"\vDescription\x18\b \x01(\tR\vDescription\x12 \n" +
-	"\vControlFlag\x18\t \x01(\bR\vControlFlag\x12\x1c\n" +
-	"\tIsVirtual\x18\n" +
-	" \x01(\bR\tIsVirtual\x12C\n" +
-	"\x10SafetyThresholds\x18\v \x01(\v2\x17.google.protobuf.StructR\x10SafetyThresholds\x12$\n" +
-	"\rCacheKeyAlias\x18\f \x01(\tR\rCacheKeyAlias\x122\n" +
-	"\aRuntime\x18\r \x01(\v2\x18.resourcepb.PointRuntimeR\aRuntime\"\xdf\x03\n" +
+	"\bMetricID\x18\x04 \x01(\tR\bMetricID\x12(\n" +
+	"\x0fExternalAddress\x18\x05 \x01(\tR\x0fExternalAddress\x12;\n" +
+	"\n" +
+	"AccessMode\x18\x06 \x01(\x0e2\x1b.resourcepb.PointAccessModeR\n" +
+	"AccessMode\x12\x14\n" +
+	"\x05Scale\x18\a \x01(\x01R\x05Scale\x12\x16\n" +
+	"\x06Offset\x18\b \x01(\x01R\x06Offset\x12\x18\n" +
+	"\aEnabled\x18\t \x01(\bR\aEnabled\x12\x1a\n" +
+	"\bRevision\x18\n" +
+	" \x01(\x03R\bRevision\x12M\n" +
+	"\x10SafetyConstraint\x18\v \x01(\v2!.resourcepb.PointSafetyConstraintR\x10SafetyConstraintJ\x04\b\f\x10\rJ\x04\b\r\x10\x0eR\rCacheKeyAliasR\aRuntime\"\xe1\x03\n" +
 	"\x12CreatePointRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x18\n" +
 	"\aAssetID\x18\x02 \x01(\tR\aAssetID\x12\x12\n" +
 	"\x04CUID\x18\x03 \x01(\tR\x04CUID\x12\x1a\n" +
-	"\bPointKey\x18\x04 \x01(\tR\bPointKey\x12(\n" +
-	"\x0fExternalAddress\x18\x05 \x01(\tR\x0fExternalAddress\x125\n" +
-	"\bDataType\x18\x06 \x01(\x0e2\x19.resourcepb.PointDataTypeR\bDataType\x125\n" +
-	"\tExtConfig\x18\a \x01(\v2\x17.google.protobuf.StructR\tExtConfig\x12 \n" +
-	"\vDescription\x18\b \x01(\tR\vDescription\x12 \n" +
-	"\vControlFlag\x18\t \x01(\bR\vControlFlag\x12\x1c\n" +
-	"\tIsVirtual\x18\n" +
-	" \x01(\bR\tIsVirtual\x12C\n" +
-	"\x10SafetyThresholds\x18\v \x01(\v2\x17.google.protobuf.StructR\x10SafetyThresholds\x12$\n" +
-	"\rCacheKeyAlias\x18\f \x01(\tR\rCacheKeyAlias\"/\n" +
+	"\bMetricID\x18\x04 \x01(\tR\bMetricID\x12(\n" +
+	"\x0fExternalAddress\x18\x05 \x01(\tR\x0fExternalAddress\x12;\n" +
+	"\n" +
+	"AccessMode\x18\x06 \x01(\x0e2\x1b.resourcepb.PointAccessModeR\n" +
+	"AccessMode\x122\n" +
+	"\x05Scale\x18\a \x01(\v2\x1c.google.protobuf.DoubleValueR\x05Scale\x124\n" +
+	"\x06Offset\x18\b \x01(\v2\x1c.google.protobuf.DoubleValueR\x06Offset\x12\x18\n" +
+	"\aEnabled\x18\t \x01(\bR\aEnabled\x12M\n" +
+	"\x10SafetyConstraint\x18\n" +
+	" \x01(\v2!.resourcepb.PointSafetyConstraintR\x10SafetyConstraintJ\x04\b\v\x10\fJ\x04\b\f\x10\rR\x10SafetyThresholdsR\rCacheKeyAlias\"/\n" +
 	"\x13CreatePointResponse\x12\x18\n" +
-	"\aPointID\x18\x01 \x01(\tR\aPointID\"\xc1\x03\n" +
+	"\aPointID\x18\x01 \x01(\tR\aPointID\"\xd7\x03\n" +
 	"\x12UpdatePointRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x0e\n" +
 	"\x02ID\x18\x02 \x01(\tR\x02ID\x12\x1a\n" +
-	"\bPointKey\x18\x03 \x01(\tR\bPointKey\x12(\n" +
-	"\x0fExternalAddress\x18\x04 \x01(\tR\x0fExternalAddress\x125\n" +
-	"\bDataType\x18\x05 \x01(\x0e2\x19.resourcepb.PointDataTypeR\bDataType\x125\n" +
-	"\tExtConfig\x18\x06 \x01(\v2\x17.google.protobuf.StructR\tExtConfig\x12 \n" +
-	"\vDescription\x18\a \x01(\tR\vDescription\x12 \n" +
-	"\vControlFlag\x18\b \x01(\bR\vControlFlag\x12\x1c\n" +
-	"\tIsVirtual\x18\t \x01(\bR\tIsVirtual\x12C\n" +
-	"\x10SafetyThresholds\x18\n" +
-	" \x01(\v2\x17.google.protobuf.StructR\x10SafetyThresholds\x12$\n" +
-	"\rCacheKeyAlias\x18\v \x01(\tR\rCacheKeyAlias\"@\n" +
+	"\bMetricID\x18\x03 \x01(\tR\bMetricID\x12(\n" +
+	"\x0fExternalAddress\x18\x04 \x01(\tR\x0fExternalAddress\x12;\n" +
+	"\n" +
+	"AccessMode\x18\x05 \x01(\x0e2\x1b.resourcepb.PointAccessModeR\n" +
+	"AccessMode\x122\n" +
+	"\x05Scale\x18\x06 \x01(\v2\x1c.google.protobuf.DoubleValueR\x05Scale\x124\n" +
+	"\x06Offset\x18\a \x01(\v2\x1c.google.protobuf.DoubleValueR\x06Offset\x12\x18\n" +
+	"\aEnabled\x18\b \x01(\bR\aEnabled\x12M\n" +
+	"\x10SafetyConstraint\x18\t \x01(\v2!.resourcepb.PointSafetyConstraintR\x10SafetyConstraint\x12*\n" +
+	"\x10ExpectedRevision\x18\n" +
+	" \x01(\x03R\x10ExpectedRevisionJ\x04\b\v\x10\fR\rCacheKeyAlias\"@\n" +
 	"\x12DeletePointRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x0e\n" +
 	"\x02ID\x18\x02 \x01(\tR\x02ID\"=\n" +
 	"\x0fGetPointRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x0e\n" +
-	"\x02ID\x18\x02 \x01(\tR\x02ID\"\x91\x02\n" +
+	"\x02ID\x18\x02 \x01(\tR\x02ID\"\xae\x02\n" +
 	"\x11ListPointsRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x16\n" +
 	"\x06SiteID\x18\x02 \x01(\tR\x06SiteID\x12\x12\n" +
 	"\x04CUID\x18\x03 \x01(\tR\x04CUID\x12\x1c\n" +
-	"\tPointKeys\x18\x04 \x03(\tR\tPointKeys\x128\n" +
-	"\tIsVirtual\x18\x05 \x01(\v2\x1a.google.protobuf.BoolValueR\tIsVirtual\x12\x1c\n" +
-	"\tDataTypes\x18\x06 \x03(\tR\tDataTypes\x12\x10\n" +
+	"\tMetricIDs\x18\x04 \x03(\tR\tMetricIDs\x124\n" +
+	"\aEnabled\x18\x05 \x01(\v2\x1a.google.protobuf.BoolValueR\aEnabled\x12=\n" +
+	"\vAccessModes\x18\x06 \x03(\x0e2\x1b.resourcepb.PointAccessModeR\vAccessModes\x12\x10\n" +
 	"\x03IDs\x18\a \x03(\tR\x03IDs\x12\x16\n" +
 	"\x06Offset\x18\b \x01(\x05R\x06Offset\x12\x14\n" +
 	"\x05Limit\x18\t \x01(\x05R\x05Limit\"?\n" +
 	"\x12ListPointsResponse\x12)\n" +
-	"\x06Points\x18\x01 \x03(\v2\x11.resourcepb.PointR\x06Points\"\x8c\x03\n" +
+	"\x06Points\x18\x01 \x03(\v2\x11.resourcepb.PointR\x06Points\"\x8e\x03\n" +
 	"\tPointItem\x12\x1a\n" +
-	"\bPointKey\x18\x01 \x01(\tR\bPointKey\x12(\n" +
-	"\x0fExternalAddress\x18\x02 \x01(\tR\x0fExternalAddress\x125\n" +
-	"\bDataType\x18\x03 \x01(\x0e2\x19.resourcepb.PointDataTypeR\bDataType\x125\n" +
-	"\tExtConfig\x18\x04 \x01(\v2\x17.google.protobuf.StructR\tExtConfig\x12 \n" +
-	"\vDescription\x18\x05 \x01(\tR\vDescription\x12 \n" +
-	"\vControlFlag\x18\x06 \x01(\bR\vControlFlag\x12\x1c\n" +
-	"\tIsVirtual\x18\a \x01(\bR\tIsVirtual\x12C\n" +
-	"\x10SafetyThresholds\x18\b \x01(\v2\x17.google.protobuf.StructR\x10SafetyThresholds\x12$\n" +
-	"\rCacheKeyAlias\x18\t \x01(\tR\rCacheKeyAliasBGZEgithub.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepbb\x06proto3"
+	"\bMetricID\x18\x01 \x01(\tR\bMetricID\x12(\n" +
+	"\x0fExternalAddress\x18\x02 \x01(\tR\x0fExternalAddress\x12;\n" +
+	"\n" +
+	"AccessMode\x18\x03 \x01(\x0e2\x1b.resourcepb.PointAccessModeR\n" +
+	"AccessMode\x122\n" +
+	"\x05Scale\x18\x04 \x01(\v2\x1c.google.protobuf.DoubleValueR\x05Scale\x124\n" +
+	"\x06Offset\x18\x05 \x01(\v2\x1c.google.protobuf.DoubleValueR\x06Offset\x12\x18\n" +
+	"\aEnabled\x18\x06 \x01(\bR\aEnabled\x12M\n" +
+	"\x10SafetyConstraint\x18\a \x01(\v2!.resourcepb.PointSafetyConstraintR\x10SafetyConstraintJ\x04\b\b\x10\tJ\x04\b\t\x10\n" +
+	"R\x10SafetyThresholdsR\rCacheKeyAlias*\x8f\x01\n" +
+	"\x0fPointAccessMode\x12!\n" +
+	"\x1dPOINT_ACCESS_MODE_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16POINT_ACCESS_MODE_READ\x10\x01\x12\x1b\n" +
+	"\x17POINT_ACCESS_MODE_WRITE\x10\x02\x12 \n" +
+	"\x1cPOINT_ACCESS_MODE_READ_WRITE\x10\x03BGZEgithub.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepbb\x06proto3"
 
 var (
 	file_modules_point_proto_rawDescOnce sync.Once
@@ -918,43 +993,49 @@ func file_modules_point_proto_rawDescGZIP() []byte {
 	return file_modules_point_proto_rawDescData
 }
 
-var file_modules_point_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_modules_point_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_modules_point_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_modules_point_proto_goTypes = []any{
-	(*Point)(nil),                // 0: resourcepb.Point
-	(*CreatePointRequest)(nil),   // 1: resourcepb.CreatePointRequest
-	(*CreatePointResponse)(nil),  // 2: resourcepb.CreatePointResponse
-	(*UpdatePointRequest)(nil),   // 3: resourcepb.UpdatePointRequest
-	(*DeletePointRequest)(nil),   // 4: resourcepb.DeletePointRequest
-	(*GetPointRequest)(nil),      // 5: resourcepb.GetPointRequest
-	(*ListPointsRequest)(nil),    // 6: resourcepb.ListPointsRequest
-	(*ListPointsResponse)(nil),   // 7: resourcepb.ListPointsResponse
-	(*PointItem)(nil),            // 8: resourcepb.PointItem
-	(PointDataType)(0),           // 9: resourcepb.PointDataType
-	(*structpb.Struct)(nil),      // 10: google.protobuf.Struct
-	(*PointRuntime)(nil),         // 11: resourcepb.PointRuntime
-	(*wrapperspb.BoolValue)(nil), // 12: google.protobuf.BoolValue
+	(PointAccessMode)(0),           // 0: resourcepb.PointAccessMode
+	(*PointSafetyConstraint)(nil),  // 1: resourcepb.PointSafetyConstraint
+	(*Point)(nil),                  // 2: resourcepb.Point
+	(*CreatePointRequest)(nil),     // 3: resourcepb.CreatePointRequest
+	(*CreatePointResponse)(nil),    // 4: resourcepb.CreatePointResponse
+	(*UpdatePointRequest)(nil),     // 5: resourcepb.UpdatePointRequest
+	(*DeletePointRequest)(nil),     // 6: resourcepb.DeletePointRequest
+	(*GetPointRequest)(nil),        // 7: resourcepb.GetPointRequest
+	(*ListPointsRequest)(nil),      // 8: resourcepb.ListPointsRequest
+	(*ListPointsResponse)(nil),     // 9: resourcepb.ListPointsResponse
+	(*PointItem)(nil),              // 10: resourcepb.PointItem
+	(*wrapperspb.DoubleValue)(nil), // 11: google.protobuf.DoubleValue
+	(*wrapperspb.BoolValue)(nil),   // 12: google.protobuf.BoolValue
 }
 var file_modules_point_proto_depIdxs = []int32{
-	9,  // 0: resourcepb.Point.DataType:type_name -> resourcepb.PointDataType
-	10, // 1: resourcepb.Point.ExtConfig:type_name -> google.protobuf.Struct
-	10, // 2: resourcepb.Point.SafetyThresholds:type_name -> google.protobuf.Struct
-	11, // 3: resourcepb.Point.Runtime:type_name -> resourcepb.PointRuntime
-	9,  // 4: resourcepb.CreatePointRequest.DataType:type_name -> resourcepb.PointDataType
-	10, // 5: resourcepb.CreatePointRequest.ExtConfig:type_name -> google.protobuf.Struct
-	10, // 6: resourcepb.CreatePointRequest.SafetyThresholds:type_name -> google.protobuf.Struct
-	9,  // 7: resourcepb.UpdatePointRequest.DataType:type_name -> resourcepb.PointDataType
-	10, // 8: resourcepb.UpdatePointRequest.ExtConfig:type_name -> google.protobuf.Struct
-	10, // 9: resourcepb.UpdatePointRequest.SafetyThresholds:type_name -> google.protobuf.Struct
-	12, // 10: resourcepb.ListPointsRequest.IsVirtual:type_name -> google.protobuf.BoolValue
-	0,  // 11: resourcepb.ListPointsResponse.Points:type_name -> resourcepb.Point
-	9,  // 12: resourcepb.PointItem.DataType:type_name -> resourcepb.PointDataType
-	10, // 13: resourcepb.PointItem.ExtConfig:type_name -> google.protobuf.Struct
-	10, // 14: resourcepb.PointItem.SafetyThresholds:type_name -> google.protobuf.Struct
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	11, // 0: resourcepb.PointSafetyConstraint.MinValue:type_name -> google.protobuf.DoubleValue
+	11, // 1: resourcepb.PointSafetyConstraint.MaxValue:type_name -> google.protobuf.DoubleValue
+	11, // 2: resourcepb.PointSafetyConstraint.MaxChangePerSecond:type_name -> google.protobuf.DoubleValue
+	0,  // 3: resourcepb.Point.AccessMode:type_name -> resourcepb.PointAccessMode
+	1,  // 4: resourcepb.Point.SafetyConstraint:type_name -> resourcepb.PointSafetyConstraint
+	0,  // 5: resourcepb.CreatePointRequest.AccessMode:type_name -> resourcepb.PointAccessMode
+	11, // 6: resourcepb.CreatePointRequest.Scale:type_name -> google.protobuf.DoubleValue
+	11, // 7: resourcepb.CreatePointRequest.Offset:type_name -> google.protobuf.DoubleValue
+	1,  // 8: resourcepb.CreatePointRequest.SafetyConstraint:type_name -> resourcepb.PointSafetyConstraint
+	0,  // 9: resourcepb.UpdatePointRequest.AccessMode:type_name -> resourcepb.PointAccessMode
+	11, // 10: resourcepb.UpdatePointRequest.Scale:type_name -> google.protobuf.DoubleValue
+	11, // 11: resourcepb.UpdatePointRequest.Offset:type_name -> google.protobuf.DoubleValue
+	1,  // 12: resourcepb.UpdatePointRequest.SafetyConstraint:type_name -> resourcepb.PointSafetyConstraint
+	12, // 13: resourcepb.ListPointsRequest.Enabled:type_name -> google.protobuf.BoolValue
+	0,  // 14: resourcepb.ListPointsRequest.AccessModes:type_name -> resourcepb.PointAccessMode
+	2,  // 15: resourcepb.ListPointsResponse.Points:type_name -> resourcepb.Point
+	0,  // 16: resourcepb.PointItem.AccessMode:type_name -> resourcepb.PointAccessMode
+	11, // 17: resourcepb.PointItem.Scale:type_name -> google.protobuf.DoubleValue
+	11, // 18: resourcepb.PointItem.Offset:type_name -> google.protobuf.DoubleValue
+	1,  // 19: resourcepb.PointItem.SafetyConstraint:type_name -> resourcepb.PointSafetyConstraint
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_modules_point_proto_init() }
@@ -962,20 +1043,19 @@ func file_modules_point_proto_init() {
 	if File_modules_point_proto != nil {
 		return
 	}
-	file_modules_common_proto_init()
-	file_modules_runtime_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_modules_point_proto_rawDesc), len(file_modules_point_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   9,
+			NumEnums:      1,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_modules_point_proto_goTypes,
 		DependencyIndexes: file_modules_point_proto_depIdxs,
+		EnumInfos:         file_modules_point_proto_enumTypes,
 		MessageInfos:      file_modules_point_proto_msgTypes,
 	}.Build()
 	File_modules_point_proto = out.File

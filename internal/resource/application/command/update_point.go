@@ -15,15 +15,14 @@ import (
 type UpdatePoint struct {
 	ID               string
 	TenantID         string
-	PointKey         string
+	MetricID         string
 	ExternalAddress  string
-	DataType         model.DataType
-	ExtConfig        map[string]any
-	Description      string
-	ControlFlag      bool
-	IsVirtual        bool
-	SafetyThresholds map[string]any
-	CacheKeyAlias    string
+	AccessMode       model.AccessMode
+	Scale            float64
+	Offset           float64
+	Enabled          bool
+	SafetyConstraint *model.PointSafetyConstraint
+	ExpectedRevision int64
 }
 
 type UpdatePointHandler decorator.CommandHandler[UpdatePoint, struct{}]
@@ -53,15 +52,12 @@ func (h updatePointHandler) Handle(ctx context.Context, cmd UpdatePoint) (struct
 		return struct{}{}, err
 	}
 
-	point.PointKey = cmd.PointKey
-	point.ExternalAddress = cmd.ExternalAddress
-	point.DataType = cmd.DataType
-	point.SetExtConfig(cmd.ExtConfig)
-	point.Description = cmd.Description
-	point.ControlFlag = cmd.ControlFlag
-	point.IsVirtual = cmd.IsVirtual
-	point.SetSafetyThresholds(cmd.SafetyThresholds)
-	point.CacheKeyAlias = cmd.CacheKeyAlias
+	if err := point.ReplaceBinding(
+		cmd.MetricID, cmd.ExternalAddress, cmd.AccessMode,
+		cmd.Scale, cmd.Offset, cmd.Enabled, cmd.SafetyConstraint, cmd.ExpectedRevision,
+	); err != nil {
+		return struct{}{}, err
+	}
 
 	if err := h.pointRepo.Update(ctx, point); err != nil {
 		return struct{}{}, err
@@ -75,7 +71,8 @@ func (h updatePointHandler) Handle(ctx context.Context, cmd UpdatePoint) (struct
 			Payload: platEvent.PointUpdatedPayload{
 				PointID:  cmd.ID,
 				TenantID: cmd.TenantID,
-				PointKey: cmd.PointKey,
+				MetricID: cmd.MetricID,
+				Revision: point.Revision,
 			},
 		}); pubErr != nil {
 			logging.Warnf(ctx, logrus.Fields{

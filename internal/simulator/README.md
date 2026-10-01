@@ -110,7 +110,7 @@ curl -s -X POST http://127.0.0.1:8084/api/v1/faults \
 2. 过滤：`Provider == runtime.require-provider`（默认 `simulator`）
 3. 可选白名单：`runtime.site-ids` / `runtime.cu-ids`
 4. 按 `CU.Type` 实例化：`Battery` / `PCS` / `PV` / `Meter`，未知类型用 Passthrough
-5. Point 作为遥测/控制模板；`Snapshot()` 只输出 Resource 已声明的 PointKey
+5. Point 作为遥测/控制模板；`Snapshot()` 只输出 Resource 已声明的 canonical MetricID
 
 Onboarding 约定（与 architecture.md 一致）：
 

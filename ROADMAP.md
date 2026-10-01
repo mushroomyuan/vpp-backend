@@ -67,6 +67,16 @@
 
 ---
 
+## Phase B2 · Decision 重构与后续配套
+
+- [ ] **Decision 主服务重构**：旁路新建 `decision`，建立设备无关 metric/capability contract、Resource `ResolveScope`、Policy→Objective→Plan→Executor、持久化与 CU/Asset/Site 决策闭环；验收后删除 `optimization`
+- [ ] **Gateway canonical binding 专项**：外部地址与 canonical MetricID 双向翻译、单位/符号转换、binding cache/revision、末端安全校验与未知指标隔离
+- [ ] **Alarm canonical SOE/规则专项**：SOE metric_id 契约、规则校验与迁移、fingerprint 版本策略、质量/陈旧语义
+
+Decision 主重构期间只保证 Simulator 直接使用 canonical MetricID 的内部闭环；在 Gateway 专项完成前，不宣称支持真实 EMS 的异构点名/单位转换。Gateway 与 Alarm 的详细待办和验收标准见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。
+
+---
+
 ## Phase C · 事件溯源
 
 - [ ] 事件溯源/审计存储服务：消费 `vpp.resource.events` / `vpp.command.events` / `vpp.dispatch.events` / `vpp.soe.events` 全部落库，对外提供统一查询（"某个 CommandID/TaskID 完整生命周期"类审计问题）。纯新增消费者，不改动现有生产者，风险低

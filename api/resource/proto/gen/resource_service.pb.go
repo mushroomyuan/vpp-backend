@@ -27,7 +27,7 @@ var File_resource_service_proto protoreflect.FileDescriptor
 const file_resource_service_proto_rawDesc = "" +
 	"\n" +
 	"\x16resource_service.proto\x12\n" +
-	"resourcepb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x12modules/site.proto\x1a\x16modules/resource.proto\x1a\x10modules/cu.proto\x1a\x13modules/point.proto\x1a\x11modules/job.proto\x1a\x13modules/asset.proto2\xd2\x1c\n" +
+	"resourcepb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x12modules/site.proto\x1a\x16modules/resource.proto\x1a\x10modules/cu.proto\x1a\x18modules/capability.proto\x1a\x13modules/point.proto\x1a\x13modules/scope.proto\x1a\x11modules/job.proto\x1a\x13modules/asset.proto2\x80#\n" +
 	"\x0fResourceService\x12u\n" +
 	"\n" +
 	"CreateSite\x12\x1d.resourcepb.CreateSiteRequest\x1a\x1e.resourcepb.CreateSiteResponse\"(\x82\xd3\xe4\x93\x02\":\x01*\"\x1d/api/tenants/{TenantID}/sites\x12c\n" +
@@ -52,7 +52,12 @@ const file_resource_service_proto_rawDesc = "" +
 	"\bCreateCU\x12\x1b.resourcepb.CreateCURequest\x1a\x1c.resourcepb.CreateCUResponse\";\x82\xd3\xe4\x93\x025:\x01*\"0/api/tenants/{TenantID}/resources/{ParentID}/cus\x12[\n" +
 	"\x05GetCU\x12\x18.resourcepb.GetCURequest\x1a\x0e.resourcepb.CU\"(\x82\xd3\xe4\x93\x02\"\x12 /api/tenants/{TenantID}/cus/{ID}\x12g\n" +
 	"\aListCUs\x12\x1a.resourcepb.ListCUsRequest\x1a\x1b.resourcepb.ListCUsResponse\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/api/tenants/{TenantID}/cus\x12l\n" +
-	"\bUpdateCU\x12\x1b.resourcepb.UpdateCURequest\x1a\x16.google.protobuf.Empty\"+\x82\xd3\xe4\x93\x02%:\x01*\x1a /api/tenants/{TenantID}/cus/{ID}\x12\x84\x01\n" +
+	"\bUpdateCU\x12\x1b.resourcepb.UpdateCURequest\x1a\x16.google.protobuf.Empty\"+\x82\xd3\xe4\x93\x02%:\x01*\x1a /api/tenants/{TenantID}/cus/{ID}\x12\x9f\x01\n" +
+	"\x12CreateCUCapability\x12%.resourcepb.CreateCUCapabilityRequest\x1a&.resourcepb.CreateCUCapabilityResponse\":\x82\xd3\xe4\x93\x024:\x01*\"//api/tenants/{TenantID}/cus/{CUID}/capabilities\x12\x82\x01\n" +
+	"\x0fGetCUCapability\x12\".resourcepb.GetCUCapabilityRequest\x1a\x18.resourcepb.CUCapability\"1\x82\xd3\xe4\x93\x02+\x12)/api/tenants/{TenantID}/capabilities/{ID}\x12\x9c\x01\n" +
+	"\x12ListCUCapabilities\x12%.resourcepb.ListCUCapabilitiesRequest\x1a&.resourcepb.ListCUCapabilitiesResponse\"7\x82\xd3\xe4\x93\x021\x12//api/tenants/{TenantID}/cus/{CUID}/capabilities\x12\x89\x01\n" +
+	"\x12UpdateCUCapability\x12%.resourcepb.UpdateCUCapabilityRequest\x1a\x16.google.protobuf.Empty\"4\x82\xd3\xe4\x93\x02.:\x01*\x1a)/api/tenants/{TenantID}/capabilities/{ID}\x12\x86\x01\n" +
+	"\x12DeleteCUCapability\x12%.resourcepb.DeleteCUCapabilityRequest\x1a\x16.google.protobuf.Empty\"1\x82\xd3\xe4\x93\x02+*)/api/tenants/{TenantID}/capabilities/{ID}\x12\x84\x01\n" +
 	"\vCreatePoint\x12\x1e.resourcepb.CreatePointRequest\x1a\x1f.resourcepb.CreatePointResponse\"4\x82\xd3\xe4\x93\x02.:\x01*\")/api/tenants/{TenantID}/cus/{CUID}/points\x12g\n" +
 	"\bGetPoint\x12\x1b.resourcepb.GetPointRequest\x1a\x11.resourcepb.Point\"+\x82\xd3\xe4\x93\x02%\x12#/api/tenants/{TenantID}/points/{ID}\x12s\n" +
 	"\n" +
@@ -61,7 +66,8 @@ const file_resource_service_proto_rawDesc = "" +
 	"\vDeletePoint\x12\x1e.resourcepb.DeletePointRequest\x1a\x16.google.protobuf.Empty\"+\x82\xd3\xe4\x93\x02%*#/api/tenants/{TenantID}/points/{ID}\x12S\n" +
 	"\x06GetJob\x12\x19.resourcepb.GetJobRequest\x1a\x0f.resourcepb.Job\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/api/import-jobs/{ID}\x12x\n" +
 	"\x11SubmitBatchImport\x12\x1e.resourcepb.SubmitBatchRequest\x1a\x1f.resourcepb.SubmitBatchResponse\"\"\x82\xd3\xe4\x93\x02\x1c:\x01*\"\x17/api/import-jobs:submit\x12g\n" +
-	"\bRetryJob\x12\x1b.resourcepb.RetryJobRequest\x1a\x16.google.protobuf.Empty\"&\x82\xd3\xe4\x93\x02 :\x01*\"\x1b/api/import-jobs/{ID}:retryBGZEgithub.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepbb\x06proto3"
+	"\bRetryJob\x12\x1b.resourcepb.RetryJobRequest\x1a\x16.google.protobuf.Empty\"&\x82\xd3\xe4\x93\x02 :\x01*\"\x1b/api/import-jobs/{ID}:retry\x12Q\n" +
+	"\fResolveScope\x12\x1f.resourcepb.ResolveScopeRequest\x1a .resourcepb.ResolveScopeResponseBGZEgithub.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepbb\x06proto3"
 
 var file_resource_service_proto_goTypes = []any{
 	(*CreateSiteRequest)(nil),              // 0: resourcepb.CreateSiteRequest
@@ -85,34 +91,44 @@ var file_resource_service_proto_goTypes = []any{
 	(*GetCURequest)(nil),                   // 18: resourcepb.GetCURequest
 	(*ListCUsRequest)(nil),                 // 19: resourcepb.ListCUsRequest
 	(*UpdateCURequest)(nil),                // 20: resourcepb.UpdateCURequest
-	(*CreatePointRequest)(nil),             // 21: resourcepb.CreatePointRequest
-	(*GetPointRequest)(nil),                // 22: resourcepb.GetPointRequest
-	(*ListPointsRequest)(nil),              // 23: resourcepb.ListPointsRequest
-	(*UpdatePointRequest)(nil),             // 24: resourcepb.UpdatePointRequest
-	(*DeletePointRequest)(nil),             // 25: resourcepb.DeletePointRequest
-	(*GetJobRequest)(nil),                  // 26: resourcepb.GetJobRequest
-	(*SubmitBatchRequest)(nil),             // 27: resourcepb.SubmitBatchRequest
-	(*RetryJobRequest)(nil),                // 28: resourcepb.RetryJobRequest
-	(*CreateSiteResponse)(nil),             // 29: resourcepb.CreateSiteResponse
-	(*Site)(nil),                           // 30: resourcepb.Site
-	(*ListSitesResponse)(nil),              // 31: resourcepb.ListSitesResponse
-	(*emptypb.Empty)(nil),                  // 32: google.protobuf.Empty
-	(*CreateAssetResponse)(nil),            // 33: resourcepb.CreateAssetResponse
-	(*Asset)(nil),                          // 34: resourcepb.Asset
-	(*ListAssetsResponse)(nil),             // 35: resourcepb.ListAssetsResponse
-	(*BatchMoveResourcesResponse)(nil),     // 36: resourcepb.BatchMoveResourcesResponse
-	(*Resource)(nil),                       // 37: resourcepb.Resource
-	(*ListChildrenResponse)(nil),           // 38: resourcepb.ListChildrenResponse
-	(*GetBreadcrumbResponse)(nil),          // 39: resourcepb.GetBreadcrumbResponse
-	(*ExportResourceTreeResponse)(nil),     // 40: resourcepb.ExportResourceTreeResponse
-	(*CreateCUResponse)(nil),               // 41: resourcepb.CreateCUResponse
-	(*CU)(nil),                             // 42: resourcepb.CU
-	(*ListCUsResponse)(nil),                // 43: resourcepb.ListCUsResponse
-	(*CreatePointResponse)(nil),            // 44: resourcepb.CreatePointResponse
-	(*Point)(nil),                          // 45: resourcepb.Point
-	(*ListPointsResponse)(nil),             // 46: resourcepb.ListPointsResponse
-	(*Job)(nil),                            // 47: resourcepb.Job
-	(*SubmitBatchResponse)(nil),            // 48: resourcepb.SubmitBatchResponse
+	(*CreateCUCapabilityRequest)(nil),      // 21: resourcepb.CreateCUCapabilityRequest
+	(*GetCUCapabilityRequest)(nil),         // 22: resourcepb.GetCUCapabilityRequest
+	(*ListCUCapabilitiesRequest)(nil),      // 23: resourcepb.ListCUCapabilitiesRequest
+	(*UpdateCUCapabilityRequest)(nil),      // 24: resourcepb.UpdateCUCapabilityRequest
+	(*DeleteCUCapabilityRequest)(nil),      // 25: resourcepb.DeleteCUCapabilityRequest
+	(*CreatePointRequest)(nil),             // 26: resourcepb.CreatePointRequest
+	(*GetPointRequest)(nil),                // 27: resourcepb.GetPointRequest
+	(*ListPointsRequest)(nil),              // 28: resourcepb.ListPointsRequest
+	(*UpdatePointRequest)(nil),             // 29: resourcepb.UpdatePointRequest
+	(*DeletePointRequest)(nil),             // 30: resourcepb.DeletePointRequest
+	(*GetJobRequest)(nil),                  // 31: resourcepb.GetJobRequest
+	(*SubmitBatchRequest)(nil),             // 32: resourcepb.SubmitBatchRequest
+	(*RetryJobRequest)(nil),                // 33: resourcepb.RetryJobRequest
+	(*ResolveScopeRequest)(nil),            // 34: resourcepb.ResolveScopeRequest
+	(*CreateSiteResponse)(nil),             // 35: resourcepb.CreateSiteResponse
+	(*Site)(nil),                           // 36: resourcepb.Site
+	(*ListSitesResponse)(nil),              // 37: resourcepb.ListSitesResponse
+	(*emptypb.Empty)(nil),                  // 38: google.protobuf.Empty
+	(*CreateAssetResponse)(nil),            // 39: resourcepb.CreateAssetResponse
+	(*Asset)(nil),                          // 40: resourcepb.Asset
+	(*ListAssetsResponse)(nil),             // 41: resourcepb.ListAssetsResponse
+	(*BatchMoveResourcesResponse)(nil),     // 42: resourcepb.BatchMoveResourcesResponse
+	(*Resource)(nil),                       // 43: resourcepb.Resource
+	(*ListChildrenResponse)(nil),           // 44: resourcepb.ListChildrenResponse
+	(*GetBreadcrumbResponse)(nil),          // 45: resourcepb.GetBreadcrumbResponse
+	(*ExportResourceTreeResponse)(nil),     // 46: resourcepb.ExportResourceTreeResponse
+	(*CreateCUResponse)(nil),               // 47: resourcepb.CreateCUResponse
+	(*CU)(nil),                             // 48: resourcepb.CU
+	(*ListCUsResponse)(nil),                // 49: resourcepb.ListCUsResponse
+	(*CreateCUCapabilityResponse)(nil),     // 50: resourcepb.CreateCUCapabilityResponse
+	(*CUCapability)(nil),                   // 51: resourcepb.CUCapability
+	(*ListCUCapabilitiesResponse)(nil),     // 52: resourcepb.ListCUCapabilitiesResponse
+	(*CreatePointResponse)(nil),            // 53: resourcepb.CreatePointResponse
+	(*Point)(nil),                          // 54: resourcepb.Point
+	(*ListPointsResponse)(nil),             // 55: resourcepb.ListPointsResponse
+	(*Job)(nil),                            // 56: resourcepb.Job
+	(*SubmitBatchResponse)(nil),            // 57: resourcepb.SubmitBatchResponse
+	(*ResolveScopeResponse)(nil),           // 58: resourcepb.ResolveScopeResponse
 }
 var file_resource_service_proto_depIdxs = []int32{
 	0,  // 0: resourcepb.ResourceService.CreateSite:input_type -> resourcepb.CreateSiteRequest
@@ -136,45 +152,57 @@ var file_resource_service_proto_depIdxs = []int32{
 	18, // 18: resourcepb.ResourceService.GetCU:input_type -> resourcepb.GetCURequest
 	19, // 19: resourcepb.ResourceService.ListCUs:input_type -> resourcepb.ListCUsRequest
 	20, // 20: resourcepb.ResourceService.UpdateCU:input_type -> resourcepb.UpdateCURequest
-	21, // 21: resourcepb.ResourceService.CreatePoint:input_type -> resourcepb.CreatePointRequest
-	22, // 22: resourcepb.ResourceService.GetPoint:input_type -> resourcepb.GetPointRequest
-	23, // 23: resourcepb.ResourceService.ListPoints:input_type -> resourcepb.ListPointsRequest
-	24, // 24: resourcepb.ResourceService.UpdatePoint:input_type -> resourcepb.UpdatePointRequest
-	25, // 25: resourcepb.ResourceService.DeletePoint:input_type -> resourcepb.DeletePointRequest
-	26, // 26: resourcepb.ResourceService.GetJob:input_type -> resourcepb.GetJobRequest
-	27, // 27: resourcepb.ResourceService.SubmitBatchImport:input_type -> resourcepb.SubmitBatchRequest
-	28, // 28: resourcepb.ResourceService.RetryJob:input_type -> resourcepb.RetryJobRequest
-	29, // 29: resourcepb.ResourceService.CreateSite:output_type -> resourcepb.CreateSiteResponse
-	30, // 30: resourcepb.ResourceService.GetSite:output_type -> resourcepb.Site
-	31, // 31: resourcepb.ResourceService.ListSites:output_type -> resourcepb.ListSitesResponse
-	32, // 32: resourcepb.ResourceService.UpdateSite:output_type -> google.protobuf.Empty
-	33, // 33: resourcepb.ResourceService.CreateAsset:output_type -> resourcepb.CreateAssetResponse
-	34, // 34: resourcepb.ResourceService.GetAsset:output_type -> resourcepb.Asset
-	35, // 35: resourcepb.ResourceService.ListAssets:output_type -> resourcepb.ListAssetsResponse
-	32, // 36: resourcepb.ResourceService.UpdateAsset:output_type -> google.protobuf.Empty
-	32, // 37: resourcepb.ResourceService.DeleteResource:output_type -> google.protobuf.Empty
-	32, // 38: resourcepb.ResourceService.MoveResource:output_type -> google.protobuf.Empty
-	36, // 39: resourcepb.ResourceService.BatchMoveResources:output_type -> resourcepb.BatchMoveResourcesResponse
-	32, // 40: resourcepb.ResourceService.RenameResource:output_type -> google.protobuf.Empty
-	32, // 41: resourcepb.ResourceService.ChangeResourceLifecycle:output_type -> google.protobuf.Empty
-	37, // 42: resourcepb.ResourceService.GetResourceDetail:output_type -> resourcepb.Resource
-	38, // 43: resourcepb.ResourceService.ListChildren:output_type -> resourcepb.ListChildrenResponse
-	39, // 44: resourcepb.ResourceService.GetBreadcrumb:output_type -> resourcepb.GetBreadcrumbResponse
-	40, // 45: resourcepb.ResourceService.ExportResourceTree:output_type -> resourcepb.ExportResourceTreeResponse
-	41, // 46: resourcepb.ResourceService.CreateCU:output_type -> resourcepb.CreateCUResponse
-	42, // 47: resourcepb.ResourceService.GetCU:output_type -> resourcepb.CU
-	43, // 48: resourcepb.ResourceService.ListCUs:output_type -> resourcepb.ListCUsResponse
-	32, // 49: resourcepb.ResourceService.UpdateCU:output_type -> google.protobuf.Empty
-	44, // 50: resourcepb.ResourceService.CreatePoint:output_type -> resourcepb.CreatePointResponse
-	45, // 51: resourcepb.ResourceService.GetPoint:output_type -> resourcepb.Point
-	46, // 52: resourcepb.ResourceService.ListPoints:output_type -> resourcepb.ListPointsResponse
-	32, // 53: resourcepb.ResourceService.UpdatePoint:output_type -> google.protobuf.Empty
-	32, // 54: resourcepb.ResourceService.DeletePoint:output_type -> google.protobuf.Empty
-	47, // 55: resourcepb.ResourceService.GetJob:output_type -> resourcepb.Job
-	48, // 56: resourcepb.ResourceService.SubmitBatchImport:output_type -> resourcepb.SubmitBatchResponse
-	32, // 57: resourcepb.ResourceService.RetryJob:output_type -> google.protobuf.Empty
-	29, // [29:58] is the sub-list for method output_type
-	0,  // [0:29] is the sub-list for method input_type
+	21, // 21: resourcepb.ResourceService.CreateCUCapability:input_type -> resourcepb.CreateCUCapabilityRequest
+	22, // 22: resourcepb.ResourceService.GetCUCapability:input_type -> resourcepb.GetCUCapabilityRequest
+	23, // 23: resourcepb.ResourceService.ListCUCapabilities:input_type -> resourcepb.ListCUCapabilitiesRequest
+	24, // 24: resourcepb.ResourceService.UpdateCUCapability:input_type -> resourcepb.UpdateCUCapabilityRequest
+	25, // 25: resourcepb.ResourceService.DeleteCUCapability:input_type -> resourcepb.DeleteCUCapabilityRequest
+	26, // 26: resourcepb.ResourceService.CreatePoint:input_type -> resourcepb.CreatePointRequest
+	27, // 27: resourcepb.ResourceService.GetPoint:input_type -> resourcepb.GetPointRequest
+	28, // 28: resourcepb.ResourceService.ListPoints:input_type -> resourcepb.ListPointsRequest
+	29, // 29: resourcepb.ResourceService.UpdatePoint:input_type -> resourcepb.UpdatePointRequest
+	30, // 30: resourcepb.ResourceService.DeletePoint:input_type -> resourcepb.DeletePointRequest
+	31, // 31: resourcepb.ResourceService.GetJob:input_type -> resourcepb.GetJobRequest
+	32, // 32: resourcepb.ResourceService.SubmitBatchImport:input_type -> resourcepb.SubmitBatchRequest
+	33, // 33: resourcepb.ResourceService.RetryJob:input_type -> resourcepb.RetryJobRequest
+	34, // 34: resourcepb.ResourceService.ResolveScope:input_type -> resourcepb.ResolveScopeRequest
+	35, // 35: resourcepb.ResourceService.CreateSite:output_type -> resourcepb.CreateSiteResponse
+	36, // 36: resourcepb.ResourceService.GetSite:output_type -> resourcepb.Site
+	37, // 37: resourcepb.ResourceService.ListSites:output_type -> resourcepb.ListSitesResponse
+	38, // 38: resourcepb.ResourceService.UpdateSite:output_type -> google.protobuf.Empty
+	39, // 39: resourcepb.ResourceService.CreateAsset:output_type -> resourcepb.CreateAssetResponse
+	40, // 40: resourcepb.ResourceService.GetAsset:output_type -> resourcepb.Asset
+	41, // 41: resourcepb.ResourceService.ListAssets:output_type -> resourcepb.ListAssetsResponse
+	38, // 42: resourcepb.ResourceService.UpdateAsset:output_type -> google.protobuf.Empty
+	38, // 43: resourcepb.ResourceService.DeleteResource:output_type -> google.protobuf.Empty
+	38, // 44: resourcepb.ResourceService.MoveResource:output_type -> google.protobuf.Empty
+	42, // 45: resourcepb.ResourceService.BatchMoveResources:output_type -> resourcepb.BatchMoveResourcesResponse
+	38, // 46: resourcepb.ResourceService.RenameResource:output_type -> google.protobuf.Empty
+	38, // 47: resourcepb.ResourceService.ChangeResourceLifecycle:output_type -> google.protobuf.Empty
+	43, // 48: resourcepb.ResourceService.GetResourceDetail:output_type -> resourcepb.Resource
+	44, // 49: resourcepb.ResourceService.ListChildren:output_type -> resourcepb.ListChildrenResponse
+	45, // 50: resourcepb.ResourceService.GetBreadcrumb:output_type -> resourcepb.GetBreadcrumbResponse
+	46, // 51: resourcepb.ResourceService.ExportResourceTree:output_type -> resourcepb.ExportResourceTreeResponse
+	47, // 52: resourcepb.ResourceService.CreateCU:output_type -> resourcepb.CreateCUResponse
+	48, // 53: resourcepb.ResourceService.GetCU:output_type -> resourcepb.CU
+	49, // 54: resourcepb.ResourceService.ListCUs:output_type -> resourcepb.ListCUsResponse
+	38, // 55: resourcepb.ResourceService.UpdateCU:output_type -> google.protobuf.Empty
+	50, // 56: resourcepb.ResourceService.CreateCUCapability:output_type -> resourcepb.CreateCUCapabilityResponse
+	51, // 57: resourcepb.ResourceService.GetCUCapability:output_type -> resourcepb.CUCapability
+	52, // 58: resourcepb.ResourceService.ListCUCapabilities:output_type -> resourcepb.ListCUCapabilitiesResponse
+	38, // 59: resourcepb.ResourceService.UpdateCUCapability:output_type -> google.protobuf.Empty
+	38, // 60: resourcepb.ResourceService.DeleteCUCapability:output_type -> google.protobuf.Empty
+	53, // 61: resourcepb.ResourceService.CreatePoint:output_type -> resourcepb.CreatePointResponse
+	54, // 62: resourcepb.ResourceService.GetPoint:output_type -> resourcepb.Point
+	55, // 63: resourcepb.ResourceService.ListPoints:output_type -> resourcepb.ListPointsResponse
+	38, // 64: resourcepb.ResourceService.UpdatePoint:output_type -> google.protobuf.Empty
+	38, // 65: resourcepb.ResourceService.DeletePoint:output_type -> google.protobuf.Empty
+	56, // 66: resourcepb.ResourceService.GetJob:output_type -> resourcepb.Job
+	57, // 67: resourcepb.ResourceService.SubmitBatchImport:output_type -> resourcepb.SubmitBatchResponse
+	38, // 68: resourcepb.ResourceService.RetryJob:output_type -> google.protobuf.Empty
+	58, // 69: resourcepb.ResourceService.ResolveScope:output_type -> resourcepb.ResolveScopeResponse
+	35, // [35:70] is the sub-list for method output_type
+	0,  // [0:35] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name
@@ -188,7 +216,9 @@ func file_resource_service_proto_init() {
 	file_modules_site_proto_init()
 	file_modules_resource_proto_init()
 	file_modules_cu_proto_init()
+	file_modules_capability_proto_init()
 	file_modules_point_proto_init()
+	file_modules_scope_proto_init()
 	file_modules_job_proto_init()
 	file_modules_asset_proto_init()
 	type x struct{}

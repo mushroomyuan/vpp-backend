@@ -20,7 +20,7 @@ func TestRecordsToInsertRows_DropsNonGood(t *testing.T) {
 		},
 	}
 	rows := recordsToInsertRows([]*model.TelemetryRecord{rec})
-	if len(rows) != 1 || rows[0].metricName != "good" || rows[0].value != 1 {
+	if len(rows) != 1 || rows[0].metricID != "good" || rows[0].value != 1 {
 		t.Fatalf("rows = %+v", rows)
 	}
 }
@@ -30,10 +30,10 @@ func TestRawRowsToRecords_GroupsByTsAndCU(t *testing.T) {
 	ts1 := time.Unix(1, 0).UTC()
 	ts2 := time.Unix(2, 0).UTC()
 	rows := []rawRow{
-		{ts: ts1, tenantID: "t", cuCode: "cu1", metricName: "a", metricType: "ANALOG", value: 1},
-		{ts: ts1, tenantID: "t", cuCode: "cu1", metricName: "b", metricType: "ANALOG", value: 2},
-		{ts: ts2, tenantID: "t", cuCode: "cu1", metricName: "a", metricType: "ANALOG", value: 3},
-		{ts: ts1, tenantID: "t", cuCode: "cu2", metricName: "a", metricType: "ANALOG", value: 4},
+		{ts: ts1, tenantID: "t", cuCode: "cu1", metricID: "a", metricType: "ANALOG", value: 1},
+		{ts: ts1, tenantID: "t", cuCode: "cu1", metricID: "b", metricType: "ANALOG", value: 2},
+		{ts: ts2, tenantID: "t", cuCode: "cu1", metricID: "a", metricType: "ANALOG", value: 3},
+		{ts: ts1, tenantID: "t", cuCode: "cu2", metricID: "a", metricType: "ANALOG", value: 4},
 	}
 	recs := rawRowsToRecords(rows)
 	if len(recs) != 3 {
@@ -76,7 +76,7 @@ func TestAggSelectClause(t *testing.T) {
 	if cols != "min, count" {
 		t.Fatalf("cols = %q", cols)
 	}
-	if len(dests) != 2 || point.CUCode != "cu" || point.MetricName != "p" {
+	if len(dests) != 2 || point.CUCode != "cu" || point.MetricID != "p" {
 		t.Fatalf("dests=%d point=%+v", len(dests), point)
 	}
 }

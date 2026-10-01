@@ -17,6 +17,7 @@ func CatalogOf(fullMethod string) (resource, action string, ok bool) {
 	case telemetrypb.TelemetryService_QueryTelemetry_FullMethodName:
 		return "telemetry:telemetry", "read", true
 	case telemetrypb.TelemetryService_GetSnapshot_FullMethodName,
+		telemetrypb.TelemetryService_GetSnapshots_FullMethodName,
 		telemetrypb.TelemetryService_GetFleetSnapshot_FullMethodName:
 		return "telemetry:snapshots", "read", true
 	case telemetrypb.TelemetryService_QueryAggregation_FullMethodName:

@@ -12,33 +12,30 @@ import (
 func (s *Server) CreatePoint(ctx context.Context, req *resourcepb.CreatePointRequest) (*resourcepb.CreatePointResponse, error) {
 	logIn(ctx, "create_point")
 
-	dataType, err := PointDataTypeProtoToDomain(req.GetDataType())
+	accessMode, err := PointAccessModeProtoToDomain(req.GetAccessMode())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
-
-	ext := map[string]any(nil)
-	if req.GetExtConfig() != nil {
-		ext = req.GetExtConfig().AsMap()
+	scale := 1.0
+	if req.GetScale() != nil {
+		scale = req.GetScale().GetValue()
 	}
-	thresholds := map[string]any(nil)
-	if req.GetSafetyThresholds() != nil {
-		thresholds = req.GetSafetyThresholds().AsMap()
+	offset := 0.0
+	if req.GetOffset() != nil {
+		offset = req.GetOffset().GetValue()
 	}
 
 	res, err := s.createPoint.Handle(ctx, command.CreatePoint{
 		TenantID:         req.GetTenantID(),
 		AssetID:          req.GetAssetID(),
 		CUID:             req.GetCUID(),
-		PointKey:         req.GetPointKey(),
+		MetricID:         req.GetMetricID(),
 		ExternalAddress:  req.GetExternalAddress(),
-		DataType:         dataType,
-		ExtConfig:        ext,
-		Description:      req.GetDescription(),
-		ControlFlag:      req.GetControlFlag(),
-		IsVirtual:        req.GetIsVirtual(),
-		SafetyThresholds: thresholds,
-		CacheKeyAlias:    req.GetCacheKeyAlias(),
+		AccessMode:       accessMode,
+		Scale:            scale,
+		Offset:           offset,
+		Enabled:          req.GetEnabled(),
+		SafetyConstraint: PointSafetyConstraintProtoToDomain(req.GetSafetyConstraint()),
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
@@ -56,7 +53,7 @@ func (s *Server) GetPoint(ctx context.Context, req *resourcepb.GetPointRequest) 
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
-	out, err := PointToProto(p.Point, p.Runtime)
+	out, err := PointToProto(p.Point)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -66,22 +63,30 @@ func (s *Server) GetPoint(ctx context.Context, req *resourcepb.GetPointRequest) 
 func (s *Server) ListPoints(ctx context.Context, req *resourcepb.ListPointsRequest) (*resourcepb.ListPointsResponse, error) {
 	logIn(ctx, "list_points")
 
-	var isVirtual *bool
-	if v := req.GetIsVirtual(); v != nil {
+	var enabled *bool
+	if v := req.GetEnabled(); v != nil {
 		val := v.GetValue()
-		isVirtual = &val
+		enabled = &val
+	}
+	accessModes := make([]string, 0, len(req.GetAccessModes()))
+	for _, mode := range req.GetAccessModes() {
+		domainMode, err := PointAccessModeProtoToDomain(mode)
+		if err != nil {
+			return nil, toGRPCError(err)
+		}
+		accessModes = append(accessModes, string(domainMode))
 	}
 
 	result, err := s.listPoints.Handle(ctx, query.ListPoints{
-		TenantID:  req.GetTenantID(),
-		SiteID:    req.GetSiteID(),
-		CUID:      req.GetCUID(),
-		PointKeys: req.GetPointKeys(),
-		IsVirtual: isVirtual,
-		DataTypes: req.GetDataTypes(),
-		IDs:       req.GetIDs(),
-		Offset:    int(req.GetOffset()),
-		Limit:     int(req.GetLimit()),
+		TenantID:    req.GetTenantID(),
+		SiteID:      req.GetSiteID(),
+		CUID:        req.GetCUID(),
+		MetricIDs:   req.GetMetricIDs(),
+		AccessModes: accessModes,
+		Enabled:     enabled,
+		IDs:         req.GetIDs(),
+		Offset:      int(req.GetOffset()),
+		Limit:       int(req.GetLimit()),
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
@@ -89,7 +94,7 @@ func (s *Server) ListPoints(ctx context.Context, req *resourcepb.ListPointsReque
 
 	points := make([]*resourcepb.Point, 0, len(result.Items))
 	for _, item := range result.Items {
-		pb, err := PointToProto(item.Point, item.Runtime)
+		pb, err := PointToProto(item.Point)
 		if err != nil {
 			return nil, toGRPCError(err)
 		}
@@ -101,32 +106,30 @@ func (s *Server) ListPoints(ctx context.Context, req *resourcepb.ListPointsReque
 func (s *Server) UpdatePoint(ctx context.Context, req *resourcepb.UpdatePointRequest) (*emptypb.Empty, error) {
 	logIn(ctx, "update_point")
 
-	dataType, err := PointDataTypeProtoToDomain(req.GetDataType())
+	accessMode, err := PointAccessModeProtoToDomain(req.GetAccessMode())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
-
-	ext := map[string]any(nil)
-	if req.GetExtConfig() != nil {
-		ext = req.GetExtConfig().AsMap()
+	scale := 1.0
+	if req.GetScale() != nil {
+		scale = req.GetScale().GetValue()
 	}
-	thresholds := map[string]any(nil)
-	if req.GetSafetyThresholds() != nil {
-		thresholds = req.GetSafetyThresholds().AsMap()
+	offset := 0.0
+	if req.GetOffset() != nil {
+		offset = req.GetOffset().GetValue()
 	}
 
 	_, err = s.updatePoint.Handle(ctx, command.UpdatePoint{
 		TenantID:         req.GetTenantID(),
 		ID:               req.GetID(),
-		PointKey:         req.GetPointKey(),
+		MetricID:         req.GetMetricID(),
 		ExternalAddress:  req.GetExternalAddress(),
-		DataType:         dataType,
-		ExtConfig:        ext,
-		Description:      req.GetDescription(),
-		ControlFlag:      req.GetControlFlag(),
-		IsVirtual:        req.GetIsVirtual(),
-		SafetyThresholds: thresholds,
-		CacheKeyAlias:    req.GetCacheKeyAlias(),
+		AccessMode:       accessMode,
+		Scale:            scale,
+		Offset:           offset,
+		Enabled:          req.GetEnabled(),
+		SafetyConstraint: PointSafetyConstraintProtoToDomain(req.GetSafetyConstraint()),
+		ExpectedRevision: req.GetExpectedRevision(),
 	})
 	if err != nil {
 		return nil, toGRPCError(err)

@@ -28,12 +28,3 @@ message CURuntime {
   google.protobuf.Timestamp UpdatedAt = 5;
 }
 
-// PointRuntime is the latest cached point value in Redis.
-message PointRuntime {
-  optional string Value = 1;
-  optional double NumericValue = 2;
-  optional string QualityStatus = 3;
-  int64 Sequence = 4;
-  google.protobuf.Timestamp SampledAt = 5;
-  google.protobuf.Timestamp UpdatedAt = 6;
-}

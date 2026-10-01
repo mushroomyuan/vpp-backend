@@ -22,17 +22,91 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Snapshot holds the latest known good-quality metric values for a single CU.
-// It is the real-time "current state" view populated on every successful ingest.
+// MetricState is the latest sample of one canonical numeric metric.
+// double_value is the only value representation this round. Later Int/Bool/Enum
+// support must add new fields and leave double_value in place.
+type MetricState struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MetricID      string                 `protobuf:"bytes,1,opt,name=MetricID,proto3" json:"MetricID,omitempty"`
+	DoubleValue   float64                `protobuf:"fixed64,2,opt,name=DoubleValue,proto3" json:"DoubleValue,omitempty"`
+	ObservedAt    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=ObservedAt,proto3" json:"ObservedAt,omitempty"`
+	Quality       QualityStatus          `protobuf:"varint,4,opt,name=Quality,proto3,enum=telemetrypb.QualityStatus" json:"Quality,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MetricState) Reset() {
+	*x = MetricState{}
+	mi := &file_snapshot_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MetricState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MetricState) ProtoMessage() {}
+
+func (x *MetricState) ProtoReflect() protoreflect.Message {
+	mi := &file_snapshot_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MetricState.ProtoReflect.Descriptor instead.
+func (*MetricState) Descriptor() ([]byte, []int) {
+	return file_snapshot_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *MetricState) GetMetricID() string {
+	if x != nil {
+		return x.MetricID
+	}
+	return ""
+}
+
+func (x *MetricState) GetDoubleValue() float64 {
+	if x != nil {
+		return x.DoubleValue
+	}
+	return 0
+}
+
+func (x *MetricState) GetObservedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ObservedAt
+	}
+	return nil
+}
+
+func (x *MetricState) GetQuality() QualityStatus {
+	if x != nil {
+		return x.Quality
+	}
+	return QualityStatus_QUALITY_STATUS_UNSPECIFIED
+}
+
+// Snapshot holds the latest per-metric state for a single CU.
+// Each metric keeps its own value, observation time, and quality. A bad or
+// uncertain sample replaces the previous state instead of leaving an older
+// good value in place.
 type Snapshot struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	TenantID string                 `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
 	CUCode   string                 `protobuf:"bytes,2,opt,name=CUCode,proto3" json:"CUCode,omitempty"`
-	// Metrics maps metric name → latest good-quality value.
-	Metrics   map[string]float64     `protobuf:"bytes,3,rep,name=Metrics,proto3" json:"Metrics,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
+	Metrics  []*MetricState         `protobuf:"bytes,3,rep,name=Metrics,proto3" json:"Metrics,omitempty"`
+	// UpdatedAt is the timestamp of the latest ingest applied to this CU.
 	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=UpdatedAt,proto3" json:"UpdatedAt,omitempty"`
-	// Stale is true when the snapshot has not been updated within the requested
-	// StaleAgeSeconds threshold (or the server default of 5 minutes).
+	// Stale is true when UpdatedAt is older than the requested StaleAgeSeconds
+	// threshold (or the server default of 5 minutes). Per-metric freshness is
+	// ObservedAt on each MetricState.
 	Stale         bool `protobuf:"varint,5,opt,name=Stale,proto3" json:"Stale,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -40,7 +114,7 @@ type Snapshot struct {
 
 func (x *Snapshot) Reset() {
 	*x = Snapshot{}
-	mi := &file_snapshot_proto_msgTypes[0]
+	mi := &file_snapshot_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -52,7 +126,7 @@ func (x *Snapshot) String() string {
 func (*Snapshot) ProtoMessage() {}
 
 func (x *Snapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_snapshot_proto_msgTypes[0]
+	mi := &file_snapshot_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -65,7 +139,7 @@ func (x *Snapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Snapshot.ProtoReflect.Descriptor instead.
 func (*Snapshot) Descriptor() ([]byte, []int) {
-	return file_snapshot_proto_rawDescGZIP(), []int{0}
+	return file_snapshot_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Snapshot) GetTenantID() string {
@@ -82,7 +156,7 @@ func (x *Snapshot) GetCUCode() string {
 	return ""
 }
 
-func (x *Snapshot) GetMetrics() map[string]float64 {
+func (x *Snapshot) GetMetrics() []*MetricState {
 	if x != nil {
 		return x.Metrics
 	}
@@ -116,7 +190,7 @@ type GetSnapshotRequest struct {
 
 func (x *GetSnapshotRequest) Reset() {
 	*x = GetSnapshotRequest{}
-	mi := &file_snapshot_proto_msgTypes[1]
+	mi := &file_snapshot_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -128,7 +202,7 @@ func (x *GetSnapshotRequest) String() string {
 func (*GetSnapshotRequest) ProtoMessage() {}
 
 func (x *GetSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_snapshot_proto_msgTypes[1]
+	mi := &file_snapshot_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -141,7 +215,7 @@ func (x *GetSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*GetSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_snapshot_proto_rawDescGZIP(), []int{1}
+	return file_snapshot_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetSnapshotRequest) GetTenantID() string {
@@ -165,6 +239,125 @@ func (x *GetSnapshotRequest) GetStaleAgeSeconds() int64 {
 	return 0
 }
 
+// GetSnapshotsRequest returns snapshots for an explicit CU list.
+// CUCodes are resource CU identifiers, the same values stored as Snapshot.CUCode.
+// Callers must name the CUs and metric IDs they need; this RPC does not scan a tenant.
+type GetSnapshotsRequest struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TenantID  string                 `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
+	CUCodes   []string               `protobuf:"bytes,2,rep,name=CUCodes,proto3" json:"CUCodes,omitempty"`
+	MetricIDs []string               `protobuf:"bytes,3,rep,name=MetricIDs,proto3" json:"MetricIDs,omitempty"`
+	// StaleAgeSeconds overrides the server-side default (300 s / 5 min).
+	// Pass 0 to use the default. It only affects Snapshot.Stale (CU-level).
+	StaleAgeSeconds int64 `protobuf:"varint,4,opt,name=StaleAgeSeconds,proto3" json:"StaleAgeSeconds,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetSnapshotsRequest) Reset() {
+	*x = GetSnapshotsRequest{}
+	mi := &file_snapshot_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSnapshotsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSnapshotsRequest) ProtoMessage() {}
+
+func (x *GetSnapshotsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_snapshot_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSnapshotsRequest.ProtoReflect.Descriptor instead.
+func (*GetSnapshotsRequest) Descriptor() ([]byte, []int) {
+	return file_snapshot_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *GetSnapshotsRequest) GetTenantID() string {
+	if x != nil {
+		return x.TenantID
+	}
+	return ""
+}
+
+func (x *GetSnapshotsRequest) GetCUCodes() []string {
+	if x != nil {
+		return x.CUCodes
+	}
+	return nil
+}
+
+func (x *GetSnapshotsRequest) GetMetricIDs() []string {
+	if x != nil {
+		return x.MetricIDs
+	}
+	return nil
+}
+
+func (x *GetSnapshotsRequest) GetStaleAgeSeconds() int64 {
+	if x != nil {
+		return x.StaleAgeSeconds
+	}
+	return 0
+}
+
+type GetSnapshotsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Snapshots follows the request CU order. CUs with no stored snapshot are omitted.
+	// A returned snapshot contains only the requested metric IDs that are present.
+	Snapshots     []*Snapshot `protobuf:"bytes,1,rep,name=Snapshots,proto3" json:"Snapshots,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSnapshotsResponse) Reset() {
+	*x = GetSnapshotsResponse{}
+	mi := &file_snapshot_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSnapshotsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSnapshotsResponse) ProtoMessage() {}
+
+func (x *GetSnapshotsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_snapshot_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSnapshotsResponse.ProtoReflect.Descriptor instead.
+func (*GetSnapshotsResponse) Descriptor() ([]byte, []int) {
+	return file_snapshot_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetSnapshotsResponse) GetSnapshots() []*Snapshot {
+	if x != nil {
+		return x.Snapshots
+	}
+	return nil
+}
+
 type GetFleetSnapshotRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	TenantID string                 `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
@@ -177,7 +370,7 @@ type GetFleetSnapshotRequest struct {
 
 func (x *GetFleetSnapshotRequest) Reset() {
 	*x = GetFleetSnapshotRequest{}
-	mi := &file_snapshot_proto_msgTypes[2]
+	mi := &file_snapshot_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -189,7 +382,7 @@ func (x *GetFleetSnapshotRequest) String() string {
 func (*GetFleetSnapshotRequest) ProtoMessage() {}
 
 func (x *GetFleetSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_snapshot_proto_msgTypes[2]
+	mi := &file_snapshot_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -202,7 +395,7 @@ func (x *GetFleetSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFleetSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*GetFleetSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_snapshot_proto_rawDescGZIP(), []int{2}
+	return file_snapshot_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetFleetSnapshotRequest) GetTenantID() string {
@@ -228,7 +421,7 @@ type GetFleetSnapshotResponse struct {
 
 func (x *GetFleetSnapshotResponse) Reset() {
 	*x = GetFleetSnapshotResponse{}
-	mi := &file_snapshot_proto_msgTypes[3]
+	mi := &file_snapshot_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -240,7 +433,7 @@ func (x *GetFleetSnapshotResponse) String() string {
 func (*GetFleetSnapshotResponse) ProtoMessage() {}
 
 func (x *GetFleetSnapshotResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_snapshot_proto_msgTypes[3]
+	mi := &file_snapshot_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -253,7 +446,7 @@ func (x *GetFleetSnapshotResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFleetSnapshotResponse.ProtoReflect.Descriptor instead.
 func (*GetFleetSnapshotResponse) Descriptor() ([]byte, []int) {
-	return file_snapshot_proto_rawDescGZIP(), []int{3}
+	return file_snapshot_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetFleetSnapshotResponse) GetSnapshots() []*Snapshot {
@@ -267,20 +460,31 @@ var File_snapshot_proto protoreflect.FileDescriptor
 
 const file_snapshot_proto_rawDesc = "" +
 	"\n" +
-	"\x0esnapshot.proto\x12\vtelemetrypb\x1a\x1fgoogle/protobuf/timestamp.proto\"\x88\x02\n" +
+	"\x0esnapshot.proto\x12\vtelemetrypb\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\fcommon.proto\"\xbd\x01\n" +
+	"\vMetricState\x12\x1a\n" +
+	"\bMetricID\x18\x01 \x01(\tR\bMetricID\x12 \n" +
+	"\vDoubleValue\x18\x02 \x01(\x01R\vDoubleValue\x12:\n" +
+	"\n" +
+	"ObservedAt\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"ObservedAt\x124\n" +
+	"\aQuality\x18\x04 \x01(\x0e2\x1a.telemetrypb.QualityStatusR\aQuality\"\xc2\x01\n" +
 	"\bSnapshot\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x16\n" +
-	"\x06CUCode\x18\x02 \x01(\tR\x06CUCode\x12<\n" +
-	"\aMetrics\x18\x03 \x03(\v2\".telemetrypb.Snapshot.MetricsEntryR\aMetrics\x128\n" +
+	"\x06CUCode\x18\x02 \x01(\tR\x06CUCode\x122\n" +
+	"\aMetrics\x18\x03 \x03(\v2\x18.telemetrypb.MetricStateR\aMetrics\x128\n" +
 	"\tUpdatedAt\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tUpdatedAt\x12\x14\n" +
-	"\x05Stale\x18\x05 \x01(\bR\x05Stale\x1a:\n" +
-	"\fMetricsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"r\n" +
+	"\x05Stale\x18\x05 \x01(\bR\x05Stale\"r\n" +
 	"\x12GetSnapshotRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x16\n" +
 	"\x06CUCode\x18\x02 \x01(\tR\x06CUCode\x12(\n" +
-	"\x0fStaleAgeSeconds\x18\x03 \x01(\x03R\x0fStaleAgeSeconds\"_\n" +
+	"\x0fStaleAgeSeconds\x18\x03 \x01(\x03R\x0fStaleAgeSeconds\"\x93\x01\n" +
+	"\x13GetSnapshotsRequest\x12\x1a\n" +
+	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x18\n" +
+	"\aCUCodes\x18\x02 \x03(\tR\aCUCodes\x12\x1c\n" +
+	"\tMetricIDs\x18\x03 \x03(\tR\tMetricIDs\x12(\n" +
+	"\x0fStaleAgeSeconds\x18\x04 \x01(\x03R\x0fStaleAgeSeconds\"K\n" +
+	"\x14GetSnapshotsResponse\x123\n" +
+	"\tSnapshots\x18\x01 \x03(\v2\x15.telemetrypb.SnapshotR\tSnapshots\"_\n" +
 	"\x17GetFleetSnapshotRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12(\n" +
 	"\x0fStaleAgeSeconds\x18\x02 \x01(\x03R\x0fStaleAgeSeconds\"O\n" +
@@ -299,24 +503,30 @@ func file_snapshot_proto_rawDescGZIP() []byte {
 	return file_snapshot_proto_rawDescData
 }
 
-var file_snapshot_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_snapshot_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_snapshot_proto_goTypes = []any{
-	(*Snapshot)(nil),                 // 0: telemetrypb.Snapshot
-	(*GetSnapshotRequest)(nil),       // 1: telemetrypb.GetSnapshotRequest
-	(*GetFleetSnapshotRequest)(nil),  // 2: telemetrypb.GetFleetSnapshotRequest
-	(*GetFleetSnapshotResponse)(nil), // 3: telemetrypb.GetFleetSnapshotResponse
-	nil,                              // 4: telemetrypb.Snapshot.MetricsEntry
-	(*timestamppb.Timestamp)(nil),    // 5: google.protobuf.Timestamp
+	(*MetricState)(nil),              // 0: telemetrypb.MetricState
+	(*Snapshot)(nil),                 // 1: telemetrypb.Snapshot
+	(*GetSnapshotRequest)(nil),       // 2: telemetrypb.GetSnapshotRequest
+	(*GetSnapshotsRequest)(nil),      // 3: telemetrypb.GetSnapshotsRequest
+	(*GetSnapshotsResponse)(nil),     // 4: telemetrypb.GetSnapshotsResponse
+	(*GetFleetSnapshotRequest)(nil),  // 5: telemetrypb.GetFleetSnapshotRequest
+	(*GetFleetSnapshotResponse)(nil), // 6: telemetrypb.GetFleetSnapshotResponse
+	(*timestamppb.Timestamp)(nil),    // 7: google.protobuf.Timestamp
+	(QualityStatus)(0),               // 8: telemetrypb.QualityStatus
 }
 var file_snapshot_proto_depIdxs = []int32{
-	4, // 0: telemetrypb.Snapshot.Metrics:type_name -> telemetrypb.Snapshot.MetricsEntry
-	5, // 1: telemetrypb.Snapshot.UpdatedAt:type_name -> google.protobuf.Timestamp
-	0, // 2: telemetrypb.GetFleetSnapshotResponse.Snapshots:type_name -> telemetrypb.Snapshot
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	7, // 0: telemetrypb.MetricState.ObservedAt:type_name -> google.protobuf.Timestamp
+	8, // 1: telemetrypb.MetricState.Quality:type_name -> telemetrypb.QualityStatus
+	0, // 2: telemetrypb.Snapshot.Metrics:type_name -> telemetrypb.MetricState
+	7, // 3: telemetrypb.Snapshot.UpdatedAt:type_name -> google.protobuf.Timestamp
+	1, // 4: telemetrypb.GetSnapshotsResponse.Snapshots:type_name -> telemetrypb.Snapshot
+	1, // 5: telemetrypb.GetFleetSnapshotResponse.Snapshots:type_name -> telemetrypb.Snapshot
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_snapshot_proto_init() }
@@ -324,13 +534,14 @@ func file_snapshot_proto_init() {
 	if File_snapshot_proto != nil {
 		return
 	}
+	file_common_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_snapshot_proto_rawDesc), len(file_snapshot_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

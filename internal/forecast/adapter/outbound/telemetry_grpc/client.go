@@ -88,7 +88,7 @@ func (c *Client) QueryAggregation(
 	resp, err := c.client.QueryAggregation(ctx, &telemetrypb.QueryAggregationRequest{
 		TenantID:    tenantID,
 		CUCode:      cuCode,
-		MetricName:  metricName,
+		MetricID:    metricName,
 		StartTime:   timestamppb.New(start),
 		EndTime:     timestamppb.New(end),
 		StepSeconds: stepSeconds,

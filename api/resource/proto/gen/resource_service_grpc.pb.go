@@ -41,6 +41,11 @@ const (
 	ResourceService_GetCU_FullMethodName                   = "/resourcepb.ResourceService/GetCU"
 	ResourceService_ListCUs_FullMethodName                 = "/resourcepb.ResourceService/ListCUs"
 	ResourceService_UpdateCU_FullMethodName                = "/resourcepb.ResourceService/UpdateCU"
+	ResourceService_CreateCUCapability_FullMethodName      = "/resourcepb.ResourceService/CreateCUCapability"
+	ResourceService_GetCUCapability_FullMethodName         = "/resourcepb.ResourceService/GetCUCapability"
+	ResourceService_ListCUCapabilities_FullMethodName      = "/resourcepb.ResourceService/ListCUCapabilities"
+	ResourceService_UpdateCUCapability_FullMethodName      = "/resourcepb.ResourceService/UpdateCUCapability"
+	ResourceService_DeleteCUCapability_FullMethodName      = "/resourcepb.ResourceService/DeleteCUCapability"
 	ResourceService_CreatePoint_FullMethodName             = "/resourcepb.ResourceService/CreatePoint"
 	ResourceService_GetPoint_FullMethodName                = "/resourcepb.ResourceService/GetPoint"
 	ResourceService_ListPoints_FullMethodName              = "/resourcepb.ResourceService/ListPoints"
@@ -49,6 +54,7 @@ const (
 	ResourceService_GetJob_FullMethodName                  = "/resourcepb.ResourceService/GetJob"
 	ResourceService_SubmitBatchImport_FullMethodName       = "/resourcepb.ResourceService/SubmitBatchImport"
 	ResourceService_RetryJob_FullMethodName                = "/resourcepb.ResourceService/RetryJob"
+	ResourceService_ResolveScope_FullMethodName            = "/resourcepb.ResourceService/ResolveScope"
 )
 
 // ResourceServiceClient is the client API for ResourceService service.
@@ -79,6 +85,11 @@ type ResourceServiceClient interface {
 	GetCU(ctx context.Context, in *GetCURequest, opts ...grpc.CallOption) (*CU, error)
 	ListCUs(ctx context.Context, in *ListCUsRequest, opts ...grpc.CallOption) (*ListCUsResponse, error)
 	UpdateCU(ctx context.Context, in *UpdateCURequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreateCUCapability(ctx context.Context, in *CreateCUCapabilityRequest, opts ...grpc.CallOption) (*CreateCUCapabilityResponse, error)
+	GetCUCapability(ctx context.Context, in *GetCUCapabilityRequest, opts ...grpc.CallOption) (*CUCapability, error)
+	ListCUCapabilities(ctx context.Context, in *ListCUCapabilitiesRequest, opts ...grpc.CallOption) (*ListCUCapabilitiesResponse, error)
+	UpdateCUCapability(ctx context.Context, in *UpdateCUCapabilityRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteCUCapability(ctx context.Context, in *DeleteCUCapabilityRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreatePoint(ctx context.Context, in *CreatePointRequest, opts ...grpc.CallOption) (*CreatePointResponse, error)
 	GetPoint(ctx context.Context, in *GetPointRequest, opts ...grpc.CallOption) (*Point, error)
 	ListPoints(ctx context.Context, in *ListPointsRequest, opts ...grpc.CallOption) (*ListPointsResponse, error)
@@ -87,6 +98,10 @@ type ResourceServiceClient interface {
 	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*Job, error)
 	SubmitBatchImport(ctx context.Context, in *SubmitBatchRequest, opts ...grpc.CallOption) (*SubmitBatchResponse, error)
 	RetryJob(ctx context.Context, in *RetryJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// ResolveScope is an internal Decision RPC. It expands a site, asset, or CU
+	// by node path and returns the capability and metric-binding snapshot needed
+	// to plan control. It has no public HTTP mapping.
+	ResolveScope(ctx context.Context, in *ResolveScopeRequest, opts ...grpc.CallOption) (*ResolveScopeResponse, error)
 }
 
 type resourceServiceClient struct {
@@ -307,6 +322,56 @@ func (c *resourceServiceClient) UpdateCU(ctx context.Context, in *UpdateCUReques
 	return out, nil
 }
 
+func (c *resourceServiceClient) CreateCUCapability(ctx context.Context, in *CreateCUCapabilityRequest, opts ...grpc.CallOption) (*CreateCUCapabilityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateCUCapabilityResponse)
+	err := c.cc.Invoke(ctx, ResourceService_CreateCUCapability_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *resourceServiceClient) GetCUCapability(ctx context.Context, in *GetCUCapabilityRequest, opts ...grpc.CallOption) (*CUCapability, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CUCapability)
+	err := c.cc.Invoke(ctx, ResourceService_GetCUCapability_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *resourceServiceClient) ListCUCapabilities(ctx context.Context, in *ListCUCapabilitiesRequest, opts ...grpc.CallOption) (*ListCUCapabilitiesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCUCapabilitiesResponse)
+	err := c.cc.Invoke(ctx, ResourceService_ListCUCapabilities_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *resourceServiceClient) UpdateCUCapability(ctx context.Context, in *UpdateCUCapabilityRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ResourceService_UpdateCUCapability_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *resourceServiceClient) DeleteCUCapability(ctx context.Context, in *DeleteCUCapabilityRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ResourceService_DeleteCUCapability_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *resourceServiceClient) CreatePoint(ctx context.Context, in *CreatePointRequest, opts ...grpc.CallOption) (*CreatePointResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreatePointResponse)
@@ -387,6 +452,16 @@ func (c *resourceServiceClient) RetryJob(ctx context.Context, in *RetryJobReques
 	return out, nil
 }
 
+func (c *resourceServiceClient) ResolveScope(ctx context.Context, in *ResolveScopeRequest, opts ...grpc.CallOption) (*ResolveScopeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolveScopeResponse)
+	err := c.cc.Invoke(ctx, ResourceService_ResolveScope_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ResourceServiceServer is the server API for ResourceService service.
 // All implementations should embed UnimplementedResourceServiceServer
 // for forward compatibility.
@@ -415,6 +490,11 @@ type ResourceServiceServer interface {
 	GetCU(context.Context, *GetCURequest) (*CU, error)
 	ListCUs(context.Context, *ListCUsRequest) (*ListCUsResponse, error)
 	UpdateCU(context.Context, *UpdateCURequest) (*emptypb.Empty, error)
+	CreateCUCapability(context.Context, *CreateCUCapabilityRequest) (*CreateCUCapabilityResponse, error)
+	GetCUCapability(context.Context, *GetCUCapabilityRequest) (*CUCapability, error)
+	ListCUCapabilities(context.Context, *ListCUCapabilitiesRequest) (*ListCUCapabilitiesResponse, error)
+	UpdateCUCapability(context.Context, *UpdateCUCapabilityRequest) (*emptypb.Empty, error)
+	DeleteCUCapability(context.Context, *DeleteCUCapabilityRequest) (*emptypb.Empty, error)
 	CreatePoint(context.Context, *CreatePointRequest) (*CreatePointResponse, error)
 	GetPoint(context.Context, *GetPointRequest) (*Point, error)
 	ListPoints(context.Context, *ListPointsRequest) (*ListPointsResponse, error)
@@ -423,6 +503,10 @@ type ResourceServiceServer interface {
 	GetJob(context.Context, *GetJobRequest) (*Job, error)
 	SubmitBatchImport(context.Context, *SubmitBatchRequest) (*SubmitBatchResponse, error)
 	RetryJob(context.Context, *RetryJobRequest) (*emptypb.Empty, error)
+	// ResolveScope is an internal Decision RPC. It expands a site, asset, or CU
+	// by node path and returns the capability and metric-binding snapshot needed
+	// to plan control. It has no public HTTP mapping.
+	ResolveScope(context.Context, *ResolveScopeRequest) (*ResolveScopeResponse, error)
 }
 
 // UnimplementedResourceServiceServer should be embedded to have
@@ -495,6 +579,21 @@ func (UnimplementedResourceServiceServer) ListCUs(context.Context, *ListCUsReque
 func (UnimplementedResourceServiceServer) UpdateCU(context.Context, *UpdateCURequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateCU not implemented")
 }
+func (UnimplementedResourceServiceServer) CreateCUCapability(context.Context, *CreateCUCapabilityRequest) (*CreateCUCapabilityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateCUCapability not implemented")
+}
+func (UnimplementedResourceServiceServer) GetCUCapability(context.Context, *GetCUCapabilityRequest) (*CUCapability, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCUCapability not implemented")
+}
+func (UnimplementedResourceServiceServer) ListCUCapabilities(context.Context, *ListCUCapabilitiesRequest) (*ListCUCapabilitiesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListCUCapabilities not implemented")
+}
+func (UnimplementedResourceServiceServer) UpdateCUCapability(context.Context, *UpdateCUCapabilityRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateCUCapability not implemented")
+}
+func (UnimplementedResourceServiceServer) DeleteCUCapability(context.Context, *DeleteCUCapabilityRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteCUCapability not implemented")
+}
 func (UnimplementedResourceServiceServer) CreatePoint(context.Context, *CreatePointRequest) (*CreatePointResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreatePoint not implemented")
 }
@@ -518,6 +617,9 @@ func (UnimplementedResourceServiceServer) SubmitBatchImport(context.Context, *Su
 }
 func (UnimplementedResourceServiceServer) RetryJob(context.Context, *RetryJobRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method RetryJob not implemented")
+}
+func (UnimplementedResourceServiceServer) ResolveScope(context.Context, *ResolveScopeRequest) (*ResolveScopeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolveScope not implemented")
 }
 func (UnimplementedResourceServiceServer) testEmbeddedByValue() {}
 
@@ -917,6 +1019,96 @@ func _ResourceService_UpdateCU_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ResourceService_CreateCUCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateCUCapabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceServiceServer).CreateCUCapability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ResourceService_CreateCUCapability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceServiceServer).CreateCUCapability(ctx, req.(*CreateCUCapabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ResourceService_GetCUCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCUCapabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceServiceServer).GetCUCapability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ResourceService_GetCUCapability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceServiceServer).GetCUCapability(ctx, req.(*GetCUCapabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ResourceService_ListCUCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCUCapabilitiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceServiceServer).ListCUCapabilities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ResourceService_ListCUCapabilities_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceServiceServer).ListCUCapabilities(ctx, req.(*ListCUCapabilitiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ResourceService_UpdateCUCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateCUCapabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceServiceServer).UpdateCUCapability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ResourceService_UpdateCUCapability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceServiceServer).UpdateCUCapability(ctx, req.(*UpdateCUCapabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ResourceService_DeleteCUCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteCUCapabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceServiceServer).DeleteCUCapability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ResourceService_DeleteCUCapability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceServiceServer).DeleteCUCapability(ctx, req.(*DeleteCUCapabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ResourceService_CreatePoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreatePointRequest)
 	if err := dec(in); err != nil {
@@ -1061,6 +1253,24 @@ func _ResourceService_RetryJob_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ResourceService_ResolveScope_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveScopeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceServiceServer).ResolveScope(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ResourceService_ResolveScope_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceServiceServer).ResolveScope(ctx, req.(*ResolveScopeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ResourceService_ServiceDesc is the grpc.ServiceDesc for ResourceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1153,6 +1363,26 @@ var ResourceService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ResourceService_UpdateCU_Handler,
 		},
 		{
+			MethodName: "CreateCUCapability",
+			Handler:    _ResourceService_CreateCUCapability_Handler,
+		},
+		{
+			MethodName: "GetCUCapability",
+			Handler:    _ResourceService_GetCUCapability_Handler,
+		},
+		{
+			MethodName: "ListCUCapabilities",
+			Handler:    _ResourceService_ListCUCapabilities_Handler,
+		},
+		{
+			MethodName: "UpdateCUCapability",
+			Handler:    _ResourceService_UpdateCUCapability_Handler,
+		},
+		{
+			MethodName: "DeleteCUCapability",
+			Handler:    _ResourceService_DeleteCUCapability_Handler,
+		},
+		{
 			MethodName: "CreatePoint",
 			Handler:    _ResourceService_CreatePoint_Handler,
 		},
@@ -1183,6 +1413,10 @@ var ResourceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RetryJob",
 			Handler:    _ResourceService_RetryJob_Handler,
+		},
+		{
+			MethodName: "ResolveScope",
+			Handler:    _ResourceService_ResolveScope_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -49,10 +49,10 @@ func (t *TelemetryRecord) Validate() error {
 	return nil
 }
 
-// MetricByName returns the first metric with the given name, or nil if not found.
-func (t *TelemetryRecord) MetricByName(name string) *Metric {
+// MetricByID returns the first metric with the given canonical metric ID, or nil.
+func (t *TelemetryRecord) MetricByID(metricID string) *Metric {
 	for i := range t.Metrics {
-		if t.Metrics[i].Name == name {
+		if t.Metrics[i].MetricID == metricID {
 			return &t.Metrics[i]
 		}
 	}

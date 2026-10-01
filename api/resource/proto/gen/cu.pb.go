@@ -165,7 +165,6 @@ type CU struct {
 	ParentID       string                 `protobuf:"bytes,3,opt,name=ParentID,proto3" json:"ParentID,omitempty"`
 	Name           string                 `protobuf:"bytes,4,opt,name=Name,proto3" json:"Name,omitempty"`
 	Type           string                 `protobuf:"bytes,5,opt,name=Type,proto3" json:"Type,omitempty"`
-	CapabilityTags []string               `protobuf:"bytes,6,rep,name=CapabilityTags,proto3" json:"CapabilityTags,omitempty"`
 	Metadata       *structpb.Struct       `protobuf:"bytes,7,opt,name=Metadata,proto3" json:"Metadata,omitempty"`
 	Protocol       string                 `protobuf:"bytes,8,opt,name=Protocol,proto3" json:"Protocol,omitempty"`
 	ProtocolConfig *structpb.Struct       `protobuf:"bytes,9,opt,name=ProtocolConfig,proto3" json:"ProtocolConfig,omitempty"`
@@ -242,13 +241,6 @@ func (x *CU) GetType() string {
 	return ""
 }
 
-func (x *CU) GetCapabilityTags() []string {
-	if x != nil {
-		return x.CapabilityTags
-	}
-	return nil
-}
-
 func (x *CU) GetMetadata() *structpb.Struct {
 	if x != nil {
 		return x.Metadata
@@ -304,7 +296,6 @@ type CreateCURequest struct {
 	ParentID       string                 `protobuf:"bytes,2,opt,name=ParentID,proto3" json:"ParentID,omitempty"`
 	Name           string                 `protobuf:"bytes,3,opt,name=Name,proto3" json:"Name,omitempty"`
 	Type           string                 `protobuf:"bytes,4,opt,name=Type,proto3" json:"Type,omitempty"`
-	CapabilityTags []string               `protobuf:"bytes,5,rep,name=CapabilityTags,proto3" json:"CapabilityTags,omitempty"`
 	Metadata       *structpb.Struct       `protobuf:"bytes,6,opt,name=Metadata,proto3" json:"Metadata,omitempty"`
 	Protocol       string                 `protobuf:"bytes,7,opt,name=Protocol,proto3" json:"Protocol,omitempty"`
 	ProtocolConfig *structpb.Struct       `protobuf:"bytes,8,opt,name=ProtocolConfig,proto3" json:"ProtocolConfig,omitempty"`
@@ -372,13 +363,6 @@ func (x *CreateCURequest) GetType() string {
 		return x.Type
 	}
 	return ""
-}
-
-func (x *CreateCURequest) GetCapabilityTags() []string {
-	if x != nil {
-		return x.CapabilityTags
-	}
-	return nil
 }
 
 func (x *CreateCURequest) GetMetadata() *structpb.Struct {
@@ -480,7 +464,6 @@ type UpdateCURequest struct {
 	ID             string                 `protobuf:"bytes,2,opt,name=ID,proto3" json:"ID,omitempty"`
 	Name           string                 `protobuf:"bytes,3,opt,name=Name,proto3" json:"Name,omitempty"`
 	Type           string                 `protobuf:"bytes,4,opt,name=Type,proto3" json:"Type,omitempty"`
-	CapabilityTags []string               `protobuf:"bytes,5,rep,name=CapabilityTags,proto3" json:"CapabilityTags,omitempty"`
 	Metadata       *structpb.Struct       `protobuf:"bytes,6,opt,name=Metadata,proto3" json:"Metadata,omitempty"`
 	Protocol       string                 `protobuf:"bytes,7,opt,name=Protocol,proto3" json:"Protocol,omitempty"`
 	ProtocolConfig *structpb.Struct       `protobuf:"bytes,8,opt,name=ProtocolConfig,proto3" json:"ProtocolConfig,omitempty"`
@@ -547,13 +530,6 @@ func (x *UpdateCURequest) GetType() string {
 		return x.Type
 	}
 	return ""
-}
-
-func (x *UpdateCURequest) GetCapabilityTags() []string {
-	if x != nil {
-		return x.CapabilityTags
-	}
-	return nil
 }
 
 func (x *UpdateCURequest) GetMetadata() *structpb.Struct {
@@ -656,7 +632,7 @@ type ListCUsRequest struct {
 	SiteID        string                 `protobuf:"bytes,2,opt,name=SiteID,proto3" json:"SiteID,omitempty"`
 	AssetID       string                 `protobuf:"bytes,3,opt,name=AssetID,proto3" json:"AssetID,omitempty"`
 	ParentID      string                 `protobuf:"bytes,4,opt,name=ParentID,proto3" json:"ParentID,omitempty"`
-	Capability    []string               `protobuf:"bytes,5,rep,name=Capability,proto3" json:"Capability,omitempty"`
+	CapabilityIDs []string               `protobuf:"bytes,5,rep,name=CapabilityIDs,proto3" json:"CapabilityIDs,omitempty"`
 	IDs           []string               `protobuf:"bytes,6,rep,name=IDs,proto3" json:"IDs,omitempty"`
 	NameLike      string                 `protobuf:"bytes,7,opt,name=NameLike,proto3" json:"NameLike,omitempty"`
 	Offset        int32                  `protobuf:"varint,8,opt,name=Offset,proto3" json:"Offset,omitempty"`
@@ -723,9 +699,9 @@ func (x *ListCUsRequest) GetParentID() string {
 	return ""
 }
 
-func (x *ListCUsRequest) GetCapability() []string {
+func (x *ListCUsRequest) GetCapabilityIDs() []string {
 	if x != nil {
-		return x.Capability
+		return x.CapabilityIDs
 	}
 	return nil
 }
@@ -807,7 +783,6 @@ type CUItem struct {
 	ParentID       string                 `protobuf:"bytes,1,opt,name=ParentID,proto3" json:"ParentID,omitempty"`
 	Name           string                 `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
 	Type           string                 `protobuf:"bytes,3,opt,name=Type,proto3" json:"Type,omitempty"`
-	CapabilityTags []string               `protobuf:"bytes,4,rep,name=CapabilityTags,proto3" json:"CapabilityTags,omitempty"`
 	Metadata       *structpb.Struct       `protobuf:"bytes,5,opt,name=Metadata,proto3" json:"Metadata,omitempty"`
 	Protocol       string                 `protobuf:"bytes,6,opt,name=Protocol,proto3" json:"Protocol,omitempty"`
 	ProtocolConfig *structpb.Struct       `protobuf:"bytes,7,opt,name=ProtocolConfig,proto3" json:"ProtocolConfig,omitempty"`
@@ -869,13 +844,6 @@ func (x *CUItem) GetType() string {
 	return ""
 }
 
-func (x *CUItem) GetCapabilityTags() []string {
-	if x != nil {
-		return x.CapabilityTags
-	}
-	return nil
-}
-
 func (x *CUItem) GetMetadata() *structpb.Struct {
 	if x != nil {
 		return x.Metadata
@@ -933,14 +901,13 @@ const file_modules_cu_proto_rawDesc = "" +
 	"\x04Host\x18\x01 \x01(\tR\x04Host\x12\x12\n" +
 	"\x04Port\x18\x02 \x01(\x05R\x04Port\x12\x18\n" +
 	"\aTimeout\x18\x03 \x01(\x05R\aTimeout\x129\n" +
-	"\vRetryPolicy\x18\x04 \x01(\v2\x17.resourcepb.RetryPolicyR\vRetryPolicy\"\xeb\x03\n" +
+	"\vRetryPolicy\x18\x04 \x01(\v2\x17.resourcepb.RetryPolicyR\vRetryPolicy\"\xd9\x03\n" +
 	"\x02CU\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x1a\n" +
 	"\bTenantID\x18\x02 \x01(\tR\bTenantID\x12\x1a\n" +
 	"\bParentID\x18\x03 \x01(\tR\bParentID\x12\x12\n" +
 	"\x04Name\x18\x04 \x01(\tR\x04Name\x12\x12\n" +
-	"\x04Type\x18\x05 \x01(\tR\x04Type\x12&\n" +
-	"\x0eCapabilityTags\x18\x06 \x03(\tR\x0eCapabilityTags\x123\n" +
+	"\x04Type\x18\x05 \x01(\tR\x04Type\x123\n" +
 	"\bMetadata\x18\a \x01(\v2\x17.google.protobuf.StructR\bMetadata\x12\x1a\n" +
 	"\bProtocol\x18\b \x01(\tR\bProtocol\x12?\n" +
 	"\x0eProtocolConfig\x18\t \x01(\v2\x17.google.protobuf.StructR\x0eProtocolConfig\x12\x1a\n" +
@@ -952,14 +919,13 @@ const file_modules_cu_proto_rawDesc = "" +
 	"Connection\x18\r \x01(\v2\x1c.resourcepb.ConnectionConfigR\n" +
 	"Connection\x12/\n" +
 	"\aRuntime\x18\x0e \x01(\v2\x15.resourcepb.CURuntimeR\aRuntimeJ\x04\b\n" +
-	"\x10\vR\n" +
-	"ConnStatus\"\xc7\x03\n" +
+	"\x10\vJ\x04\b\x06\x10\aR\n" +
+	"ConnStatusR\x0eCapabilityTags\"\xb5\x03\n" +
 	"\x0fCreateCURequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x1a\n" +
 	"\bParentID\x18\x02 \x01(\tR\bParentID\x12\x12\n" +
 	"\x04Name\x18\x03 \x01(\tR\x04Name\x12\x12\n" +
-	"\x04Type\x18\x04 \x01(\tR\x04Type\x12&\n" +
-	"\x0eCapabilityTags\x18\x05 \x03(\tR\x0eCapabilityTags\x123\n" +
+	"\x04Type\x18\x04 \x01(\tR\x04Type\x123\n" +
 	"\bMetadata\x18\x06 \x01(\v2\x17.google.protobuf.StructR\bMetadata\x12\x1a\n" +
 	"\bProtocol\x18\a \x01(\tR\bProtocol\x12?\n" +
 	"\x0eProtocolConfig\x18\b \x01(\v2\x17.google.protobuf.StructR\x0eProtocolConfig\x12\x1a\n" +
@@ -971,15 +937,14 @@ const file_modules_cu_proto_rawDesc = "" +
 	"\n" +
 	"Connection\x18\v \x01(\v2\x1c.resourcepb.ConnectionConfigR\n" +
 	"Connection\x12 \n" +
-	"\vDescription\x18\f \x01(\tR\vDescription\"&\n" +
+	"\vDescription\x18\f \x01(\tR\vDescriptionJ\x04\b\x05\x10\x06R\x0eCapabilityTags\"&\n" +
 	"\x10CreateCUResponse\x12\x12\n" +
-	"\x04CUID\x18\x01 \x01(\tR\x04CUID\"\xab\x03\n" +
+	"\x04CUID\x18\x01 \x01(\tR\x04CUID\"\x99\x03\n" +
 	"\x0fUpdateCURequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x0e\n" +
 	"\x02ID\x18\x02 \x01(\tR\x02ID\x12\x12\n" +
 	"\x04Name\x18\x03 \x01(\tR\x04Name\x12\x12\n" +
-	"\x04Type\x18\x04 \x01(\tR\x04Type\x12&\n" +
-	"\x0eCapabilityTags\x18\x05 \x03(\tR\x0eCapabilityTags\x123\n" +
+	"\x04Type\x18\x04 \x01(\tR\x04Type\x123\n" +
 	"\bMetadata\x18\x06 \x01(\v2\x17.google.protobuf.StructR\bMetadata\x12\x1a\n" +
 	"\bProtocol\x18\a \x01(\tR\bProtocol\x12?\n" +
 	"\x0eProtocolConfig\x18\b \x01(\v2\x17.google.protobuf.StructR\x0eProtocolConfig\x12\x1a\n" +
@@ -990,30 +955,27 @@ const file_modules_cu_proto_rawDesc = "" +
 	"ExternalID\x12<\n" +
 	"\n" +
 	"Connection\x18\v \x01(\v2\x1c.resourcepb.ConnectionConfigR\n" +
-	"ConnectionJ\x04\b\f\x10\rR\n" +
-	"ConnStatus\":\n" +
+	"ConnectionJ\x04\b\f\x10\rJ\x04\b\x05\x10\x06R\n" +
+	"ConnStatusR\x0eCapabilityTags\":\n" +
 	"\fGetCURequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x0e\n" +
-	"\x02ID\x18\x02 \x01(\tR\x02ID\"\xf6\x01\n" +
+	"\x02ID\x18\x02 \x01(\tR\x02ID\"\xfc\x01\n" +
 	"\x0eListCUsRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x16\n" +
 	"\x06SiteID\x18\x02 \x01(\tR\x06SiteID\x12\x18\n" +
 	"\aAssetID\x18\x03 \x01(\tR\aAssetID\x12\x1a\n" +
-	"\bParentID\x18\x04 \x01(\tR\bParentID\x12\x1e\n" +
-	"\n" +
-	"Capability\x18\x05 \x03(\tR\n" +
-	"Capability\x12\x10\n" +
+	"\bParentID\x18\x04 \x01(\tR\bParentID\x12$\n" +
+	"\rCapabilityIDs\x18\x05 \x03(\tR\rCapabilityIDs\x12\x10\n" +
 	"\x03IDs\x18\x06 \x03(\tR\x03IDs\x12\x1a\n" +
 	"\bNameLike\x18\a \x01(\tR\bNameLike\x12\x16\n" +
 	"\x06Offset\x18\b \x01(\x05R\x06Offset\x12\x14\n" +
 	"\x05Limit\x18\t \x01(\x05R\x05Limit\"3\n" +
 	"\x0fListCUsResponse\x12 \n" +
-	"\x03CUs\x18\x01 \x03(\v2\x0e.resourcepb.CUR\x03CUs\"\x80\x03\n" +
+	"\x03CUs\x18\x01 \x03(\v2\x0e.resourcepb.CUR\x03CUs\"\xee\x02\n" +
 	"\x06CUItem\x12\x1a\n" +
 	"\bParentID\x18\x01 \x01(\tR\bParentID\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x12\n" +
-	"\x04Type\x18\x03 \x01(\tR\x04Type\x12&\n" +
-	"\x0eCapabilityTags\x18\x04 \x03(\tR\x0eCapabilityTags\x123\n" +
+	"\x04Type\x18\x03 \x01(\tR\x04Type\x123\n" +
 	"\bMetadata\x18\x05 \x01(\v2\x17.google.protobuf.StructR\bMetadata\x12\x1a\n" +
 	"\bProtocol\x18\x06 \x01(\tR\bProtocol\x12?\n" +
 	"\x0eProtocolConfig\x18\a \x01(\v2\x17.google.protobuf.StructR\x0eProtocolConfig\x12\x1a\n" +
@@ -1024,7 +986,7 @@ const file_modules_cu_proto_rawDesc = "" +
 	"\n" +
 	"Connection\x18\n" +
 	" \x01(\v2\x1c.resourcepb.ConnectionConfigR\n" +
-	"ConnectionBGZEgithub.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepbb\x06proto3"
+	"ConnectionJ\x04\b\x04\x10\x05R\x0eCapabilityTagsBGZEgithub.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepbb\x06proto3"
 
 var (
 	file_modules_cu_proto_rawDescOnce sync.Once

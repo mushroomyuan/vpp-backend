@@ -34,6 +34,9 @@ func resourceOf(path string) string {
 	if strings.Contains(path, "/points") {
 		return "resource:points"
 	}
+	if strings.Contains(path, "/capabilities") {
+		return "resource:cus"
+	}
 	if strings.Contains(path, "/cus") {
 		return "resource:cus"
 	}

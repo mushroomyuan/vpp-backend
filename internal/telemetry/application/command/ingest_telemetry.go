@@ -19,10 +19,10 @@ import (
 // Using domain value types (MetricType, QualityStatus) is intentional:
 // they carry no infrastructure coupling and are safe to expose here.
 type MetricInput struct {
-	Name    string
-	Value   float64
-	Type    model.MetricType
-	Quality model.QualityStatus
+	MetricID string
+	Value    float64
+	Type     model.MetricType
+	Quality  model.QualityStatus
 }
 
 // IngestTelemetry carries one push from a single CU: one timestamp, N metrics.
@@ -80,7 +80,7 @@ func (h ingestTelemetryHandler) Handle(ctx context.Context, cmd IngestTelemetry)
 	// Step 1: build and validate the domain record.
 	metrics := make([]model.Metric, 0, len(cmd.Metrics))
 	for _, m := range cmd.Metrics {
-		metrics = append(metrics, model.NewMetricWithQuality(m.Name, m.Value, m.Type, m.Quality))
+		metrics = append(metrics, model.NewMetricWithQuality(m.MetricID, m.Value, m.Type, m.Quality))
 	}
 	record, err := model.NewTelemetryRecord(cmd.TenantID, cmd.CUCode, cmd.Timestamp, metrics)
 	if err != nil {

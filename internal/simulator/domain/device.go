@@ -6,7 +6,6 @@ import "time"
 type PointDef struct {
 	ID          string
 	PointKey    string
-	DataType    string
 	ControlFlag bool
 	IsVirtual   bool
 }

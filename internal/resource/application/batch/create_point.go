@@ -47,7 +47,7 @@ func BatchCreatePoints(
 		if err := item.Validate(); err != nil {
 			failedItems = append(failedItems, types.BatchItemError{
 				Index:  i,
-				Name:   item.PointKey,
+				Name:   item.MetricID,
 				Reason: err.Error(),
 			})
 		}
@@ -76,19 +76,16 @@ func BatchCreatePoints(
 		for _, item := range chunk {
 			id := idgen.Must()
 			point, err := model.NewPoint(model.CreatePointParams{
-				ID:               id,
-				TenantID:         tenantID,
-				AssetID:          assetID,
-				CUID:             cuID,
-				PointKey:         item.PointKey,
-				ExternalAddress:  item.ExternalAddress,
-				DataType:         item.DataType,
-				ExtConfig:        item.ExtConfig,
-				Description:      item.Description,
-				ControlFlag:      item.ControlFlag,
-				IsVirtual:        item.IsVirtual,
-				SafetyThresholds: item.SafetyThresholds,
-				CacheKeyAlias:    item.CacheKeyAlias,
+				ID:              id,
+				TenantID:        tenantID,
+				AssetID:         assetID,
+				CUID:            cuID,
+				MetricID:        item.MetricID,
+				ExternalAddress: item.ExternalAddress,
+				AccessMode:      item.AccessMode,
+				Scale:           item.Scale, Offset: item.Offset,
+				Enabled:          item.Enabled,
+				SafetyConstraint: item.SafetyConstraint,
 			})
 			if err != nil {
 				return nil, compensateCreated(ctx, tenantID, allIDs, pointRepo.BatchDelete,

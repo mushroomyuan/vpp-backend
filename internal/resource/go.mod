@@ -3,6 +3,7 @@ module github.com/mushroomyuan/vpp-backend/resource
 go 1.26.2
 
 replace (
+	github.com/mushroomyuan/vpp-backend/api/contracts => ../../api/contracts
 	github.com/mushroomyuan/vpp-backend/api/resource/proto/gen => ../../api/resource/proto/gen
 	github.com/mushroomyuan/vpp-backend/platform => ../platform
 )
@@ -11,6 +12,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0
+	github.com/mushroomyuan/vpp-backend/api/contracts v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/api/resource/proto/gen v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/platform v0.0.0-00010101000000-000000000000
 	github.com/redis/go-redis/v9 v9.19.0

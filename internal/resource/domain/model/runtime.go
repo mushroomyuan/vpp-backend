@@ -33,17 +33,3 @@ type CURuntime struct {
 
 	UpdatedAt time.Time
 }
-
-// PointRuntime is latest cached value for a point (e.g. Redis point:{id}:runtime).
-type PointRuntime struct {
-	PointID  string
-	TenantID string
-
-	Value         *string
-	NumericValue  *float64
-	QualityStatus *string
-	Sequence      int64
-
-	SampledAt time.Time
-	UpdatedAt time.Time
-}

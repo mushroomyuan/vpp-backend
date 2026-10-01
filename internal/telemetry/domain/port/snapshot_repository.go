@@ -26,4 +26,12 @@ type SnapshotRepository interface {
 		ctx context.Context,
 		tenantID string,
 	) ([]*model.Snapshot, error)
+
+	// FindByCUs returns snapshots for the given CU codes, in request order.
+	// CUs with no stored snapshot are omitted. This does not scan the tenant.
+	FindByCUs(
+		ctx context.Context,
+		tenantID string,
+		cuCodes []string,
+	) ([]*model.Snapshot, error)
 }

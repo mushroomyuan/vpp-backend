@@ -3,6 +3,7 @@ package query
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,6 +55,22 @@ func (r *stubSnapshotRepo) FindAll(context.Context, string) ([]*model.Snapshot, 
 	return nil, errors.New("not implemented")
 }
 
+func (r *stubSnapshotRepo) FindByCUs(_ context.Context, tenantID string, cuCodes []string) ([]*model.Snapshot, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.snap == nil {
+		return nil, nil
+	}
+	out := make([]*model.Snapshot, 0, len(cuCodes))
+	for _, cu := range cuCodes {
+		if r.snap.TenantID == tenantID && r.snap.CUCode == cu {
+			out = append(out, r.snap)
+		}
+	}
+	return out, nil
+}
+
 var (
 	_ port.TelemetryRepository   = (*stubTelemetryRepo)(nil)
 	_ port.AggregationRepository = (*stubAggRepo)(nil)
@@ -77,9 +94,9 @@ func TestQueryTelemetry_RangePolicy(t *testing.T) {
 	h2 := queryTelemetryHandler{telemetryRepo: repo}
 	end := start.Add(24 * time.Hour)
 	_, err = h2.Handle(ctx, QueryTelemetry{
-		TenantID: "t", CUCode: "c", MetricName: "p", StartTime: start, EndTime: end,
+		TenantID: "t", CUCode: "c", MetricID: "electrical.active_power.v1", StartTime: start, EndTime: end,
 	})
-	if err != nil || !repo.called || repo.cond.MetricName != "p" {
+	if err != nil || !repo.called || repo.cond.MetricID != "electrical.active_power.v1" {
 		t.Fatalf("err=%v called=%v cond=%+v", err, repo.called, repo.cond)
 	}
 
@@ -103,7 +120,7 @@ func TestQueryAggregation_RangeAndValidate(t *testing.T) {
 
 	h := queryAggregationHandler{aggRepo: &stubAggRepo{}}
 	_, err := h.Handle(ctx, QueryAggregation{
-		TenantID: "t", CUCode: "c", MetricName: "p",
+		TenantID: "t", CUCode: "c", MetricID: "electrical.active_power.v1",
 		StartTime: start, EndTime: start.Add(40 * 24 * time.Hour),
 		Step: time.Minute, Functions: []model.AggFunction{model.AggAvg},
 	})
@@ -114,7 +131,7 @@ func TestQueryAggregation_RangeAndValidate(t *testing.T) {
 	repo := &stubAggRepo{}
 	h2 := queryAggregationHandler{aggRepo: repo}
 	_, err = h2.Handle(ctx, QueryAggregation{
-		TenantID: "t", CUCode: "c", MetricName: "p",
+		TenantID: "t", CUCode: "c", MetricID: "electrical.active_power.v1",
 		StartTime: start, EndTime: start.Add(time.Hour),
 		Step: 0, Functions: []model.AggFunction{model.AggAvg},
 	})
@@ -123,7 +140,7 @@ func TestQueryAggregation_RangeAndValidate(t *testing.T) {
 	}
 
 	_, err = h2.Handle(ctx, QueryAggregation{
-		TenantID: "t", CUCode: "c", MetricName: "p",
+		TenantID: "t", CUCode: "c", MetricID: "electrical.active_power.v1",
 		StartTime: start, EndTime: start.Add(time.Hour),
 		Step: time.Minute, Functions: []model.AggFunction{model.AggMax},
 	})
@@ -137,11 +154,11 @@ func TestSnapshotToViewAndGetSnapshot(t *testing.T) {
 
 	s := model.NewSnapshot("t", "cu")
 	s.UpdatedAt = time.Now().Add(-10 * time.Minute)
-	v := snapshotToView(s, 5*time.Minute)
+	v := snapshotToView(s, nil, 5*time.Minute)
 	if !v.Stale || v.CUCode != "cu" {
 		t.Fatalf("view = %+v", v)
 	}
-	v2 := snapshotToView(s, 0)
+	v2 := snapshotToView(s, nil, 0)
 	if v2.Stale {
 		t.Fatal("staleAge 0 should skip check")
 	}
@@ -160,5 +177,50 @@ func TestSnapshotToViewAndGetSnapshot(t *testing.T) {
 	})
 	if err != nil || got.Stale {
 		t.Fatalf("custom age: stale=%v err=%v", got.Stale, err)
+	}
+}
+
+func TestGetSnapshots_FiltersMetricsAndSkipsMissingCUs(t *testing.T) {
+	t.Parallel()
+	observed := time.Unix(1700000000, 0).UTC()
+	snap := model.NewSnapshot("t", "cu-1")
+	snap.UpdatedAt = time.Now()
+	snap.Metrics = map[string]model.MetricState{
+		"electrical.active_power.v1": {
+			MetricID: "electrical.active_power.v1", Value: 12, ObservedAt: observed, Quality: model.QualityGood,
+		},
+		"energy_storage.state_of_charge.v1": {
+			MetricID: "energy_storage.state_of_charge.v1", Value: 40, ObservedAt: observed, Quality: model.QualityBad,
+		},
+	}
+	h := getSnapshotsHandler{snapshotRepo: &stubSnapshotRepo{snap: snap}}
+	views, err := h.Handle(context.Background(), GetSnapshots{
+		TenantID:  "t",
+		CUCodes:   []string{"cu-missing", "cu-1", "cu-1"},
+		MetricIDs: []string{"energy_storage.state_of_charge.v1", "electrical.active_power_setpoint.v1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(views) != 1 || views[0].CUCode != "cu-1" || len(views[0].Metrics) != 1 {
+		t.Fatalf("views = %+v", views)
+	}
+	got := views[0].Metrics[0]
+	if got.MetricID != "energy_storage.state_of_charge.v1" || got.Value != 40 || got.Quality != model.QualityBad {
+		t.Fatalf("metric = %+v", got)
+	}
+	if !got.ObservedAt.Equal(observed) {
+		t.Fatalf("observed = %v", got.ObservedAt)
+	}
+
+	_, err = h.Handle(context.Background(), GetSnapshots{TenantID: "t", CUCodes: []string{"cu-1"}})
+	if err == nil || !strings.Contains(err.Error(), "metric_id") {
+		t.Fatalf("err = %v", err)
+	}
+	_, err = h.Handle(context.Background(), GetSnapshots{
+		TenantID: "t", CUCodes: []string{"cu-1"}, MetricIDs: []string{"soc"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid metric id") {
+		t.Fatalf("err = %v", err)
 	}
 }

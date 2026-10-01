@@ -41,13 +41,7 @@ func (r *stubSnapshotRepo) Save(_ context.Context, snapshot *model.Snapshot) err
 	if r.saveErr != nil {
 		return r.saveErr
 	}
-	cp := *snapshot
-	metrics := make(map[string]float64, len(snapshot.Metrics))
-	for k, v := range snapshot.Metrics {
-		metrics[k] = v
-	}
-	cp.Metrics = metrics
-	r.saved = &cp
+	r.saved = cloneSnapshot(snapshot)
 	return nil
 }
 
@@ -61,6 +55,28 @@ func (r *stubSnapshotRepo) Find(context.Context, string, string) (*model.Snapsho
 func (r *stubSnapshotRepo) FindAll(context.Context, string) ([]*model.Snapshot, error) {
 	return nil, errors.New("not implemented")
 }
+
+func (r *stubSnapshotRepo) FindByCUs(context.Context, string, []string) ([]*model.Snapshot, error) {
+	return nil, errors.New("not implemented")
+}
+
+func cloneSnapshot(snapshot *model.Snapshot) *model.Snapshot {
+	if snapshot == nil {
+		return nil
+	}
+	cp := *snapshot
+	metrics := make(map[string]model.MetricState, len(snapshot.Metrics))
+	for k, v := range snapshot.Metrics {
+		metrics[k] = v
+	}
+	cp.Metrics = metrics
+	return &cp
+}
+
+const (
+	metricPower = "electrical.active_power.v1"
+	metricQ     = "electrical.reactive_power.v1"
+)
 
 type stubPublisher struct {
 	events []*model.SOEEvent
@@ -86,7 +102,7 @@ func TestIngestTelemetry(t *testing.T) {
 	t.Run("happy path with discrete SOE", func(t *testing.T) {
 		t.Parallel()
 		base := model.NewSnapshot("tenant", "cu-1")
-		base.Metrics["brk"] = 0
+		base.Metrics[metricQ] = model.MetricState{MetricID: metricQ, Value: 0, Quality: model.QualityGood}
 		base.UpdatedAt = ts.Add(-time.Minute)
 
 		tel := &stubTelemetryRepo{}
@@ -97,8 +113,8 @@ func TestIngestTelemetry(t *testing.T) {
 		res, err := h.Handle(ctx, IngestTelemetry{
 			TenantID: "tenant", CUCode: "cu-1", Timestamp: ts,
 			Metrics: []MetricInput{
-				{Name: "power", Value: 12, Type: model.Analog, Quality: model.QualityGood},
-				{Name: "brk", Value: 1, Type: model.Discrete, Quality: model.QualityGood},
+				{MetricID: metricPower, Value: 12, Type: model.Analog, Quality: model.QualityGood},
+				{MetricID: metricQ, Value: 1, Type: model.Discrete, Quality: model.QualityGood},
 			},
 		})
 		if err != nil {
@@ -110,7 +126,7 @@ func TestIngestTelemetry(t *testing.T) {
 		if len(tel.saved) != 1 || snap.saveN != 1 {
 			t.Fatalf("saved tel=%d snap=%d", len(tel.saved), snap.saveN)
 		}
-		if snap.saved.Metrics["brk"] != 1 || snap.saved.Metrics["power"] != 12 {
+		if snap.saved.Metrics[metricQ].Value != 1 || snap.saved.Metrics[metricPower].Value != 12 {
 			t.Fatalf("snapshot = %+v", snap.saved.Metrics)
 		}
 	})
@@ -137,7 +153,7 @@ func TestIngestTelemetry(t *testing.T) {
 		h := ingestTelemetryHandler{telemetryRepo: tel, snapshotRepo: snap, publisher: pub}
 		_, err := h.Handle(ctx, IngestTelemetry{
 			TenantID: "t", CUCode: "c", Timestamp: ts,
-			Metrics: []MetricInput{{Name: "p", Value: 1, Type: model.Analog, Quality: model.QualityGood}},
+			Metrics: []MetricInput{{MetricID: metricPower, Value: 1, Type: model.Analog, Quality: model.QualityGood}},
 		})
 		if err == nil || snap.saveN != 0 || len(pub.events) != 0 {
 			t.Fatalf("err=%v snapSave=%d pub=%d", err, snap.saveN, len(pub.events))
@@ -152,7 +168,7 @@ func TestIngestTelemetry(t *testing.T) {
 		h := ingestTelemetryHandler{telemetryRepo: tel, snapshotRepo: snap, publisher: pub}
 		res, err := h.Handle(ctx, IngestTelemetry{
 			TenantID: "t", CUCode: "c", Timestamp: ts,
-			Metrics: []MetricInput{{Name: "brk", Value: 1, Type: model.Discrete, Quality: model.QualityGood}},
+			Metrics: []MetricInput{{MetricID: metricQ, Value: 1, Type: model.Discrete, Quality: model.QualityGood}},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -161,7 +177,7 @@ func TestIngestTelemetry(t *testing.T) {
 		if res.SOECount != 0 || len(pub.events) != 0 {
 			t.Fatalf("SOECount=%d", res.SOECount)
 		}
-		if snap.saved == nil || snap.saved.Metrics["brk"] != 1 {
+		if snap.saved == nil || snap.saved.Metrics[metricQ].Value != 1 {
 			t.Fatalf("saved = %+v", snap.saved)
 		}
 	})
@@ -174,7 +190,7 @@ func TestIngestTelemetry(t *testing.T) {
 		h := ingestTelemetryHandler{telemetryRepo: tel, snapshotRepo: snap, publisher: pub}
 		res, err := h.Handle(ctx, IngestTelemetry{
 			TenantID: "t", CUCode: "c", Timestamp: ts,
-			Metrics: []MetricInput{{Name: "p", Value: 1, Type: model.Analog, Quality: model.QualityGood}},
+			Metrics: []MetricInput{{MetricID: metricPower, Value: 1, Type: model.Analog, Quality: model.QualityGood}},
 		})
 		if err != nil || res == nil {
 			t.Fatalf("err=%v", err)
@@ -184,14 +200,14 @@ func TestIngestTelemetry(t *testing.T) {
 	t.Run("snapshot write failure still succeeds and publishes SOE", func(t *testing.T) {
 		t.Parallel()
 		base := model.NewSnapshot("t", "c")
-		base.Metrics["brk"] = 0
+		base.Metrics[metricQ] = model.MetricState{MetricID: metricQ, Value: 0, Quality: model.QualityGood}
 		tel := &stubTelemetryRepo{}
 		snap := &stubSnapshotRepo{snap: base, saveErr: errors.New("redis write")}
 		pub := &stubPublisher{}
 		h := ingestTelemetryHandler{telemetryRepo: tel, snapshotRepo: snap, publisher: pub}
 		res, err := h.Handle(ctx, IngestTelemetry{
 			TenantID: "t", CUCode: "c", Timestamp: ts,
-			Metrics: []MetricInput{{Name: "brk", Value: 1, Type: model.Discrete, Quality: model.QualityGood}},
+			Metrics: []MetricInput{{MetricID: metricQ, Value: 1, Type: model.Discrete, Quality: model.QualityGood}},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -204,7 +220,7 @@ func TestIngestTelemetry(t *testing.T) {
 	t.Run("publish failure ignored", func(t *testing.T) {
 		t.Parallel()
 		base := model.NewSnapshot("t", "c")
-		base.Metrics["brk"] = 0
+		base.Metrics[metricQ] = model.MetricState{MetricID: metricQ, Value: 0, Quality: model.QualityGood}
 		h := ingestTelemetryHandler{
 			telemetryRepo: &stubTelemetryRepo{},
 			snapshotRepo:  &stubSnapshotRepo{snap: base},
@@ -212,7 +228,7 @@ func TestIngestTelemetry(t *testing.T) {
 		}
 		res, err := h.Handle(ctx, IngestTelemetry{
 			TenantID: "t", CUCode: "c", Timestamp: ts,
-			Metrics: []MetricInput{{Name: "brk", Value: 1, Type: model.Discrete, Quality: model.QualityGood}},
+			Metrics: []MetricInput{{MetricID: metricQ, Value: 1, Type: model.Discrete, Quality: model.QualityGood}},
 		})
 		if err != nil || res.SOECount != 1 {
 			t.Fatalf("err=%v SOECount=%d", err, res.SOECount)

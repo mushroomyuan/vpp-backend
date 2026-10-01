@@ -26,11 +26,12 @@ var File_telemetry_service_proto protoreflect.FileDescriptor
 
 const file_telemetry_service_proto_rawDesc = "" +
 	"\n" +
-	"\x17telemetry_service.proto\x12\vtelemetrypb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x0ftelemetry.proto\x1a\x0esnapshot.proto\x1a\x11aggregation.proto2\xee\x05\n" +
+	"\x17telemetry_service.proto\x12\vtelemetrypb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x0ftelemetry.proto\x1a\x0esnapshot.proto\x1a\x11aggregation.proto2\xf5\x06\n" +
 	"\x10TelemetryService\x12\x9e\x01\n" +
 	"\x0fIngestTelemetry\x12#.telemetrypb.IngestTelemetryRequest\x1a$.telemetrypb.IngestTelemetryResponse\"@\x82\xd3\xe4\x93\x02::\x01*\"5/api/tenants/{TenantID}/cus/{CUCode}/telemetry:ingest\x12\x91\x01\n" +
 	"\x0eQueryTelemetry\x12\".telemetrypb.QueryTelemetryRequest\x1a#.telemetrypb.QueryTelemetryResponse\"6\x82\xd3\xe4\x93\x020\x12./api/tenants/{TenantID}/cus/{CUCode}/telemetry\x12|\n" +
-	"\vGetSnapshot\x12\x1f.telemetrypb.GetSnapshotRequest\x1a\x15.telemetrypb.Snapshot\"5\x82\xd3\xe4\x93\x02/\x12-/api/tenants/{TenantID}/cus/{CUCode}/snapshot\x12\x8a\x01\n" +
+	"\vGetSnapshot\x12\x1f.telemetrypb.GetSnapshotRequest\x1a\x15.telemetrypb.Snapshot\"5\x82\xd3\xe4\x93\x02/\x12-/api/tenants/{TenantID}/cus/{CUCode}/snapshot\x12\x84\x01\n" +
+	"\fGetSnapshots\x12 .telemetrypb.GetSnapshotsRequest\x1a!.telemetrypb.GetSnapshotsResponse\"/\x82\xd3\xe4\x93\x02)\x12'/api/tenants/{TenantID}/snapshots:batch\x12\x8a\x01\n" +
 	"\x10GetFleetSnapshot\x12$.telemetrypb.GetFleetSnapshotRequest\x1a%.telemetrypb.GetFleetSnapshotResponse\")\x82\xd3\xe4\x93\x02#\x12!/api/tenants/{TenantID}/snapshots\x12\x99\x01\n" +
 	"\x10QueryAggregation\x12$.telemetrypb.QueryAggregationRequest\x1a%.telemetrypb.QueryAggregationResponse\"8\x82\xd3\xe4\x93\x022\x120/api/tenants/{TenantID}/cus/{CUCode}/aggregationBIZGgithub.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen;telemetrypbb\x06proto3"
 
@@ -38,30 +39,34 @@ var file_telemetry_service_proto_goTypes = []any{
 	(*IngestTelemetryRequest)(nil),   // 0: telemetrypb.IngestTelemetryRequest
 	(*QueryTelemetryRequest)(nil),    // 1: telemetrypb.QueryTelemetryRequest
 	(*GetSnapshotRequest)(nil),       // 2: telemetrypb.GetSnapshotRequest
-	(*GetFleetSnapshotRequest)(nil),  // 3: telemetrypb.GetFleetSnapshotRequest
-	(*QueryAggregationRequest)(nil),  // 4: telemetrypb.QueryAggregationRequest
-	(*IngestTelemetryResponse)(nil),  // 5: telemetrypb.IngestTelemetryResponse
-	(*QueryTelemetryResponse)(nil),   // 6: telemetrypb.QueryTelemetryResponse
-	(*Snapshot)(nil),                 // 7: telemetrypb.Snapshot
-	(*GetFleetSnapshotResponse)(nil), // 8: telemetrypb.GetFleetSnapshotResponse
-	(*QueryAggregationResponse)(nil), // 9: telemetrypb.QueryAggregationResponse
+	(*GetSnapshotsRequest)(nil),      // 3: telemetrypb.GetSnapshotsRequest
+	(*GetFleetSnapshotRequest)(nil),  // 4: telemetrypb.GetFleetSnapshotRequest
+	(*QueryAggregationRequest)(nil),  // 5: telemetrypb.QueryAggregationRequest
+	(*IngestTelemetryResponse)(nil),  // 6: telemetrypb.IngestTelemetryResponse
+	(*QueryTelemetryResponse)(nil),   // 7: telemetrypb.QueryTelemetryResponse
+	(*Snapshot)(nil),                 // 8: telemetrypb.Snapshot
+	(*GetSnapshotsResponse)(nil),     // 9: telemetrypb.GetSnapshotsResponse
+	(*GetFleetSnapshotResponse)(nil), // 10: telemetrypb.GetFleetSnapshotResponse
+	(*QueryAggregationResponse)(nil), // 11: telemetrypb.QueryAggregationResponse
 }
 var file_telemetry_service_proto_depIdxs = []int32{
-	0, // 0: telemetrypb.TelemetryService.IngestTelemetry:input_type -> telemetrypb.IngestTelemetryRequest
-	1, // 1: telemetrypb.TelemetryService.QueryTelemetry:input_type -> telemetrypb.QueryTelemetryRequest
-	2, // 2: telemetrypb.TelemetryService.GetSnapshot:input_type -> telemetrypb.GetSnapshotRequest
-	3, // 3: telemetrypb.TelemetryService.GetFleetSnapshot:input_type -> telemetrypb.GetFleetSnapshotRequest
-	4, // 4: telemetrypb.TelemetryService.QueryAggregation:input_type -> telemetrypb.QueryAggregationRequest
-	5, // 5: telemetrypb.TelemetryService.IngestTelemetry:output_type -> telemetrypb.IngestTelemetryResponse
-	6, // 6: telemetrypb.TelemetryService.QueryTelemetry:output_type -> telemetrypb.QueryTelemetryResponse
-	7, // 7: telemetrypb.TelemetryService.GetSnapshot:output_type -> telemetrypb.Snapshot
-	8, // 8: telemetrypb.TelemetryService.GetFleetSnapshot:output_type -> telemetrypb.GetFleetSnapshotResponse
-	9, // 9: telemetrypb.TelemetryService.QueryAggregation:output_type -> telemetrypb.QueryAggregationResponse
-	5, // [5:10] is the sub-list for method output_type
-	0, // [0:5] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0,  // 0: telemetrypb.TelemetryService.IngestTelemetry:input_type -> telemetrypb.IngestTelemetryRequest
+	1,  // 1: telemetrypb.TelemetryService.QueryTelemetry:input_type -> telemetrypb.QueryTelemetryRequest
+	2,  // 2: telemetrypb.TelemetryService.GetSnapshot:input_type -> telemetrypb.GetSnapshotRequest
+	3,  // 3: telemetrypb.TelemetryService.GetSnapshots:input_type -> telemetrypb.GetSnapshotsRequest
+	4,  // 4: telemetrypb.TelemetryService.GetFleetSnapshot:input_type -> telemetrypb.GetFleetSnapshotRequest
+	5,  // 5: telemetrypb.TelemetryService.QueryAggregation:input_type -> telemetrypb.QueryAggregationRequest
+	6,  // 6: telemetrypb.TelemetryService.IngestTelemetry:output_type -> telemetrypb.IngestTelemetryResponse
+	7,  // 7: telemetrypb.TelemetryService.QueryTelemetry:output_type -> telemetrypb.QueryTelemetryResponse
+	8,  // 8: telemetrypb.TelemetryService.GetSnapshot:output_type -> telemetrypb.Snapshot
+	9,  // 9: telemetrypb.TelemetryService.GetSnapshots:output_type -> telemetrypb.GetSnapshotsResponse
+	10, // 10: telemetrypb.TelemetryService.GetFleetSnapshot:output_type -> telemetrypb.GetFleetSnapshotResponse
+	11, // 11: telemetrypb.TelemetryService.QueryAggregation:output_type -> telemetrypb.QueryAggregationResponse
+	6,  // [6:12] is the sub-list for method output_type
+	0,  // [0:6] is the sub-list for method input_type
+	0,  // [0:0] is the sub-list for extension type_name
+	0,  // [0:0] is the sub-list for extension extendee
+	0,  // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_telemetry_service_proto_init() }

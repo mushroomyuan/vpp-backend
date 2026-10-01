@@ -24,6 +24,7 @@ go.work.sum # Go 工作区依赖信息
 
 # Go 相关的临时缓存文件
 .gobincache/ # Go 编译缓存目录
+.cache/      # Local tool caches
 
 # 临时文件和目录
 **/tmp/     # 所有子目录中的 tmp 文件夹

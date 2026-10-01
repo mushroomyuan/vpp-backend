@@ -28,7 +28,7 @@ const (
 type AggregatedPoint struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	CUCode      string                 `protobuf:"bytes,1,opt,name=CUCode,proto3" json:"CUCode,omitempty"`
-	MetricName  string                 `protobuf:"bytes,2,opt,name=MetricName,proto3" json:"MetricName,omitempty"`
+	MetricID    string                 `protobuf:"bytes,2,opt,name=MetricID,proto3" json:"MetricID,omitempty"`
 	WindowStart *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=WindowStart,proto3" json:"WindowStart,omitempty"`
 	WindowEnd   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=WindowEnd,proto3" json:"WindowEnd,omitempty"`
 	Avg         *float64               `protobuf:"fixed64,5,opt,name=Avg,proto3,oneof" json:"Avg,omitempty"`
@@ -81,9 +81,9 @@ func (x *AggregatedPoint) GetCUCode() string {
 	return ""
 }
 
-func (x *AggregatedPoint) GetMetricName() string {
+func (x *AggregatedPoint) GetMetricID() string {
 	if x != nil {
-		return x.MetricName
+		return x.MetricID
 	}
 	return ""
 }
@@ -145,12 +145,12 @@ func (x *AggregatedPoint) GetLast() float64 {
 }
 
 type QueryAggregationRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	TenantID   string                 `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
-	CUCode     string                 `protobuf:"bytes,2,opt,name=CUCode,proto3" json:"CUCode,omitempty"`
-	MetricName string                 `protobuf:"bytes,3,opt,name=MetricName,proto3" json:"MetricName,omitempty"`
-	StartTime  *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=StartTime,proto3" json:"StartTime,omitempty"`
-	EndTime    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=EndTime,proto3" json:"EndTime,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TenantID  string                 `protobuf:"bytes,1,opt,name=TenantID,proto3" json:"TenantID,omitempty"`
+	CUCode    string                 `protobuf:"bytes,2,opt,name=CUCode,proto3" json:"CUCode,omitempty"`
+	MetricID  string                 `protobuf:"bytes,3,opt,name=MetricID,proto3" json:"MetricID,omitempty"`
+	StartTime *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=StartTime,proto3" json:"StartTime,omitempty"`
+	EndTime   *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=EndTime,proto3" json:"EndTime,omitempty"`
 	// StepSeconds is the downsampling window size in seconds.
 	// e.g. 60 = 1-minute buckets, 900 = 15-minute buckets.
 	StepSeconds int64 `protobuf:"varint,6,opt,name=StepSeconds,proto3" json:"StepSeconds,omitempty"`
@@ -204,9 +204,9 @@ func (x *QueryAggregationRequest) GetCUCode() string {
 	return ""
 }
 
-func (x *QueryAggregationRequest) GetMetricName() string {
+func (x *QueryAggregationRequest) GetMetricID() string {
 	if x != nil {
-		return x.MetricName
+		return x.MetricID
 	}
 	return ""
 }
@@ -287,12 +287,10 @@ var File_aggregation_proto protoreflect.FileDescriptor
 
 const file_aggregation_proto_rawDesc = "" +
 	"\n" +
-	"\x11aggregation.proto\x12\vtelemetrypb\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\fcommon.proto\"\x84\x03\n" +
+	"\x11aggregation.proto\x12\vtelemetrypb\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\fcommon.proto\"\x80\x03\n" +
 	"\x0fAggregatedPoint\x12\x16\n" +
-	"\x06CUCode\x18\x01 \x01(\tR\x06CUCode\x12\x1e\n" +
-	"\n" +
-	"MetricName\x18\x02 \x01(\tR\n" +
-	"MetricName\x12<\n" +
+	"\x06CUCode\x18\x01 \x01(\tR\x06CUCode\x12\x1a\n" +
+	"\bMetricID\x18\x02 \x01(\tR\bMetricID\x12<\n" +
 	"\vWindowStart\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vWindowStart\x128\n" +
 	"\tWindowEnd\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tWindowEnd\x12\x15\n" +
 	"\x03Avg\x18\x05 \x01(\x01H\x00R\x03Avg\x88\x01\x01\x12\x15\n" +
@@ -307,13 +305,11 @@ const file_aggregation_proto_rawDesc = "" +
 	"\x04_MinB\x06\n" +
 	"\x04_SumB\b\n" +
 	"\x06_CountB\a\n" +
-	"\x05_Last\"\xb7\x02\n" +
+	"\x05_Last\"\xb3\x02\n" +
 	"\x17QueryAggregationRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x16\n" +
-	"\x06CUCode\x18\x02 \x01(\tR\x06CUCode\x12\x1e\n" +
-	"\n" +
-	"MetricName\x18\x03 \x01(\tR\n" +
-	"MetricName\x128\n" +
+	"\x06CUCode\x18\x02 \x01(\tR\x06CUCode\x12\x1a\n" +
+	"\bMetricID\x18\x03 \x01(\tR\bMetricID\x128\n" +
 	"\tStartTime\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tStartTime\x124\n" +
 	"\aEndTime\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\aEndTime\x12 \n" +
 	"\vStepSeconds\x18\x06 \x01(\x03R\vStepSeconds\x126\n" +

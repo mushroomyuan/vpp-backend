@@ -15,23 +15,18 @@ type GetPoint struct {
 type GetPointHandler decorator.QueryHandler[GetPoint, *PointView]
 
 type getPointHandler struct {
-	pointRepo    port.PointRepository
-	pointRuntime port.PointRuntimeReader
+	pointRepo port.PointRepository
 }
 
 func NewGetPointHandler(
 	pointRepo port.PointRepository,
-	pointRuntime port.PointRuntimeReader,
 	metricClient decorator.MetricsClient,
 ) GetPointHandler {
 	if pointRepo == nil {
 		panic("NewGetPointHandler parameter pointRepo is nil")
 	}
-	if pointRuntime == nil {
-		panic("NewGetPointHandler parameter pointRuntime is nil")
-	}
 	return decorator.ApplyQueryDecorators[GetPoint, *PointView](
-		getPointHandler{pointRepo: pointRepo, pointRuntime: pointRuntime},
+		getPointHandler{pointRepo: pointRepo},
 		metricClient,
 	)
 }
@@ -41,9 +36,5 @@ func (h getPointHandler) Handle(ctx context.Context, q GetPoint) (*PointView, er
 	if err != nil {
 		return nil, err
 	}
-	runtime, err := h.pointRuntime.GetPointRuntime(ctx, q.TenantID, q.ID)
-	if err != nil {
-		return nil, err
-	}
-	return &PointView{Point: point, Runtime: runtime}, nil
+	return &PointView{Point: point}, nil
 }

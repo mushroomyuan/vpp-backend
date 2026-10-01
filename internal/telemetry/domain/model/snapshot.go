@@ -2,16 +2,25 @@ package model
 
 import "time"
 
-// Snapshot holds the latest known good-quality metric values for a single CU.
+// MetricState is the latest sample of one canonical metric on a CU.
+// A later sample always replaces this state, including when its quality is
+// bad or uncertain, so an older good value cannot hide a current quality fault.
+type MetricState struct {
+	MetricID   string
+	Value      float64
+	ObservedAt time.Time
+	Quality    QualityStatus
+}
+
+// Snapshot holds the latest per-metric state for a single CU.
 //
-// It is the real-time "current state" view of a CU, updated on every ingest
-// via Apply. Only QualityGood samples are written; bad or uncertain readings
-// leave the previous value intact. Snapshots are stored in a fast cache
-// (e.g. Redis) and are authoritative for dashboard reads and control decisions.
+// UpdatedAt is the timestamp of the latest applied ingest. Each metric keeps
+// its own ObservedAt and Quality. Snapshots are stored in Redis and are the
+// real-time state Decision reads.
 type Snapshot struct {
 	TenantID  string
 	CUCode    string
-	Metrics   map[string]float64
+	Metrics   map[string]MetricState
 	UpdatedAt time.Time
 }
 
@@ -20,7 +29,7 @@ func NewSnapshot(tenantID, cuCode string) *Snapshot {
 	return &Snapshot{
 		TenantID:  tenantID,
 		CUCode:    cuCode,
-		Metrics:   make(map[string]float64),
+		Metrics:   make(map[string]MetricState),
 		UpdatedAt: time.Now(),
 	}
 }
@@ -29,41 +38,44 @@ func NewSnapshot(tenantID, cuCode string) *Snapshot {
 // that were produced.
 //
 // Domain rules:
-//   - Only QualityGood metrics are written; degraded-quality readings are skipped.
-//   - A Discrete metric whose value has changed triggers one SOEEvent per change.
-//   - Analog metric changes are silently updated (alarm/threshold logic belongs
-//     in an application-layer policy, not here).
-//   - UpdatedAt is advanced to the record's timestamp even when no metrics changed
-//     (e.g. all-bad batch), so staleness detection remains accurate.
+//   - Every sample, including bad and uncertain quality, replaces the previous
+//     state for that metric. The previous good value is not retained.
+//   - A Discrete metric emits one SOEEvent only when both the previous and the
+//     new sample are QualityGood and the value changed.
+//   - UpdatedAt advances to the record timestamp even when the batch is empty
+//     of good samples, so CU-level staleness still tracks the latest ingest.
 func (s *Snapshot) Apply(record *TelemetryRecord) []*SOEEvent {
+	if s.Metrics == nil {
+		s.Metrics = make(map[string]MetricState)
+	}
 	var events []*SOEEvent
 	for _, m := range record.Metrics {
-		if !m.IsGood() {
-			continue
+		prev, exists := s.Metrics[m.MetricID]
+		if m.IsDiscrete() && m.IsGood() && exists && prev.Quality == QualityGood && prev.Value != m.Value {
+			events = append(events, NewSOEEvent(
+				s.TenantID, s.CUCode, m.MetricID, prev.Value, m.Value, record.Timestamp,
+			))
 		}
-		if m.IsDiscrete() {
-			if prev, exists := s.Metrics[m.Name]; exists && prev != m.Value {
-				events = append(events, NewSOEEvent(
-					s.TenantID, s.CUCode, m.Name, prev, m.Value, record.Timestamp,
-				))
-			}
+		s.Metrics[m.MetricID] = MetricState{
+			MetricID:   m.MetricID,
+			Value:      m.Value,
+			ObservedAt: record.Timestamp,
+			Quality:    m.Quality,
 		}
-		s.Metrics[m.Name] = m.Value
 	}
 	s.UpdatedAt = record.Timestamp
 	return events
 }
 
-// Get returns the current value for a metric.
+// Get returns the current state for a metric.
 // ok is false if the metric has never been recorded in this snapshot.
-func (s *Snapshot) Get(metricName string) (value float64, ok bool) {
-	value, ok = s.Metrics[metricName]
-	return
+func (s *Snapshot) Get(metricID string) (MetricState, bool) {
+	state, ok := s.Metrics[metricID]
+	return state, ok
 }
 
 // IsStale returns true if the snapshot has not been updated within maxAge.
-// Useful for connection health checks: a CU that stops sending data produces
-// a stale snapshot, which should trigger a connectivity alert.
+// Per-metric freshness uses MetricState.ObservedAt; this check is the CU heartbeat.
 func (s *Snapshot) IsStale(maxAge time.Duration) bool {
 	return time.Since(s.UpdatedAt) > maxAge
 }

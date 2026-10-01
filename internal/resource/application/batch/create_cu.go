@@ -90,7 +90,6 @@ func BatchCreateCUs(
 					Description:    cuItem.Description,
 					ProtocolConfig: cuItem.ProtocolConfig,
 					Connection:     cuItem.Connection,
-					CapabilityTags: cuItem.CapabilityTags,
 				},
 			)
 			if err != nil {

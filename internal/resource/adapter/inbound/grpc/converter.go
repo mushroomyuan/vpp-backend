@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func toGRPCError(err error) error {
@@ -26,9 +28,13 @@ func toGRPCError(err error) error {
 	case errors.Is(err, domain.ErrSiteNotFound),
 		errors.Is(err, domain.ErrResourceNotFound),
 		errors.Is(err, domain.ErrCUNotFound),
+		errors.Is(err, domain.ErrCUCapabilityNotFound),
 		errors.Is(err, domain.ErrPointNotFound),
-		errors.Is(err, domain.ErrJobNotFound):
+		errors.Is(err, domain.ErrJobNotFound),
+		errors.Is(err, domain.ErrScopeNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, domain.ErrVersionConflict):
+		return status.Error(codes.Aborted, err.Error())
 	default:
 		msg := err.Error()
 		lower := strings.ToLower(msg)
@@ -69,35 +75,29 @@ func SiteStatusDomainToProto(s model.OperatingStatus) resourcepb.SiteStatus {
 	}
 }
 
-func PointDataTypeProtoToDomain(t resourcepb.PointDataType) (model.DataType, error) {
+func PointAccessModeProtoToDomain(t resourcepb.PointAccessMode) (model.AccessMode, error) {
 	switch t {
-	case resourcepb.PointDataType_POINT_DATA_TYPE_FLOAT:
-		return model.DataTypeFloat, nil
-	case resourcepb.PointDataType_POINT_DATA_TYPE_INT:
-		return model.DataTypeInt, nil
-	case resourcepb.PointDataType_POINT_DATA_TYPE_BOOL:
-		return model.DataTypeBool, nil
-	case resourcepb.PointDataType_POINT_DATA_TYPE_ENUM:
-		return model.DataTypeEnum, nil
-	case resourcepb.PointDataType_POINT_DATA_TYPE_UNSPECIFIED:
-		return "", fmt.Errorf("DataType is required")
+	case resourcepb.PointAccessMode_POINT_ACCESS_MODE_READ:
+		return model.AccessModeRead, nil
+	case resourcepb.PointAccessMode_POINT_ACCESS_MODE_WRITE:
+		return model.AccessModeWrite, nil
+	case resourcepb.PointAccessMode_POINT_ACCESS_MODE_READ_WRITE:
+		return model.AccessModeReadWrite, nil
 	default:
-		return "", fmt.Errorf("unknown DataType: %v", t)
+		return "", fmt.Errorf("AccessMode is required")
 	}
 }
 
-func PointDataTypeDomainToProto(t model.DataType) resourcepb.PointDataType {
+func PointAccessModeDomainToProto(t model.AccessMode) resourcepb.PointAccessMode {
 	switch t {
-	case model.DataTypeFloat:
-		return resourcepb.PointDataType_POINT_DATA_TYPE_FLOAT
-	case model.DataTypeInt:
-		return resourcepb.PointDataType_POINT_DATA_TYPE_INT
-	case model.DataTypeBool:
-		return resourcepb.PointDataType_POINT_DATA_TYPE_BOOL
-	case model.DataTypeEnum:
-		return resourcepb.PointDataType_POINT_DATA_TYPE_ENUM
+	case model.AccessModeRead:
+		return resourcepb.PointAccessMode_POINT_ACCESS_MODE_READ
+	case model.AccessModeWrite:
+		return resourcepb.PointAccessMode_POINT_ACCESS_MODE_WRITE
+	case model.AccessModeReadWrite:
+		return resourcepb.PointAccessMode_POINT_ACCESS_MODE_READ_WRITE
 	default:
-		return resourcepb.PointDataType_POINT_DATA_TYPE_UNSPECIFIED
+		return resourcepb.PointAccessMode_POINT_ACCESS_MODE_UNSPECIFIED
 	}
 }
 
@@ -378,14 +378,12 @@ func CUToProto(cu *model.CU, runtime *model.CURuntime) (*resourcepb.CU, error) {
 		ParentID:       parentID,
 		Name:           cu.DisplayName,
 		Type:           cuType,
-		CapabilityTags: cu.CapabilityTags,
 		Metadata:       meta,
 		Protocol:       protocol,
 		ProtocolConfig: protocolConfig,
 		Provider:       provider,
 		ExternalID:     externalID,
-		Connection:     ConnectionDomainToProto(cu.Connection),
-		Runtime:        CURuntimeDomainToProto(runtime),
+		Connection:     ConnectionDomainToProto(cu.Connection), Runtime: CURuntimeDomainToProto(runtime),
 	}, nil
 }
 
@@ -414,64 +412,61 @@ func CURuntimeDomainToProto(r *model.CURuntime) *resourcepb.CURuntime {
 }
 
 func PointDomainToProto(p *model.Point) (*resourcepb.Point, error) {
-	return PointToProto(p, nil)
+	return PointToProto(p)
 }
 
-func PointToProto(p *model.Point, runtime *model.PointRuntime) (*resourcepb.Point, error) {
+func PointToProto(p *model.Point) (*resourcepb.Point, error) {
 	if p == nil {
 		return nil, nil
 	}
-	ext, err := MapToStructPB(p.ExtConfig)
-	if err != nil {
-		return nil, err
-	}
-	th, err := MapToStructPB(p.SafetyThresholds)
-	if err != nil {
-		return nil, err
-	}
 	return &resourcepb.Point{
-		ID:               p.ID,
-		AssetID:          p.AssetID,
-		CUID:             p.CUID,
-		PointKey:         p.PointKey,
-		ExternalAddress:  p.ExternalAddress,
-		DataType:         PointDataTypeDomainToProto(p.DataType),
-		ExtConfig:        ext,
-		Description:      p.Description,
-		ControlFlag:      p.ControlFlag,
-		IsVirtual:        p.IsVirtual,
-		SafetyThresholds: th,
-		CacheKeyAlias:    p.CacheKeyAlias,
-		Runtime:          PointRuntimeDomainToProto(runtime),
+		ID: p.ID, AssetID: p.AssetID, CUID: p.CUID,
+		MetricID: string(p.MetricID), ExternalAddress: p.ExternalAddress,
+		AccessMode: PointAccessModeDomainToProto(p.AccessMode),
+		Scale:      p.Scale, Offset: p.Offset, Enabled: p.Enabled, Revision: p.Revision,
+		SafetyConstraint: PointSafetyConstraintDomainToProto(p.SafetyConstraint),
 	}, nil
 }
 
-func PointRuntimeDomainToProto(r *model.PointRuntime) *resourcepb.PointRuntime {
-	if r == nil {
+func PointSafetyConstraintProtoToDomain(
+	c *resourcepb.PointSafetyConstraint,
+) *model.PointSafetyConstraint {
+	if c == nil {
 		return nil
 	}
-	pb := &resourcepb.PointRuntime{
-		Sequence: r.Sequence,
+	out := &model.PointSafetyConstraint{Version: c.GetVersion()}
+	if c.GetMinValue() != nil {
+		value := c.GetMinValue().GetValue()
+		out.MinValue = &value
 	}
-	if r.Value != nil {
-		v := *r.Value
-		pb.Value = &v
+	if c.GetMaxValue() != nil {
+		value := c.GetMaxValue().GetValue()
+		out.MaxValue = &value
 	}
-	if r.NumericValue != nil {
-		v := *r.NumericValue
-		pb.NumericValue = &v
+	if c.GetMaxChangePerSecond() != nil {
+		value := c.GetMaxChangePerSecond().GetValue()
+		out.MaxChangePerSecond = &value
 	}
-	if r.QualityStatus != nil {
-		v := *r.QualityStatus
-		pb.QualityStatus = &v
+	return out
+}
+
+func PointSafetyConstraintDomainToProto(
+	c *model.PointSafetyConstraint,
+) *resourcepb.PointSafetyConstraint {
+	if c == nil {
+		return nil
 	}
-	if !r.SampledAt.IsZero() {
-		pb.SampledAt = timestamppb.New(r.SampledAt)
+	out := &resourcepb.PointSafetyConstraint{Version: c.Version}
+	if c.MinValue != nil {
+		out.MinValue = wrapperspb.Double(*c.MinValue)
 	}
-	if !r.UpdatedAt.IsZero() {
-		pb.UpdatedAt = timestamppb.New(r.UpdatedAt)
+	if c.MaxValue != nil {
+		out.MaxValue = wrapperspb.Double(*c.MaxValue)
 	}
-	return pb
+	if c.MaxChangePerSecond != nil {
+		out.MaxChangePerSecond = wrapperspb.Double(*c.MaxChangePerSecond)
+	}
+	return out
 }
 
 func JobDomainToProto(j *model.Job) *resourcepb.Job {
@@ -630,7 +625,6 @@ func CUImportItemProtoToCommand(p *resourcepb.CUItem) types.CUItem {
 		ParentID:       parentID,
 		Name:           p.GetName(),
 		Type:           p.GetType(),
-		CapabilityTags: p.GetCapabilityTags(),
 		Provider:       provider,
 		ExternalID:     externalID,
 		Protocol:       protocol,
@@ -645,19 +639,23 @@ func PointImportItemProtoToCommand(p *resourcepb.PointItem) types.PointItem {
 	if p == nil {
 		return types.PointItem{}
 	}
-	extConfig, _ := StructPBToMap(p.GetExtConfig())
-	safetyTh, _ := StructPBToMap(p.GetSafetyThresholds())
-	dataType, _ := PointDataTypeProtoToDomain(p.GetDataType())
+	accessMode, _ := PointAccessModeProtoToDomain(p.GetAccessMode())
+	scale := 1.0
+	if p.GetScale() != nil {
+		scale = p.GetScale().GetValue()
+	}
+	offset := 0.0
+	if p.GetOffset() != nil {
+		offset = p.GetOffset().GetValue()
+	}
 	return types.PointItem{
-		PointKey:         p.GetPointKey(),
+		MetricID:         p.GetMetricID(),
 		ExternalAddress:  p.GetExternalAddress(),
-		DataType:         dataType,
-		ExtConfig:        extConfig,
-		Description:      p.GetDescription(),
-		ControlFlag:      p.GetControlFlag(),
-		IsVirtual:        p.GetIsVirtual(),
-		SafetyThresholds: safetyTh,
-		CacheKeyAlias:    p.GetCacheKeyAlias(),
+		AccessMode:       accessMode,
+		Scale:            scale,
+		Offset:           offset,
+		Enabled:          p.GetEnabled(),
+		SafetyConstraint: PointSafetyConstraintProtoToDomain(p.GetSafetyConstraint()),
 	}
 }
 
@@ -691,4 +689,152 @@ func logIn(ctx context.Context, method string) {
 		"component": "resource_grpc",
 		"method":    method,
 	}, "request_in")
+}
+
+func scopeTypeProtoToDomain(scopeType resourcepb.ScopeType) string {
+	switch scopeType {
+	case resourcepb.ScopeType_SCOPE_TYPE_SITE:
+		return string(model.ScopeTypeSite)
+	case resourcepb.ScopeType_SCOPE_TYPE_ASSET:
+		return string(model.ScopeTypeAsset)
+	case resourcepb.ScopeType_SCOPE_TYPE_CU:
+		return string(model.ScopeTypeCU)
+	default:
+		return ""
+	}
+}
+
+func metricAccessProtoToDomain(access resourcepb.MetricAccessRequirement) string {
+	switch access {
+	case resourcepb.MetricAccessRequirement_METRIC_ACCESS_REQUIREMENT_READ:
+		return string(model.MetricAccessNeedRead)
+	case resourcepb.MetricAccessRequirement_METRIC_ACCESS_REQUIREMENT_WRITE:
+		return string(model.MetricAccessNeedWrite)
+	default:
+		return ""
+	}
+}
+
+func resolvedScopeToProto(resolved *model.ResolvedScope) (*resourcepb.ResolveScopeResponse, error) {
+	if resolved == nil {
+		return nil, nil
+	}
+	members := make([]*resourcepb.ResolvedCU, 0, len(resolved.Members))
+	for _, member := range resolved.Members {
+		item, err := resolvedCUToProto(member)
+		if err != nil {
+			return nil, toGRPCError(err)
+		}
+		members = append(members, item)
+	}
+	exclusions := make([]*resourcepb.ScopeExclusion, 0, len(resolved.Exclusions))
+	for _, exclusion := range resolved.Exclusions {
+		exclusions = append(exclusions, &resourcepb.ScopeExclusion{
+			CUID:    exclusion.CUID,
+			AssetID: exclusion.AssetID,
+			Reason:  exclusionReasonToProto(exclusion.Reason),
+			Detail:  exclusion.Detail,
+		})
+	}
+	failures := make([]*resourcepb.ScopePrecheckFailure, 0, len(resolved.PrecheckFailures))
+	for _, failure := range resolved.PrecheckFailures {
+		failures = append(failures, &resourcepb.ScopePrecheckFailure{
+			CUID:    failure.CUID,
+			AssetID: failure.AssetID,
+			Reason:  precheckFailureReasonToProto(failure.Reason),
+			Detail:  failure.Detail,
+		})
+	}
+	return &resourcepb.ResolveScopeResponse{
+		ScopeType:        scopeTypeDomainToProto(resolved.ScopeType),
+		ScopeID:          resolved.ScopeID,
+		ResourceRevision: resolved.ResourceRevision,
+		PrecheckOK:       resolved.PrecheckOK,
+		Members:          members,
+		Exclusions:       exclusions,
+		PrecheckFailures: failures,
+	}, nil
+}
+
+func resolvedCUToProto(cu model.ScopeCU) (*resourcepb.ResolvedCU, error) {
+	capabilities := make([]*resourcepb.ResolvedCapability, 0, len(cu.Capabilities))
+	for _, capability := range cu.Capabilities {
+		spec, err := capabilitySpecToProto(capability.Spec)
+		if err != nil {
+			return nil, err
+		}
+		capabilities = append(capabilities, &resourcepb.ResolvedCapability{
+			CapabilityID:  capability.CapabilityID,
+			SchemaVersion: int32(capability.SchemaVersion),
+			Spec:          spec,
+			Enabled:       capability.Enabled,
+			Version:       capability.Version,
+		})
+	}
+	bindings := make([]*resourcepb.ResolvedMetricBinding, 0, len(cu.Bindings))
+	for _, binding := range cu.Bindings {
+		bindings = append(bindings, &resourcepb.ResolvedMetricBinding{
+			MetricID:         string(binding.MetricID),
+			AccessMode:       PointAccessModeDomainToProto(binding.AccessMode),
+			Enabled:          binding.Enabled,
+			Revision:         binding.Revision,
+			SafetyConstraint: PointSafetyConstraintDomainToProto(binding.Safety),
+		})
+	}
+	return &resourcepb.ResolvedCU{
+		CUID:            cu.CUID,
+		AssetID:         cu.AssetID,
+		LifecycleStatus: ResourceLifecycleStatusDomainToProto(cu.Lifecycle),
+		NodeVersion:     cu.NodeVersion,
+		Capabilities:    capabilities,
+		Bindings:        bindings,
+	}, nil
+}
+
+func capabilitySpecToProto(raw []byte) (*structpb.Struct, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var specMap map[string]any
+	if err := json.Unmarshal(raw, &specMap); err != nil {
+		return nil, err
+	}
+	return structpb.NewStruct(specMap)
+}
+
+func scopeTypeDomainToProto(scopeType model.ScopeType) resourcepb.ScopeType {
+	switch scopeType {
+	case model.ScopeTypeSite:
+		return resourcepb.ScopeType_SCOPE_TYPE_SITE
+	case model.ScopeTypeAsset:
+		return resourcepb.ScopeType_SCOPE_TYPE_ASSET
+	case model.ScopeTypeCU:
+		return resourcepb.ScopeType_SCOPE_TYPE_CU
+	default:
+		return resourcepb.ScopeType_SCOPE_TYPE_UNSPECIFIED
+	}
+}
+
+func exclusionReasonToProto(reason model.ExclusionReason) resourcepb.ScopeExclusionReason {
+	switch reason {
+	case model.ExclusionNotActive:
+		return resourcepb.ScopeExclusionReason_SCOPE_EXCLUSION_REASON_NOT_ACTIVE
+	case model.ExclusionMissingCapability:
+		return resourcepb.ScopeExclusionReason_SCOPE_EXCLUSION_REASON_MISSING_CAPABILITY
+	case model.ExclusionCapabilityDisabled:
+		return resourcepb.ScopeExclusionReason_SCOPE_EXCLUSION_REASON_CAPABILITY_DISABLED
+	default:
+		return resourcepb.ScopeExclusionReason_SCOPE_EXCLUSION_REASON_UNSPECIFIED
+	}
+}
+
+func precheckFailureReasonToProto(reason model.PrecheckFailureReason) resourcepb.ScopePrecheckFailureReason {
+	switch reason {
+	case model.PrecheckInvalidCapabilitySpec:
+		return resourcepb.ScopePrecheckFailureReason_SCOPE_PRECHECK_FAILURE_REASON_INVALID_CAPABILITY_SPEC
+	case model.PrecheckMissingMetricBinding:
+		return resourcepb.ScopePrecheckFailureReason_SCOPE_PRECHECK_FAILURE_REASON_MISSING_METRIC_BINDING
+	default:
+		return resourcepb.ScopePrecheckFailureReason_SCOPE_PRECHECK_FAILURE_REASON_UNSPECIFIED
+	}
 }

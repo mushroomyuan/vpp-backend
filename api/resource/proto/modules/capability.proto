@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package resourcepb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
+
+import "google/protobuf/struct.proto";
+
+message CUCapability {
+  string ID = 1;
+  string TenantID = 2;
+  string CUID = 3;
+  string CapabilityID = 4;
+  int32 SchemaVersion = 5;
+  google.protobuf.Struct Spec = 6;
+  bool Enabled = 7;
+  int64 Version = 8;
+}
+
+message CreateCUCapabilityRequest {
+  string TenantID = 1;
+  string CUID = 2;
+  string CapabilityID = 3;
+  int32 SchemaVersion = 4;
+  google.protobuf.Struct Spec = 5;
+  bool Enabled = 6;
+}
+
+message CreateCUCapabilityResponse {
+  string CapabilityInstanceID = 1;
+}
+
+message UpdateCUCapabilityRequest {
+  string TenantID = 1;
+  string ID = 2;
+  int32 SchemaVersion = 3;
+  google.protobuf.Struct Spec = 4;
+  bool Enabled = 5;
+  int64 ExpectedVersion = 6;
+}
+
+message DeleteCUCapabilityRequest {
+  string TenantID = 1;
+  string ID = 2;
+}
+
+message GetCUCapabilityRequest {
+  string TenantID = 1;
+  string ID = 2;
+}
+
+message ListCUCapabilitiesRequest {
+  string TenantID = 1;
+  string CUID = 2;
+  repeated string CapabilityIDs = 3;
+  bool EnabledOnly = 4;
+}
+
+message ListCUCapabilitiesResponse {
+  repeated CUCapability Capabilities = 1;
+}

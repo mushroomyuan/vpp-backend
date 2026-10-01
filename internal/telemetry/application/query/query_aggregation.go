@@ -12,11 +12,11 @@ import (
 )
 
 type QueryAggregation struct {
-	TenantID   string
-	CUCode     string
-	MetricName string
-	StartTime  time.Time
-	EndTime    time.Time
+	TenantID  string
+	CUCode    string
+	MetricID  string
+	StartTime time.Time
+	EndTime   time.Time
 	// Step is the downsampling window, e.g. time.Minute, 15*time.Minute.
 	Step      time.Duration
 	Functions []model.AggFunction
@@ -50,13 +50,13 @@ func (h queryAggregationHandler) Handle(ctx context.Context, q QueryAggregation)
 	}
 
 	domainQuery := model.AggregationQuery{
-		TenantID:   q.TenantID,
-		CUCode:     q.CUCode,
-		MetricName: q.MetricName,
-		StartTime:  q.StartTime,
-		EndTime:    q.EndTime,
-		Step:       q.Step,
-		Functions:  q.Functions,
+		TenantID:  q.TenantID,
+		CUCode:    q.CUCode,
+		MetricID:  q.MetricID,
+		StartTime: q.StartTime,
+		EndTime:   q.EndTime,
+		Step:      q.Step,
+		Functions: q.Functions,
 	}
 	if err := domainQuery.Validate(); err != nil {
 		return nil, err

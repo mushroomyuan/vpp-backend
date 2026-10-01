@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mushroomyuan/vpp-backend/api/contracts"
 	"github.com/mushroomyuan/vpp-backend/resource/application/types"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 )
@@ -154,7 +155,10 @@ func TestSubmitBatchImport_AssetAndPoint(t *testing.T) {
 				PointImportPayload: types.PointImportPayload{
 					AssetID: "a1",
 					CUID:    "c1",
-					Items:   []types.PointItem{{PointKey: "soc", DataType: model.DataTypeFloat}},
+					Items: []types.PointItem{{
+						MetricID:        string(contracts.MetricEnergyStorageStateOfCharge),
+						ExternalAddress: "soc", AccessMode: model.AccessModeRead, Scale: 1,
+					}},
 				},
 			},
 		})

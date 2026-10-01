@@ -3,6 +3,7 @@ module github.com/mushroomyuan/vpp-backend/telemetry
 go 1.26.4
 
 replace (
+	github.com/mushroomyuan/vpp-backend/api/contracts => ../../api/contracts
 	github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen => ../../api/telemetry/proto/gen
 	github.com/mushroomyuan/vpp-backend/platform => ../platform
 )
@@ -10,6 +11,7 @@ replace (
 require (
 	github.com/influxdata/influxdb-client-go/v2 v2.14.0
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/mushroomyuan/vpp-backend/api/contracts v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/platform v0.0.0-00010101000000-000000000000
 	github.com/redis/go-redis/v9 v9.21.0

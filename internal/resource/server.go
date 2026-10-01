@@ -102,7 +102,9 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 	siteInfra := postgres.NewSiteRepository(pg)
 	assetInfra := postgres.NewAssetRepository(pg)
 	cuInfra := postgres.NewCURepository(pg)
+	capabilityInfra := postgres.NewCUCapabilityRepository(pg)
 	pointInfra := postgres.NewPointRepository(pg)
+	scopeInfra := postgres.NewScopeRepository(pg)
 	jobInfra := postgres.NewJobRepository(pg)
 	nodeInfra := postgres.NewNodeRepository(pg)
 
@@ -110,13 +112,14 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 	siteRepo := adapter.NewSiteRepositoryPostgres(siteInfra, nodeInfra)
 	assetRepo := adapter.NewAssetRepositoryPostgres(assetInfra, nodeInfra)
 	cuRepo := adapter.NewCURepositoryPostgres(cuInfra, nodeInfra)
+	capabilityRepo := adapter.NewCUCapabilityRepositoryPostgres(capabilityInfra)
 	pointRepo := adapter.NewPointRepositoryPostgres(pointInfra, nodeInfra)
+	scopeRepo := adapter.NewScopeRepositoryPostgres(scopeInfra)
 	jobRepo := adapter.NewJobRepositoryPostgres(jobInfra)
 	nodeRepo := adapter.NewNodeRepositoryPostgres(nodeInfra)
 
 	assetRuntime := redis.NewAssetRuntimeCache(redisClient, 0)
 	cuRuntime := redis.NewCURuntimeCache(redisClient, 0)
-	pointRuntime := redis.NewPointRuntimeCache(redisClient, 0)
 
 	// ── event publisher (Kafka; no-op when brokers empty) ─────────────────────
 	eventPublisher := kafka.NewEventPublisher(kafka.Config{
@@ -129,12 +132,13 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 		SiteRepo:           siteRepo,
 		AssetRepo:          assetRepo,
 		CURepo:             cuRepo,
+		CUCapabilityRepo:   capabilityRepo,
 		PointRepo:          pointRepo,
+		ScopeRepo:          scopeRepo,
 		JobRepo:            jobRepo,
 		NodeRepo:           nodeRepo,
 		AssetRuntime:       assetRuntime,
 		CURuntime:          cuRuntime,
-		PointRuntime:       pointRuntime,
 		Metrics:            metricsClient,
 		ImportWorkerConfig: cfg.WorkerConfig,
 		EventPublisher:     eventPublisher,

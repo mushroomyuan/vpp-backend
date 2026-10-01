@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mushroomyuan/vpp-backend/api/contracts"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/infrastructure/persistent/postgres"
 )
@@ -153,18 +154,8 @@ func AssetToDomain(node *postgres.NodeModel, row *postgres.AssetModel) (*model.A
 // ─── CU extension (+ node) ────────────────────────────────────────────────────
 
 func CUDomainToDB(c *model.CU) (*postgres.CUModel, error) {
-	var tags []byte
-	var err error
-	if c.CapabilityTags == nil {
-		tags = []byte("[]")
-	} else {
-		tags, err = json.Marshal(c.CapabilityTags)
-		if err != nil {
-			return nil, fmt.Errorf("marshal capability_tags: %w", err)
-		}
-	}
-
 	pc := []byte("{}")
+	var err error
 	if len(c.ProtocolConfig) > 0 {
 		pc, err = json.Marshal(c.ProtocolConfig)
 		if err != nil {
@@ -188,7 +179,6 @@ func CUDomainToDB(c *model.CU) (*postgres.CUModel, error) {
 		Protocol:       c.Protocol,
 		ProtocolConfig: pc,
 		Connection:     conn,
-		CapabilityTags: tags,
 	}, nil
 }
 
@@ -197,13 +187,6 @@ func CUToDomain(node *postgres.NodeModel, row *postgres.CUModel) (*model.CU, err
 	n, err := NodeDBToDomain(node)
 	if err != nil {
 		return nil, err
-	}
-
-	var tags []string
-	if len(row.CapabilityTags) > 0 && string(row.CapabilityTags) != "null" {
-		if err := json.Unmarshal(row.CapabilityTags, &tags); err != nil {
-			return nil, fmt.Errorf("unmarshal capability_tags: %w", err)
-		}
 	}
 
 	var pc map[string]any
@@ -232,7 +215,6 @@ func CUToDomain(node *postgres.NodeModel, row *postgres.CUModel) (*model.CU, err
 		Protocol:       row.Protocol,
 		ProtocolConfig: pc,
 		Connection:     conn,
-		CapabilityTags: tags,
 	}, nil
 }
 
@@ -259,42 +241,40 @@ func PointDomainToDB(p *model.Point) (*postgres.PointModel, error) {
 	if strings.TrimSpace(p.TenantID) == "" {
 		return nil, fmt.Errorf("point tenant_id is required")
 	}
-	extCfg, err := json.Marshal(p.ExtConfig)
-	if err != nil {
-		return nil, fmt.Errorf("marshal ext_config: %w", err)
-	}
-	thresholds, err := json.Marshal(p.SafetyThresholds)
-	if err != nil {
-		return nil, fmt.Errorf("marshal safety_thresholds: %w", err)
+	var constraint *postgres.PointSafetyConstraintModel
+	if p.SafetyConstraint != nil {
+		constraint = &postgres.PointSafetyConstraintModel{
+			PointID:            p.ID,
+			MinValue:           p.SafetyConstraint.MinValue,
+			MaxValue:           p.SafetyConstraint.MaxValue,
+			MaxChangePerSecond: p.SafetyConstraint.MaxChangePerSecond,
+			Version:            p.SafetyConstraint.Version,
+		}
 	}
 	return &postgres.PointModel{
 		ID:               p.ID,
 		TenantID:         p.TenantID,
 		AssetID:          p.AssetID,
 		CUID:             p.CUID,
-		PointKey:         p.PointKey,
+		MetricID:         string(p.MetricID),
 		ExternalAddress:  p.ExternalAddress,
-		DataType:         string(p.DataType),
-		ExtConfig:        extCfg,
-		Description:      p.Description,
-		ControlFlag:      p.ControlFlag,
-		IsVirtual:        p.IsVirtual,
-		SafetyThresholds: thresholds,
-		CacheKeyAlias:    p.CacheKeyAlias,
+		AccessMode:       string(p.AccessMode),
+		Scale:            p.Scale,
+		Offset:           p.Offset,
+		Enabled:          p.Enabled,
+		Revision:         p.Revision,
+		SafetyConstraint: constraint,
 	}, nil
 }
 
 func PointDBToDomain(row *postgres.PointModel) (*model.Point, error) {
-	var extCfg map[string]any
-	if len(row.ExtConfig) > 0 {
-		if err := json.Unmarshal(row.ExtConfig, &extCfg); err != nil {
-			return nil, fmt.Errorf("unmarshal ext_config: %w", err)
-		}
-	}
-	var thresholds map[string]any
-	if len(row.SafetyThresholds) > 0 {
-		if err := json.Unmarshal(row.SafetyThresholds, &thresholds); err != nil {
-			return nil, fmt.Errorf("unmarshal safety_thresholds: %w", err)
+	var constraint *model.PointSafetyConstraint
+	if row.SafetyConstraint != nil {
+		constraint = &model.PointSafetyConstraint{
+			MinValue:           row.SafetyConstraint.MinValue,
+			MaxValue:           row.SafetyConstraint.MaxValue,
+			MaxChangePerSecond: row.SafetyConstraint.MaxChangePerSecond,
+			Version:            row.SafetyConstraint.Version,
 		}
 	}
 	return &model.Point{
@@ -302,15 +282,14 @@ func PointDBToDomain(row *postgres.PointModel) (*model.Point, error) {
 		TenantID:         row.TenantID,
 		AssetID:          row.AssetID,
 		CUID:             row.CUID,
-		PointKey:         row.PointKey,
+		MetricID:         contracts.MetricID(row.MetricID),
 		ExternalAddress:  row.ExternalAddress,
-		DataType:         model.DataType(row.DataType),
-		ExtConfig:        extCfg,
-		Description:      row.Description,
-		ControlFlag:      row.ControlFlag,
-		IsVirtual:        row.IsVirtual,
-		SafetyThresholds: thresholds,
-		CacheKeyAlias:    row.CacheKeyAlias,
+		AccessMode:       model.AccessMode(row.AccessMode),
+		Scale:            row.Scale,
+		Offset:           row.Offset,
+		Enabled:          row.Enabled,
+		Revision:         row.Revision,
+		SafetyConstraint: constraint,
 	}, nil
 }
 
@@ -324,6 +303,24 @@ func BatchPointDBToDomain(rows []*postgres.PointModel) ([]*model.Point, error) {
 		out = append(out, p)
 	}
 	return out, nil
+}
+
+func CUCapabilityDomainToDB(c *model.CUCapability) *postgres.CUCapabilityModel {
+	return &postgres.CUCapabilityModel{
+		ID: c.ID, TenantID: c.TenantID, CUID: c.CUID,
+		CapabilityID: string(c.CapabilityID), SchemaVersion: c.SchemaVersion,
+		Spec: append([]byte(nil), c.Spec...), Enabled: c.Enabled, Version: c.Version,
+		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+	}
+}
+
+func CUCapabilityDBToDomain(row *postgres.CUCapabilityModel) *model.CUCapability {
+	return &model.CUCapability{
+		ID: row.ID, TenantID: row.TenantID, CUID: row.CUID,
+		CapabilityID: contracts.CapabilityID(row.CapabilityID), SchemaVersion: row.SchemaVersion,
+		Spec: append([]byte(nil), row.Spec...), Enabled: row.Enabled, Version: row.Version,
+		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
 }
 
 // ─── Job ────────────────────────────────────────────────────────────────────
