@@ -7,7 +7,7 @@
 
 ## 1. 机制
 
-`resource` / `telemetry` / `gateway` / `dispatch` / `simulator` / `alarm` / `optimization` / `forecast` 的 `app.go` 里都有等价的 `loadViperConfig()`：
+`resource` / `telemetry` / `gateway` / `dispatch` / `simulator` / `alarm` / `decision` / `forecast` 的 `app.go` 里都有等价的 `loadViperConfig()`：
 
 ```go
 viper.SetConfigName("<service>")
@@ -50,9 +50,9 @@ if err := viper.ReadInConfig(); err != nil {
 | `dispatch.grpc-addr` | `DISPATCH_GRPC_ADDR` |
 | `dispatch.auth.trust-proxy-headers` | `DISPATCH_AUTH_TRUST_PROXY_HEADERS` |
 | `dispatch.auth.authz.casdoor-url` | `DISPATCH_AUTH_AUTHZ_CASDOOR_URL` |
-| `optimization.http-addr` | `OPTIMIZATION_HTTP_ADDR` |
-| `telemetry.grpc-addr`（optimization / forecast 出站） | `TELEMETRY_GRPC_ADDR` |
-| `resource.grpc-addr`（optimization 出站） | `RESOURCE_GRPC_ADDR` |
+| `decision.http-addr` | `DECISION_HTTP_ADDR` |
+| `telemetry.grpc-addr`（decision / forecast 出站） | `TELEMETRY_GRPC_ADDR` |
+| `resource.grpc-addr`（decision 出站） | `RESOURCE_GRPC_ADDR` |
 | `forecast.grpc-addr` | `FORECAST_GRPC_ADDR` |
 | `forecast.http-addr` | `FORECAST_HTTP_ADDR` |
 | `postgres.host`（forecast；其它服务是 `database.host`） | `POSTGRES_HOST` |

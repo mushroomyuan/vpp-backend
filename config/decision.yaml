@@ -1,0 +1,97 @@
+tracing:
+  endpoint: 127.0.0.1:4318
+  insecure: true
+
+decision:
+  service-name: vpp-decision
+  # /healthz stays on Gin. Policy RPCs are also exposed here by grpc-gateway.
+  http-addr: 127.0.0.1:8088
+  # DecisionService (policy CRUD) plus grpc.health.v1.
+  grpc-addr: :5008
+  metrics-addr: :9108
+
+  # Must stay strictly greater than Telemetry's collection cycle
+  # (Simulator default 30s).
+  decision-interval: 60s
+  # Empty / 0s = 2× decision-interval. A policy may override this later.
+  default-cooldown: 2m
+  # Successful ResolveScope results are reused for this long.
+  # Enable and update call Resource directly and do not read this cache.
+  scope-cache-ttl: 30s
+  # When Resource fails, a copy younger than this is still used. Older copies skip the policy.
+  scope-cache-max-age: 5m
+  # Per-metric freshness. Samples older than this, or marked stale, skip the whole policy.
+  telemetry-stale-age: 90s
+  # How long one worker may hold a plan step before another worker may claim it.
+  execution-lease: 30s
+  # Delay before an uncertain Dispatch call is retried with the same idempotency key.
+  execution-retry-after: 5s
+  # How often due plan steps are claimed. This is not a leader election.
+  execution-poll-interval: 1s
+
+# auth.trust-proxy-headers false bypasses the gRPC PEP for local debugging.
+# HTTP reaches the same interceptor because the gateway dials this process.
+auth:
+  trust-proxy-headers: false
+  authz:
+    casdoor-url: http://127.0.0.1:8000
+    casdoor-organization: built-in
+    casdoor-application: app-built-in
+    casdoor-username: admin
+    casdoor-password: "123"
+    owner: default
+    model-filter: default/vpp-rbac
+    snapshot-path: ./data/decision-authz-snapshot.json
+    sync-interval: 30s
+    healthy-after: 1m
+    stale-after: 5m
+    allow-read-when-invalid: false
+    deny-writes-when-stale: true
+
+# Opened at startup. Schema: migrations/decision and migrations/initdb/90-92.
+database:
+  driver: postgres
+  host: 127.0.0.1
+  port: 5432
+  user: postgres
+  password: postgres123
+  dbname: decision
+  params:
+    sslmode: disable
+    TimeZone: Asia/Shanghai
+
+  max-open-conns: 50
+  max-idle-conns: 10
+  conn-max-lifetime-seconds: 1800
+  conn-max-idle-time-seconds: 300
+
+# Outbound gRPC (internal direct connect, not via APISIX).
+telemetry:
+  grpc-addr: 127.0.0.1:5003
+  timeout: 5s
+  circuit-breaker:
+    enabled: true
+    consecutive-failures: 5
+    min-requests: 10
+    failure-ratio: 0.5
+    open-timeout: 30s
+
+resource:
+  grpc-addr: 127.0.0.1:5002
+  timeout: 5s
+  circuit-breaker:
+    enabled: true
+    consecutive-failures: 5
+    min-requests: 10
+    failure-ratio: 0.5
+    open-timeout: 30s
+
+dispatch:
+  grpc-addr: 127.0.0.1:5006
+  timeout: 5s
+  circuit-breaker:
+    enabled: true
+    consecutive-failures: 5
+    min-requests: 10
+    failure-ratio: 0.5
+    open-timeout: 30s

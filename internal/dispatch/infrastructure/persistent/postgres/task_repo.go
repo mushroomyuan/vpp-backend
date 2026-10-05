@@ -2,11 +2,17 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+// ErrIdempotencyConflict is returned when a task insert loses the
+// (tenant_id, idempotency_key) race. The adapter maps it to the domain error.
+var ErrIdempotencyConflict = errors.New("dispatch task idempotency conflict")
 
 // TaskRepository provides raw GORM access to dispatch_tasks and the nested
 // action/command rows needed to load or create a full task tree.
@@ -33,8 +39,23 @@ func (r *TaskRepository) CreateTaskTree(
 
 	return r.pg.StartTransaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
-		if err := tx.Create(task).Error; err != nil {
-			return fmt.Errorf("insert dispatch_task: %w", err)
+		insert := tx
+		if task.IdempotencyKey != nil && *task.IdempotencyKey != "" {
+			// Partial unique index: a lost race inserts nothing and leaves the winner's row.
+			insert = tx.Clauses(clause.OnConflict{
+				Columns: []clause.Column{{Name: "tenant_id"}, {Name: "idempotency_key"}},
+				TargetWhere: clause.Where{Exprs: []clause.Expression{
+					clause.Expr{SQL: "idempotency_key IS NOT NULL AND idempotency_key <> ''"},
+				}},
+				DoNothing: true,
+			})
+		}
+		result := insert.Create(task)
+		if result.Error != nil {
+			return fmt.Errorf("insert dispatch_task: %w", result.Error)
+		}
+		if task.IdempotencyKey != nil && *task.IdempotencyKey != "" && result.RowsAffected == 0 {
+			return ErrIdempotencyConflict
 		}
 		if len(actions) > 0 {
 			if err := tx.Create(&actions).Error; err != nil {
@@ -81,6 +102,18 @@ func (r *TaskRepository) FindTaskByID(ctx context.Context, id string) (tree *Tas
 	defer func() { deferLog(tree, &err) }()
 
 	return r.loadTaskTree(ctx, "id = ?", id)
+}
+
+// FindTaskByIdempotencyKey loads the task tree stored for one tenant and key.
+// Returns gorm.ErrRecordNotFound when no row matches.
+func (r *TaskRepository) FindTaskByIdempotencyKey(ctx context.Context, tenantID, key string) (tree *TaskTree, err error) {
+	_, deferLog := logging.WhenDB(ctx, "TaskRepository.FindTaskByIdempotencyKey", tenantID)
+	defer func() { deferLog(tree, &err) }()
+
+	if tenantID == "" || key == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return r.loadTaskTree(ctx, "tenant_id = ? AND idempotency_key = ?", tenantID, key)
 }
 
 // FindTaskByCommandID loads the complete task tree for the task that owns the

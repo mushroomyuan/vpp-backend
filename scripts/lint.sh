@@ -14,7 +14,7 @@ MODULE_DIRS=(
   internal/dispatch
   internal/simulator
   internal/alarm
-  internal/optimization
+  internal/decision
   internal/forecast
 )
 

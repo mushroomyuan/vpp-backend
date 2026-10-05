@@ -17,7 +17,7 @@ import (
 )
 
 // Config holds the connection parameters for the upstream telemetry gRPC
-// service, mirroring internal/optimization/adapter/outbound/telemetry_grpc.Config.
+// service, mirroring the Decision telemetry client's Config.
 type Config struct {
 	Addr string // e.g. "127.0.0.1:5003"
 

@@ -8,11 +8,11 @@ import (
 // Options holds all configurable parameters for the Forecast service.
 // Field names and mapstructure tags match config/forecast.yaml.
 type Options struct {
-	Forecast  ForecastOptions  `mapstructure:"forecast"`
-	Tracing   TracingOptions   `mapstructure:"tracing"`
-	Telemetry UpstreamOptions  `mapstructure:"telemetry"`
-	Postgres  DatabaseOptions  `mapstructure:"postgres"`
-	Redis     RedisOptions     `mapstructure:"redis"`
+	Forecast  ForecastOptions `mapstructure:"forecast"`
+	Tracing   TracingOptions  `mapstructure:"tracing"`
+	Telemetry UpstreamOptions `mapstructure:"telemetry"`
+	Postgres  DatabaseOptions `mapstructure:"postgres"`
+	Redis     RedisOptions    `mapstructure:"redis"`
 }
 
 type ForecastOptions struct {
@@ -21,7 +21,7 @@ type ForecastOptions struct {
 	MetricsAddr string `mapstructure:"metrics-addr"`
 	ServiceName string `mapstructure:"service-name"`
 
-	// CycleInterval is how often the batch loop ticks. Unlike Optimization
+	// CycleInterval is how often the batch loop ticks. Unlike Decision
 	// this is not a correctness constraint (no side-effecting commands), so
 	// it is not forced above Telemetry's 30s collection cycle.
 	CycleInterval time.Duration `mapstructure:"cycle-interval"`

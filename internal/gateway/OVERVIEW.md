@@ -141,5 +141,7 @@ flowchart LR
     GW -.->|command.completed| Dis
 ```
 
+Gateway 把上报 name 和下发 PointKey 当作不透明字符串。Simulator 使用 canonical MetricID，因此内部闭环可以透传。厂商外部点名、单位和符号转换不在本服务，见 [`docs/DECISION_FOLLOWUPS.md`](../../docs/DECISION_FOLLOWUPS.md)。
+
 
 

@@ -1,15 +1,16 @@
-// Package integration exercises three chains across the real application
-// layers of dispatch, gateway, resource, and telemetry, wired to ephemeral
+// Package integration exercises chains across the real application layers of
+// dispatch, gateway, resource, telemetry, and decision, wired to ephemeral
 // Postgres/TimescaleDB/Redis/Kafka containers:
 //
 //  1. SubmitTask -> ExecuteCommand -> Kafka callback (dispatch <-> gateway).
 //  2. TimeoutScanner circuit-breaking a stuck Sending command.
 //  3. Resource lifecycle event -> gateway mapping disable (resource -> gateway).
 //  4. ReceiveTelemetry -> IngestTelemetry -> TimescaleDB/Redis (gateway <-> telemetry).
+//  5. ResolveScope + GetSnapshots -> Decision plan -> Dispatch SubmitTask.
 //
-// Dispatch talks to gateway, and gateway talks to telemetry, over real gRPC
-// servers bound to in-memory bufconn listeners (no host ports, no network
-// flakiness).
+// Dispatch talks to gateway, gateway talks to telemetry, and decision talks to
+// resource, telemetry, and dispatch over real gRPC servers bound to in-memory
+// bufconn listeners (no host ports, no network flakiness).
 //
 // All tests in this package share a single environment (one Kafka container,
 // one Postgres/TimescaleDB container per service, one Redis container) built
@@ -59,7 +60,11 @@ import (
 	gatewayinfrapg "github.com/mushroomyuan/vpp-backend/gateway/infrastructure/persistent/postgres"
 
 	resourcekafkaout "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/kafka"
+	resourceapp "github.com/mushroomyuan/vpp-backend/resource/application"
 	resourceport "github.com/mushroomyuan/vpp-backend/resource/domain/port"
+
+	decisionapp "github.com/mushroomyuan/vpp-backend/decision/application"
+	decisioncommand "github.com/mushroomyuan/vpp-backend/decision/application/command"
 
 	telemetrypb "github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen"
 	telemetryinboundgrpc "github.com/mushroomyuan/vpp-backend/telemetry/adapter/inbound/grpc"
@@ -104,6 +109,13 @@ type env struct {
 	// lifecycle events onto vpp.resource.events without standing up
 	// resource's full domain/hierarchy.
 	ResourceEvents resourceport.ResourceEventPublisher
+
+	// Resource is the catalog application. Decision reaches it only through ResolveScope gRPC.
+	Resource resourceapp.Application
+	// Policies is the Decision policy API. The cycle and execution loop are the runtime path.
+	Policies  decisionapp.Application
+	Cycle     *decisioncommand.RunDecisionCycle
+	Execution *decisioncommand.PlanExecutionLoop
 }
 
 var sharedEnv *env
@@ -134,7 +146,10 @@ func buildEnv() (*env, func(), error) {
 		return nil, nil, err
 	}
 
-	dispatchDSN, dispatchClose, err := startPostgres(ctx, "postgres:16-alpine", "dispatch", "../../migrations/dispatch/000001_init.up.sql")
+	dispatchDSN, dispatchClose, err := startPostgres(ctx, "postgres:16-alpine", "dispatch",
+		"../../migrations/dispatch/000001_init.up.sql",
+		"../../migrations/dispatch/000002_task_idempotency.up.sql",
+	)
 	if err != nil {
 		return fail(fmt.Errorf("start dispatch postgres: %w", err))
 	}
@@ -149,7 +164,7 @@ func buildEnv() (*env, func(), error) {
 	// TimescaleDB is a strict superset of Postgres; the same testcontainers
 	// module works, but the image is swapped and no init script is needed
 	// since telemetry.ApplySchema (real production code) creates the schema.
-	telemetryDSN, telemetryClose, err := startPostgres(ctx, "timescale/timescaledb:latest-pg16", "telemetry", "")
+	telemetryDSN, telemetryClose, err := startPostgres(ctx, "timescale/timescaledb:latest-pg16", "telemetry")
 	if err != nil {
 		return fail(fmt.Errorf("start telemetry timescaledb: %w", err))
 	}
@@ -326,31 +341,52 @@ func buildEnv() (*env, func(), error) {
 	go func() { _ = dispatchApplication.TimeoutScanner.Run(scannerCtx) }()
 	closers = append(closers, cancelScanner)
 
+	chain, chainClosers, err := startDecisionChain(ctx, decisionChainInput{
+		RedisURI:      redisAddr,
+		TelemetryDial: telemetryBufDialer,
+		Dispatch:      dispatchApplication,
+	})
+	if err != nil {
+		return fail(fmt.Errorf("start decision chain: %w", err))
+	}
+	closers = append(closers, chainClosers...)
+
 	return &env{
 		Dispatch:       dispatchApplication,
 		Gateway:        gatewayApplication,
 		Telemetry:      telemetryApplication,
 		TaskRepo:       taskRepo,
 		ResourceEvents: resourceEvents,
+		Resource:       chain.Resource,
+		Policies:       chain.Policies,
+		Cycle:          chain.Cycle,
+		Execution:      chain.Execution,
 	}, teardown, nil
 }
 
 // startPostgres runs a fresh Postgres-compatible container seeded with the
 // given migration file (skipped when empty) and returns a DSN string usable
 // by gorm.io/driver/postgres and pgxpool alike.
-func startPostgres(ctx context.Context, image, dbName, migrationFile string) (string, func(), error) {
+func startPostgres(ctx context.Context, image, dbName string, migrationFiles ...string) (string, func(), error) {
 	opts := []testcontainers.ContainerCustomizer{
 		tcpostgres.WithDatabase(dbName),
 		tcpostgres.WithUsername("postgres"),
 		tcpostgres.WithPassword("postgres123"),
 		tcpostgres.BasicWaitStrategies(),
 	}
-	if migrationFile != "" {
+	var scripts []string
+	for _, migrationFile := range migrationFiles {
+		if migrationFile == "" {
+			continue
+		}
 		abs, err := filepath.Abs(migrationFile)
 		if err != nil {
 			return "", nil, err
 		}
-		opts = append(opts, tcpostgres.WithInitScripts(abs))
+		scripts = append(scripts, abs)
+	}
+	if len(scripts) > 0 {
+		opts = append(opts, tcpostgres.WithInitScripts(scripts...))
 	}
 
 	c, err := tcpostgres.Run(ctx, image, opts...)

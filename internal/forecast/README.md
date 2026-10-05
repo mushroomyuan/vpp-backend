@@ -4,7 +4,7 @@ VPP 平台的**内部批算式预测服务**。按固定周期拉 Telemetry 历�
 
 - **只读 gRPC**：`GetLatestPrediction` / `QueryForecastHistory`；没有写 RPC
 - **出站**：Telemetry `QueryAggregation`（内部直连，不经 APISIX）、Redis db=2、Postgres `forecast` 库
-- **不做**：电价/天气等外部数据预测；不查 Resource；本轮不接 Optimization（那边的 `ForecastPort` stub 保持不动）
+- **不做**：电价/天气等外部数据预测；不查 Resource；本轮不接 Decision（那边的 `ForecastProvider` stub 保持不动）
 
 能力简介见 [OVERVIEW.md](./OVERVIEW.md)。设计讨论见 [`discussion/2026-09-04.md`](../../discussion/2026-09-04.md)。
 
@@ -49,7 +49,7 @@ VPP 平台的**内部批算式预测服务**。按固定周期拉 Telemetry 历�
 
 ## 架构设计
 
-六边形分层，和 optimization 同一套手写骨架。主路径是独立 goroutine（对照 `DecisionLoop` / dispatch `TimeoutScanner`），另有 inbound gRPC 给人/服务以后来读。
+六边形分层，和 decision 同一套手写骨架。主路径是独立 goroutine（对照 `DecisionLoop` / dispatch `TimeoutScanner`），另有 inbound gRPC 给人/服务以后来读。
 
 ```
 Telemetry :5003                 Redis db=2                 Postgres forecast
@@ -184,7 +184,7 @@ internal/forecast/
 | Redis db=2 | 最新一批点 |
 | Prometheus `:9109` | 指标 |
 
-不查 Resource、不调 Dispatch、不接 Casdoor。Optimization 的 `ForecastPort` **本轮不接**。
+不查 Resource、不调 Dispatch、不接 Casdoor。Decision 的 `ForecastProvider` **本轮不接**。
 
 ---
 
@@ -224,7 +224,7 @@ kubectl -n vpp port-forward svc/forecast 5007:5007
 
 ## 已知技术债（v1 故意不做）
 
-- **不接 Optimization。** `ForecastPort` / `forecast_stub` 不动；接线是独立后续工作。
+- **不接 Decision。** `ForecastProvider` 仍是 stub；接线是独立后续工作。
 - **不做电价/天气/政策预测。** 讨论定性为另一类服务。
 - **`same_period_prior` 不排除事件日。** 没有 Market 日历；`BaselinePredictor` 以后再特化。
 - **不做目标自动发现。** 显式 `targets` 列表。

@@ -84,6 +84,7 @@ if command -v buf >/dev/null 2>&1; then
   generate_with_buf "api/telemetry/proto"
   generate_with_buf "api/gateway/proto"
   generate_with_buf "api/forecast/proto"
+  generate_with_buf "api/decision/proto"
 else
   log "buf not found, falling back to protoc for resource only"
   require_bin protoc
@@ -91,7 +92,7 @@ else
   require_bin protoc-gen-go-grpc
   require_file "api/resource/proto/resource_service.proto"
   generate_resource_with_protoc
-  die "telemetry, gateway, and forecast proto generation requires buf; install buf or run buf generate manually"
+  die "telemetry, gateway, forecast, and decision proto generation requires buf; install buf or run buf generate manually"
 fi
 
 log "proto generation succeeded"

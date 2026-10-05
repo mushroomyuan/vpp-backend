@@ -103,4 +103,5 @@ flowchart LR
 | **Gateway** | 唯一常规写入方；完成外部→`CUCode` 后再 Ingest |
 | **Resource** | 不直连；身份约定共享 `CUCode` |
 | **Dispatch / Simulator** | 不写本服务；控制闭环靠 Telemetry 数据间接体现 |
+| **Decision** | 按 CU 列表和 metric 列表调用 `GetSnapshots`；质量与观测时间随每个 metric 返回 |
 | **Alarm** | 消费全部离散量变位；open 期间按测点合单 |

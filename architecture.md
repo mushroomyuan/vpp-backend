@@ -76,11 +76,13 @@ flowchart TB
 
     end
 
-    subgraph Optimization["vpp-optimization"]
+    subgraph Decision["vpp-decision"]
 
-        O_HTTP["HTTP :8088<br/>/healthz only"]
+        Dec_GRPC["gRPC :5008<br/>Policy CRUD"]
 
-        O_APP["DecisionLoop<br/>规则 → Allocate → SubmitTask"]
+        Dec_HTTP["HTTP :8088<br/>/healthz + grpc-gateway"]
+
+        Dec_APP["DecisionLoop + PlanExecutionLoop<br/>Policy → Objective → Plan → SubmitTask"]
 
     end
 
@@ -105,6 +107,8 @@ flowchart TB
     PG -->|alarm 库| Alarm
 
     PG -->|forecast 库| Forecast
+
+    PG -->|decision 库| Decision
 
     Redis -->|db=0 运行时缓存| Resource
 
@@ -202,9 +206,9 @@ flowchart TB
 
     Alarm --- Prom
 
-    Optimization --- Jaeger
+    Decision --- Jaeger
 
-    Optimization --- Prom
+    Decision --- Prom
 
     Forecast --- Jaeger
 
@@ -222,14 +226,14 @@ flowchart TB
 | 管理端       | resource（经 APISIX）    | HTTP `:9080/resource` | ✅ 已通 | Casdoor JWT + OIDC；直连 `:8082` 可关应用鉴权 |
 | gateway   | telemetry                | gRPC `:5003` | ✅ 已通        | `IngestTelemetry`，配置写死在 `gateway.yaml`        |
 | 管理端       | dispatch                 | gRPC `:5006` | ✅ **v2 已通** | 人工 `SubmitTask` / `GetTask` / `CancelTask`   |
-| **optimization** | telemetry            | gRPC `:5003` | ✅ **已通**    | `GetSnapshot`；绕开 Resource Runtime 缓存；熔断默认开 |
-| **optimization** | resource             | gRPC `:5002` | ✅ 已接线      | `GetAsset` 额定容量；仅 `AggregateTarget`；v1 规则不调用 |
-| **optimization** | dispatch             | gRPC `:5006` | ✅ **已通**    | `SubmitTask` `TriggerType=automatic`；熔断默认开；服务端 `submit-task` 限流 `rps=20 burst=40` |
-| **任意**    | **optimization 业务 API** | —          | ❌ 无         | 无入站业务 gRPC/HTTP，只有 `/healthz` + `/metrics` |
+| **decision** | resource             | gRPC `:5002` | ✅ **已通**    | `ResolveScope`；不读 Resource 库，不调用 `GetAsset` |
+| **decision** | telemetry            | gRPC `:5003` | ✅ **已通**    | `GetSnapshots`；per-metric 质量与新鲜度；绕开 Resource Runtime 缓存 |
+| **decision** | dispatch             | gRPC `:5006` | ✅ **已通**    | 一个 Plan step 提交一个 Task，`TriggerType=automatic`，带租户幂等键 |
+| 管理端       | **decision**         | gRPC `:5008` / HTTP `:8088` | ✅ **已通** | Policy CRUD / Enable / Disable；kind 为 ClusterIP，不挂 APISIX |
 | **forecast** | telemetry            | gRPC `:5003` | ✅ **已通**    | `QueryAggregation` AVG+LAST；熔断默认开；不查 Resource |
 | **forecast** | Redis db=2           | —            | ✅ **已通**    | 最新整批预测点；TTL = horizon + 一轮周期 |
 | **forecast** | Postgres `forecast`  | —            | ✅ **已通**    | `forecast_history` 权威历史；先写 PG 再写 Redis |
-| 管理端 / Optimization | **forecast**     | gRPC `:5007` | 🟡 已暴露未接线 | `GetLatestPrediction` / `QueryForecastHistory` 已可用；无 APISIX；Optimization `ForecastPort` 仍是 stub |
+| 管理端 / Decision | **forecast**     | gRPC `:5007` | 🟡 已暴露未接线 | `GetLatestPrediction` / `QueryForecastHistory` 已可用；无 APISIX；Decision `ForecastProvider` 仍是 stub |
 | **任意**    | **forecast 写 RPC**  | —            | ❌ 无         | 唯一产出者是自己的 ForecastLoop |
 | dispatch  | gateway                  | gRPC `:5005` | ✅ **v2 已通** | `ExecuteCommand`（CommandID / PointKey / oneof Value） |
 | gateway   | 外部系统 / Simulator     | HTTP         | ✅ **simulator 已通** | `ExternalSystem=simulator` → Simulator；其它 → `ems_log`；成功后发 Kafka 回调 |
@@ -274,9 +278,11 @@ flowchart LR
 
         K5 -->|consume| A1
 
-        O1[optimization] -->|gRPC GetSnapshot| T1
+        Dec1[decision] -->|gRPC ResolveScope| R1[resource]
 
-        O1 -->|gRPC SubmitTask automatic| D1
+        Dec1 -->|gRPC GetSnapshots| T1
+
+        Dec1 -->|gRPC SubmitTask automatic| D1
 
         F1[forecast] -->|gRPC QueryAggregation| T1
 
@@ -294,7 +300,7 @@ flowchart LR
 
         AlarmAPI["APISIX /alarm/*"] -.->|OIDC 北向| A2[alarm HTTP]
 
-        O2[optimization] -.->|ForecastPort 本轮不接| F2[forecast]
+        Dec2[decision] -.->|ForecastProvider 本轮不接| F2[forecast]
 
         ChartUI["前端 预测 vs 实际"] -.->|QueryForecastHistory| F2
 
@@ -363,12 +369,12 @@ CU 创建        → 不触发 gateway 自动创建 Mapping               ✅ �
 
 **谁该用这层缓存——纠正一个容易搞反的直觉：**
 
-- **前端 / 管理端才是这层缓存的主要受益者，不是 Optimization。** 资产详情页/列表页需要"配置 + 当前状态"一次性拿全，`GetAsset`/`ListAssets` 已经在做这件事（`AssetView{Asset, Runtime}`），前端不用自己分别调 Resource 和 Telemetry 再拼接。这类场景对新鲜度的容忍度高（滞后 15~30s 不影响体验），恰好匹配"周期轮询缓存"的特性。
+- **前端 / 管理端才是这层缓存的主要受益者，不是 Decision。** 资产详情页/列表页需要"配置 + 当前状态"一次性拿全，`GetAsset`/`ListAssets` 已经在做这件事（`AssetView{Asset, Runtime}`），前端不用自己分别调 Resource 和 Telemetry 再拼接。这类场景对新鲜度的容忍度高（滞后 15~30s 不影响体验），恰好匹配"周期轮询缓存"的特性。
   - 例外：如果前端要看的是**原始 Telemetry 指标的历史曲线/图表**（不是资产详情页的当前状态摘要），那应该直接查 Telemetry 的 `QueryAggregation`，和这层缓存无关，Resource 加工一遍没有意义。
-- **Optimization 应该绕开这层缓存，直连 Telemetry。** 决策对新鲜度的要求比前端高，缓存的轮询间隔对它是实质性的延迟成本，不是可以忍受的体验损失。`Optimization v1` 已落地：直连 Telemetry `GetSnapshot`，不依赖 `RuntimeSyncWorker`。详见 [`internal/optimization/README.md`](internal/optimization/README.md)。
-- 如果以后 Optimization 也想复用 Resource 已经算好的"多 CU 聚合成 Asset 级判断"这层业务规则（不想在 Optimization 里重复写一遍），可以再给 `GetAssetRuntime` 加一个按需强制刷新的变体（调用时同步现拉 Telemetry 再返回），但这是一个独立的复杂度，不必现在实现。
+- **Decision 绕开这层缓存。** 目录走 Resource `ResolveScope`，当前值走 Telemetry `GetSnapshots`。决策对新鲜度的要求比前端高，缓存的轮询间隔对它是实质性的延迟成本。详见 [`internal/decision/OVERVIEW.md`](internal/decision/OVERVIEW.md)。
+- 如果以后 Decision 要复用 Resource 已经算好的 Asset 级运行时摘要，可以再给 `GetAssetRuntime` 加一个按需强制刷新的变体。当前聚合 SOC 由 Decision 自己按 `usable_energy_kwh` 计算。
 
-**现状结论：** `RuntimeSyncWorker` 的驱动力来自"前端想要一次性聚合视图"，不是"Optimization 需要它"；先不实现，前端如果暂时不需要"资产详情页一次拿全"这种体验，可以继续搁置。Optimization 无论这层缓存实现与否，都应该直连 Telemetry。
+**现状结论：** `RuntimeSyncWorker` 的驱动力来自"前端想要一次性聚合视图"，不是"Decision 需要它"；先不实现，前端如果暂时不需要"资产详情页一次拿全"这种体验，可以继续搁置。Decision 无论这层缓存实现与否，都直连 Telemetry。
 
 ### 3.4 CU.ExternalID / CU.Provider 的处置
 
@@ -392,8 +398,8 @@ proto 注释：
 | dispatch | 控制任务编排 (Task/Action/Command)，顺控/并发，超时重试，FailFast 熔断 | 协议转换，CU→外部 ID 映射，与外部系统直连 |
 | **simulator** | 虚拟设备运行时：Tick 演化、遥测上报、命令执行、故障注入 | 资源权威、协议转换、调度决策 |
 | **alarm** | 消费 `task.failed` + SOE，规则开单/合单，租户内查询 / ack / close | 全量审计、命令/资源生命周期、规则 DSL、自动恢复、APISIX 北向 |
-| **optimization** | 内部闭环决策：ticker 读 Telemetry，阈值规则 → Allocate → Dispatch `SubmitTask`（`TriggerType=automatic`） | 入站业务 API、真实预测接线、多级任务分解、Resource Runtime 缓存 |
-| **forecast** | 内部批算预测：ticker 读 Telemetry 历史，朴素算法 → Redis 最新批次 + Postgres 历史；只读 gRPC | 电价/天气预测、写 RPC、APISIX 北向、接 Optimization、retention |
+| **decision** | Policy、Objective、Plan 与执行：`ResolveScope` → `GetSnapshots` → SOC 评估 → ImmediatePlanner → 持久化 Plan → Dispatch 一个 Task | 真实 Forecast、数学 Solver、审批状态机、Portfolio、市场/需求响应 |
+| **forecast** | 内部批算预测：ticker 读 Telemetry 历史，朴素算法 → Redis 最新批次 + Postgres 历史；只读 gRPC | 电价/天气预测、写 RPC、APISIX 北向、接 Decision、retention |
 
 ### 3.6 Dispatch ↔ Gateway 协作约定
 
@@ -467,7 +473,7 @@ Gateway 负责：发给谁、怎么发、结果何时回调
 
 ```
 
-**关键设计点：** gateway 的 `CUCode` 与 resource 的 CU UUID **必须一致**（CUCode = Resource CU UUID 约定）；gateway 的 `lifecycle_consumer` 订阅 `vpp.resource.events`，在 CU 删除或禁用时自动 disable 对应 mapping，实现异步清理解耦。**Optimization 无 Postgres / Redis / Kafka**；冷却态仅进程内 map。决策读 Telemetry 快照（gRPC `GetSnapshot`），写路径仍是 Dispatch Postgres + `vpp.dispatch.events`。
+**关键设计点：** gateway 的 `CUCode` 与 resource 的 CU UUID **必须一致**（CUCode = Resource CU UUID 约定）；gateway 的 `lifecycle_consumer` 订阅 `vpp.resource.events`，在 CU 删除或禁用时自动 disable 对应 mapping，实现异步清理解耦。**Decision 使用自己的 Postgres**（Policy、Objective、Plan、冷却、outbox），不占用 Redis 或 Kafka。运行值只读 Telemetry `GetSnapshots`，命令只经 Dispatch。Gateway 仍把 Simulator 的 canonical MetricID 当不透明字符串透传；厂商点名翻译和 Alarm canonical 规则见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。
 
 ## 五、典型数据流（v2）
 
@@ -528,7 +534,7 @@ Casdoor :8000 签发 JWT；APISIX 验签（详见 docs/CASDOOR.md、docs/APISIX.
         ──② CreateMapping──▶ gateway  (CUCode = CU UUID, ExternalSystem, ExternalID)
 
 两步由管理端显式调用，resource 和 gateway 互不感知。
-之后管理端可通过 dispatch.SubmitTask 对该 CUCode 下发控制；Optimization 用同一 RPC、`TriggerType=automatic`。
+之后管理端可通过 dispatch.SubmitTask 对该 CUCode 下发控制；Decision 用同一 RPC、`TriggerType=automatic`，并带上 plan step 幂等键。
 
 ```
 
@@ -545,20 +551,25 @@ dispatch  ──Kafka vpp.dispatch.events (仅 task.failed，含 trigger_type)�
 
 ```
 
-**内部闭环决策（optimization v1 已跑通）：**
+**内部闭环决策（decision 已跑通）：**
 
 ```
 
-ticker（默认 60s，须 > Telemetry 采集周期 30s）
-    → telemetry GetSnapshot
-    → SOC 阈值规则 + 冷却期
-    → Allocate（PointTarget 1:1）
-    → dispatch SubmitTask（TriggerType=automatic）
+启用 Policy（CU / Asset / Site，Enable 时 ResolveScope 预检）
+    → DecisionLoop
+        → Resource ResolveScope
+        → Telemetry GetSnapshots（质量非 GOOD 或过期则整条 Policy 跳过）
+        → SOC Evaluator → PowerObjective
+        → ImmediatePlanner + HeuristicAllocator
+        → 同一事务写入 Objective / Plan / Step / Command / outbox
+    → PlanExecutionLoop claim 到期步骤
+        → 复校 resource_revision
+        → Dispatch SubmitTask（一条 Task 内 N 条命令，幂等键 = plan step）
             → Gateway ExecuteCommand → Kafka command.completed → 任务闭环
             → 失败：vpp.dispatch.events task.failed（含 trigger_type）→ alarm 属性展示
 
-无入站业务 API。tenant-ids / soc-thresholds 默认空，填上才会真正决策。
-本机：`make run-optimization`；kind：ClusterIP `:8088`（仅 `/healthz`），镜像 `ghcr.io/mushroomyuan/vpp-backend/optimization:latest`
+ForecastProvider、Solver、ApprovalPolicy 仍是未接入的端口。
+本机：`make run-decision`；kind：ClusterIP `:5008` / `:8088`，镜像 `ghcr.io/mushroomyuan/vpp-backend/decision:latest`。replicas: 1。
 
 ```
 
@@ -576,7 +587,7 @@ ticker（默认 15m，对齐 Telemetry 15 分钟视图）
           QueryForecastHistory（按 target_timestamp 窗口）
 无写 RPC、无 APISIX。targets 默认空，填上才会真正批算。
 本机：`make run-forecast`；kind：ClusterIP `:5007` / `:8089`，镜像 `ghcr.io/mushroomyuan/vpp-backend/forecast:latest`。replicas: 1。
-Optimization ForecastPort 本轮不接。
+Decision ForecastProvider 本轮不接。
 
 ```
 
@@ -594,11 +605,11 @@ Optimization ForecastPort 本轮不接。
 | **dispatch** | **`:5006`** | — | **`:9105`** |
 | **simulator** | — | **`:8084`** | **`:9106`** |
 | **alarm** | — | **`:8087`**（直连；无 APISIX） | **`:9107`** |
-| **optimization** | — | **`:8088`**（仅 `/healthz`） | **`:9108`** |
+| **decision** | **`:5008`** | **`:8088`**（`/healthz` + Policy grpc-gateway） | **`:9108`** |
 | **forecast** | **`:5007`** | **`:8089`**（仅 `/healthz`） | **`:9109`** |
 
-北向鉴权：管理端 → `:9080/resource/*`（Casdoor OIDC）；EMS → `:9080/gateway/*`（`key-auth`）。alarm 人管面 v1 不经 APISIX。optimization / forecast 无北向。详见 [`docs/CASDOOR.md`](docs/CASDOOR.md)、[`docs/APISIX.md`](docs/APISIX.md)。本机 kind 部署见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md)。
+北向鉴权：管理端 → `:9080/resource/*`（Casdoor OIDC）；EMS → `:9080/gateway/*`（`key-auth`）。alarm 人管面 v1 不经 APISIX。decision / forecast 的北向也不挂 APISIX，kind 里用 port-forward。详见 [`docs/CASDOOR.md`](docs/CASDOOR.md)、[`docs/APISIX.md`](docs/APISIX.md)。本机 kind 部署见 [`docs/K8S_DEPLOYMENT.md`](docs/K8S_DEPLOYMENT.md)。
 
 ---
 
-**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`，含 `trigger_type`）与 `vpp.soe.events`，人管面直连 HTTP `:8087`。**optimization v1 已落地**为内部闭环：ticker → Telemetry `GetSnapshot` → 阈值规则 → Dispatch `SubmitTask`（`TriggerType=automatic`）；无入站业务 API、无独立存储。**forecast v1 已落地**为独立批算服务：ticker → Telemetry `QueryAggregation` → 朴素算法 → Redis db=2 + Postgres `forecast_history`；只读 gRPC 已暴露，Optimization `ForecastPort` 本轮不接。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。**`CancelTask` 已实现**：非终态 Action/Pending Command 置 Cancelled，`Sending` 中的 Command 不强制撤回（无 Gateway 侧撤回 RPC），其迟到回调由 `task.IsFinished()` 幂等守卫吞掉；发布 `task.cancelled` 事件。后续重点：Optimization 接真实 Forecast、真实外部系统适配、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。
+**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`，含 `trigger_type`）与 `vpp.soe.events`，人管面直连 HTTP `:8087`。**decision 已落地**为 Policy → Objective → Plan → Dispatch：Resource `ResolveScope`、Telemetry `GetSnapshots`、Postgres 持久化与幂等执行；Policy API 在 gRPC `:5008`。**forecast v1 已落地**为独立批算服务：ticker → Telemetry `QueryAggregation` → 朴素算法 → Redis db=2 + Postgres `forecast_history`；只读 gRPC 已暴露，Decision `ForecastProvider` 本轮不接。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。**`CancelTask` 已实现**：非终态 Action/Pending Command 置 Cancelled，`Sending` 中的 Command 不强制撤回（无 Gateway 侧撤回 RPC），其迟到回调由 `task.IsFinished()` 幂等守卫吞掉；发布 `task.cancelled` 事件。后续重点：Decision 接真实 Forecast、Gateway 外部点名翻译、Alarm canonical 规则、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。Gateway 与 Alarm 未完成项见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。

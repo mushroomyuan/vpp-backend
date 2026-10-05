@@ -4,23 +4,32 @@ go 1.26.4
 
 replace (
 	github.com/mushroomyuan/vpp-backend/api/contracts => ../../api/contracts
+	github.com/mushroomyuan/vpp-backend/api/decision/proto/gen => ../../api/decision/proto/gen
 	github.com/mushroomyuan/vpp-backend/api/dispatch/proto/gen => ../../api/dispatch/proto/gen
 	github.com/mushroomyuan/vpp-backend/api/gateway/proto/gen => ../../api/gateway/proto/gen
+	github.com/mushroomyuan/vpp-backend/api/resource/proto/gen => ../../api/resource/proto/gen
 	github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen => ../../api/telemetry/proto/gen
+	github.com/mushroomyuan/vpp-backend/decision => ../../internal/decision
 	github.com/mushroomyuan/vpp-backend/dispatch => ../../internal/dispatch
 	github.com/mushroomyuan/vpp-backend/gateway => ../../internal/gateway
 	github.com/mushroomyuan/vpp-backend/platform => ../../internal/platform
 	github.com/mushroomyuan/vpp-backend/resource => ../../internal/resource
+	github.com/mushroomyuan/vpp-backend/simulator => ../../internal/simulator
 	github.com/mushroomyuan/vpp-backend/telemetry => ../../internal/telemetry
 )
 
 require (
+	github.com/mushroomyuan/vpp-backend/api/contracts v0.0.0-00010101000000-000000000000
+	github.com/mushroomyuan/vpp-backend/api/dispatch/proto/gen v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/api/gateway/proto/gen v0.0.0-00010101000000-000000000000
+	github.com/mushroomyuan/vpp-backend/api/resource/proto/gen v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/api/telemetry/proto/gen v0.0.0-00010101000000-000000000000
+	github.com/mushroomyuan/vpp-backend/decision v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/dispatch v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/gateway v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/platform v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/resource v0.0.0-00010101000000-000000000000
+	github.com/mushroomyuan/vpp-backend/simulator v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/telemetry v0.0.0-00010101000000-000000000000
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/segmentio/kafka-go v0.4.51
@@ -99,7 +108,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/mushroomyuan/vpp-backend/api/contracts v0.0.0-00010101000000-000000000000 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
@@ -141,8 +149,8 @@ require (
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260622175928-b703f567277d // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260622175928-b703f567277d // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260706201446-f0a921348800 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

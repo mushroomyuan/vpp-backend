@@ -6,7 +6,7 @@
 
 Forecast 是内部批算服务：主动拉 Telemetry 历史，用朴素算法预测资产出力/负荷，写入 Redis（最新一批）和 Postgres（权威历史），再用只读 gRPC 对外提供"下一步预测"和"预测历史"。
 
-v1 **没有真实调用方**（Optimization 的 `ForecastPort` 仍是 stub，前端对比图也还没有）。产出是把预测能力和数据形状先做对。不经 APISIX；gRPC `:5007` 原生暴露，HTTP `:8089` 仅 `/healthz`。
+v1 **没有真实调用方**（Decision 的 `ForecastProvider` 仍是 stub，前端对比图也还没有）。产出是把预测能力和数据形状先做对。不经 APISIX；gRPC `:5007` 原生暴露，HTTP `:8089` 仅 `/healthz`。
 
 ## 功能特点
 
@@ -65,7 +65,7 @@ flowchart LR
     Fc[Forecast] -->|gRPC QueryAggregation| Tel[Telemetry]
     Fc -->|写最新批次| Redis[(Redis db=2)]
     Fc -->|写历史| PG[(Postgres forecast)]
-    Opt[Optimization] -.->|ForecastPort 本轮不接| Fc
+    Dec[Decision] -.->|ForecastProvider 本轮不接| Fc
     UI["前端图表 暂未建"] -.->|QueryForecastHistory| Fc
 ```
 
@@ -73,11 +73,11 @@ flowchart LR
 |------|------|
 | **Telemetry** | 直连 `QueryAggregation`（AVG + LAST）。只认 `(TenantID, CUCode, MetricName)`，不查 Resource |
 | **Resource / Dispatch / Gateway** | 不调用 |
-| **Optimization** | **本轮不接**。那边 `ForecastPort` 仍是 stub；接线是独立后续工作 |
+| **Decision** | **本轮不接**。那边 `ForecastProvider` 仍是 stub；接线是独立后续工作 |
 | **管理端 / APISIX** | v1 不挂北向。联调 `kubectl -n vpp port-forward svc/forecast 5007:5007` |
 
 ## 当前阶段
 
 **v1 已具备：** ForecastLoop、两种朴素算法、Redis 整批缓存 + Postgres 历史、只读 gRPC、Prometheus 指标、kind ClusterIP（`replicas: 1`）、CI 镜像。
 
-**刻意未做：** 接 Optimization、电价/天气预测、写 RPC、APISIX、retention、多副本。本机 `make run-forecast` / `make run-all`。默认 `targets` 为空，填上才会真正批算。
+**刻意未做：** 接 Decision、电价/天气预测、写 RPC、APISIX、retention、多副本。本机 `make run-forecast` / `make run-all`。默认 `targets` 为空，填上才会真正批算。

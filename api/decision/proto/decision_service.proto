@@ -1,0 +1,164 @@
+syntax = "proto3";
+
+package decisionpb;
+
+option go_package = "github.com/mushroomyuan/vpp-backend/api/decision/proto/gen;decisionpb";
+
+import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// DecisionService manages tenant policies. Objective and plan RPCs are not
+// part of this service yet.
+//
+// EnablePolicy calls Resource ResolveScope before the row is marked enabled.
+// An active storage CU that lacks a valid energy.storage.v1 spec, a SOC read
+// binding, or an active-power setpoint write binding fails the call and
+// leaves the policy disabled.
+service DecisionService {
+  rpc CreatePolicy(CreatePolicyRequest) returns (Policy) {
+    option (google.api.http) = {
+      post: "/api/tenants/{TenantID}/policies"
+      body: "*"
+    };
+  }
+  rpc GetPolicy(GetPolicyRequest) returns (Policy) {
+    option (google.api.http) = {get: "/api/tenants/{TenantID}/policies/{ID}"};
+  }
+  rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse) {
+    option (google.api.http) = {get: "/api/tenants/{TenantID}/policies"};
+  }
+  rpc UpdatePolicy(UpdatePolicyRequest) returns (Policy) {
+    option (google.api.http) = {
+      put: "/api/tenants/{TenantID}/policies/{ID}"
+      body: "*"
+    };
+  }
+  rpc DeletePolicy(DeletePolicyRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/tenants/{TenantID}/policies/{ID}"};
+  }
+  rpc EnablePolicy(EnablePolicyRequest) returns (Policy) {
+    option (google.api.http) = {
+      post: "/api/tenants/{TenantID}/policies/{ID}:enable"
+      body: "*"
+    };
+  }
+  rpc DisablePolicy(DisablePolicyRequest) returns (Policy) {
+    option (google.api.http) = {
+      post: "/api/tenants/{TenantID}/policies/{ID}:disable"
+      body: "*"
+    };
+  }
+}
+
+enum PolicyKind {
+  POLICY_KIND_UNSPECIFIED = 0;
+  POLICY_KIND_SOC_THRESHOLD = 1;
+}
+
+enum ScopeType {
+  SCOPE_TYPE_UNSPECIFIED = 0;
+  SCOPE_TYPE_SITE = 1;
+  SCOPE_TYPE_ASSET = 2;
+  SCOPE_TYPE_CU = 3;
+}
+
+message TargetScope {
+  ScopeType Type = 1;
+  string ID = 2;
+}
+
+// SOCThresholdSpec is the typed body of a SOC threshold policy.
+// Powers are positive scope totals in canonical kW.
+message SOCThresholdSpec {
+  double MinSOC = 1;
+  double MaxSOC = 2;
+  double ChargePowerKW = 3;
+  double DischargePowerKW = 4;
+}
+
+message Policy {
+  string ID = 1;
+  string TenantID = 2;
+  string Name = 3;
+  PolicyKind Kind = 4;
+  TargetScope Scope = 5;
+  bool Enabled = 6;
+  // Zero means the process default cooldown. It does not disable cooldown.
+  google.protobuf.Duration Cooldown = 7;
+  // Version starts at 1. Update, Enable, and Disable send the version they read.
+  int64 Version = 8;
+  SOCThresholdSpec SOC = 9;
+  google.protobuf.Timestamp CreatedAt = 10;
+  google.protobuf.Timestamp UpdatedAt = 11;
+  string CreatedBy = 12;
+  string UpdatedBy = 13;
+}
+
+message CreatePolicyRequest {
+  string TenantID = 1;
+  string Name = 2;
+  PolicyKind Kind = 3;
+  TargetScope Scope = 4;
+  google.protobuf.Duration Cooldown = 5;
+  SOCThresholdSpec SOC = 6;
+}
+
+message GetPolicyRequest {
+  string TenantID = 1;
+  string ID = 2;
+}
+
+message ListPoliciesRequest {
+  string TenantID = 1;
+  bool EnabledOnly = 2;
+}
+
+message ListPoliciesResponse {
+  repeated Policy Policies = 1;
+}
+
+// UpdatePolicy replaces name, scope, cooldown, and the SOC spec.
+// Kind and Enabled stay as stored. Enabled policies are prechecked again
+// against the new scope and spec; a failed precheck does not write.
+message UpdatePolicyRequest {
+  string TenantID = 1;
+  string ID = 2;
+  int64 Version = 3;
+  string Name = 4;
+  TargetScope Scope = 5;
+  google.protobuf.Duration Cooldown = 6;
+  SOCThresholdSpec SOC = 7;
+}
+
+message DeletePolicyRequest {
+  string TenantID = 1;
+  string ID = 2;
+}
+
+message EnablePolicyRequest {
+  string TenantID = 1;
+  string ID = 2;
+  int64 Version = 3;
+}
+
+message DisablePolicyRequest {
+  string TenantID = 1;
+  string ID = 2;
+  int64 Version = 3;
+}
+
+// PolicyPrecheckFailure is attached to the FailedPrecondition status when
+// Enable (or an update of an enabled policy) cannot pass ResolveScope.
+message PolicyPrecheckFailure {
+  repeated PolicyPrecheckIssue Failures = 1;
+  repeated PolicyPrecheckIssue Exclusions = 2;
+}
+
+message PolicyPrecheckIssue {
+  string CUID = 1;
+  string AssetID = 2;
+  string Reason = 3;
+  string Detail = 4;
+}

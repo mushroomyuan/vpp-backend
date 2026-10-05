@@ -4,17 +4,18 @@ import "time"
 
 // DispatchTaskModel is the GORM persistence model for the dispatch_tasks table.
 type DispatchTaskModel struct {
-	ID            string     `gorm:"column:id;primaryKey"`
-	TenantID      string     `gorm:"column:tenant_id;not null"`
-	Name          string     `gorm:"column:name;not null"`
-	Description   string     `gorm:"column:description"`
-	Type          string     `gorm:"column:type;not null"`
-	TriggerType   string     `gorm:"column:trigger_type;not null"`
-	FailurePolicy string     `gorm:"column:failure_policy;not null;default:fail_fast"`
-	Status        string     `gorm:"column:status;not null;default:pending"`
-	CreatedAt     time.Time  `gorm:"column:created_at;not null"`
-	StartedAt     *time.Time `gorm:"column:started_at"`
-	FinishedAt    *time.Time `gorm:"column:finished_at"`
+	ID             string     `gorm:"column:id;primaryKey"`
+	TenantID       string     `gorm:"column:tenant_id;not null"`
+	Name           string     `gorm:"column:name;not null"`
+	Description    string     `gorm:"column:description"`
+	Type           string     `gorm:"column:type;not null"`
+	TriggerType    string     `gorm:"column:trigger_type;not null"`
+	FailurePolicy  string     `gorm:"column:failure_policy;not null;default:fail_fast"`
+	Status         string     `gorm:"column:status;not null;default:pending"`
+	CreatedAt      time.Time  `gorm:"column:created_at;not null"`
+	StartedAt      *time.Time `gorm:"column:started_at"`
+	FinishedAt     *time.Time `gorm:"column:finished_at"`
+	IdempotencyKey *string    `gorm:"column:idempotency_key"`
 }
 
 func (DispatchTaskModel) TableName() string { return "dispatch_tasks" }

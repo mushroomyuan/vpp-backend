@@ -17,6 +17,9 @@ message SubmitTaskRequest {
   string TaskType = 4;    // "control"
   string TriggerType = 5; // "manual" / "scheduled" / "automatic"
   repeated ActionSpec Actions = 6;
+  // Empty means the caller is not asking for deduplication.
+  // The same non-empty key for one tenant returns the existing task.
+  string IdempotencyKey = 7;
 }
 
 message ActionSpec {

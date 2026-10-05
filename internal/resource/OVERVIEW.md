@@ -171,4 +171,5 @@ flowchart LR
 | **Gateway** | 消费生命周期事件清理 mapping；Onboarding 与 Resource 分步、互不 RPC |
 | **Simulator** | 只读拉取 `provider=simulator` 的 CU/Point 作为虚拟设备配置 |
 | **Telemetry / Dispatch** | 不直连 Resource；通过 CUCode 间接对齐资产身份 |
+| **Decision** | 只调用 `ResolveScope`。不读本库，不使用 Runtime 缓存作为决策输入 |
 | **Redis** | 运行时热数据；Resource 读、Gateway 等写 |

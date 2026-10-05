@@ -2,11 +2,13 @@ package command
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	appport "github.com/mushroomyuan/vpp-backend/dispatch/application/port"
+	"github.com/mushroomyuan/vpp-backend/dispatch/domain"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/model"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/port"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/service"
@@ -23,6 +25,8 @@ type SubmitTask struct {
 	Type        model.TaskType
 	TriggerType model.TriggerType
 	Actions     []SubmitActionDTO
+	// IdempotencyKey is optional. A non-empty key returns the existing task for this tenant.
+	IdempotencyKey string
 }
 
 type SubmitActionDTO struct {
@@ -43,6 +47,7 @@ type SubmitCommandDTO struct {
 
 type SubmitTaskResult struct {
 	TaskID string
+	Status string
 }
 
 type SubmitTaskHandler = decorator.CommandHandler[SubmitTask, *SubmitTaskResult]
@@ -120,6 +125,16 @@ func (h submitTaskHandler) Handle(ctx context.Context, cmd SubmitTask) (*SubmitT
 	if len(cmd.Actions) == 0 {
 		return nil, fmt.Errorf("at least one action is required")
 	}
+	idempotencyKey := strings.TrimSpace(cmd.IdempotencyKey)
+	if idempotencyKey != "" {
+		existing, err := h.lookupIdempotentTask(ctx, cmd.TenantID, idempotencyKey)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil {
+			return submitTaskResult(existing), nil
+		}
+	}
 
 	taskType := cmd.Type
 	if taskType == "" {
@@ -182,16 +197,17 @@ func (h submitTaskHandler) Handle(ctx context.Context, cmd SubmitTask) (*SubmitT
 	}
 
 	task := &model.DispatchTask{
-		ID:            taskID,
-		TenantID:      cmd.TenantID,
-		Name:          cmd.Name,
-		Description:   cmd.Description,
-		Type:          taskType,
-		TriggerType:   triggerType,
-		FailurePolicy: model.FailFast,
-		Status:        model.TaskStatusPending,
-		CreatedAt:     now,
-		Actions:       actions,
+		ID:             taskID,
+		TenantID:       cmd.TenantID,
+		Name:           cmd.Name,
+		Description:    cmd.Description,
+		Type:           taskType,
+		TriggerType:    triggerType,
+		FailurePolicy:  model.FailFast,
+		Status:         model.TaskStatusPending,
+		CreatedAt:      now,
+		IdempotencyKey: idempotencyKey,
+		Actions:        actions,
 	}
 
 	if err := h.validator.ValidateTask(task); err != nil {
@@ -199,6 +215,15 @@ func (h submitTaskHandler) Handle(ctx context.Context, cmd SubmitTask) (*SubmitT
 	}
 
 	if err := h.helper.taskRepo.Save(ctx, task); err != nil {
+		if idempotencyKey != "" && errors.Is(err, domain.ErrIdempotencyConflict) {
+			existing, findErr := h.lookupIdempotentTask(ctx, cmd.TenantID, idempotencyKey)
+			if findErr != nil {
+				return nil, findErr
+			}
+			if existing != nil {
+				return submitTaskResult(existing), nil
+			}
+		}
 		return nil, fmt.Errorf("persist task: %w", err)
 	}
 
@@ -210,5 +235,21 @@ func (h submitTaskHandler) Handle(ctx context.Context, cmd SubmitTask) (*SubmitT
 		return nil, err
 	}
 
-	return &SubmitTaskResult{TaskID: taskID}, nil
+	return submitTaskResult(task), nil
+}
+
+// lookupIdempotentTask returns the stored task, or (nil, nil) when this key has not been used.
+func (h submitTaskHandler) lookupIdempotentTask(ctx context.Context, tenantID, key string) (*model.DispatchTask, error) {
+	task, err := h.helper.taskRepo.FindByIdempotencyKey(ctx, tenantID, key)
+	if errors.Is(err, domain.ErrTaskNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return task, nil
+}
+
+func submitTaskResult(task *model.DispatchTask) *SubmitTaskResult {
+	return &SubmitTaskResult{TaskID: task.ID, Status: string(task.Status)}
 }

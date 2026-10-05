@@ -120,7 +120,7 @@ Alarm **不直连** Gateway / Resource / Simulator。失败告警来自 Dispatch
 | **Dispatch** | 只消费 `task.failed`；不调 `GetTask`，不拼失败原因。`trigger_type` 只进属性，不进 fingerprint |
 | **Telemetry** | 只消费 SOE；不写时序、不查快照 |
 | **Gateway / Resource / Simulator** | 不直连；身份仍是共享的 `CUCode` / `tenant_id` |
-| **Optimization** | 不直连；自动任务失败经 `task.failed` + `trigger_type` 进属性 |
+| **Decision** | 不直连；自动任务失败经 `task.failed` + `trigger_type` 进属性 |
 | **管理端** | 直连 HTTP `:8087`；v1 不挂 APISIX `/alarm/*` |
 | **Casdoor / Casbin** | Path C PEP 已写好；`trust-proxy-headers` 默认 false（本机直连调试） |
 

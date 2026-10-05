@@ -1,0 +1,29 @@
+version: v2
+
+modules:
+  - path: .
+    excludes:
+      - gen
+      # Vendored google/api protos conflict with buf.build/googleapis/googleapis.
+      - third_party
+
+deps:
+  - buf.build/googleapis/googleapis
+
+lint:
+  use:
+    - STANDARD
+  except:
+    # PascalCase field names match resource / telemetry / dispatch / gateway.
+    - FIELD_LOWER_SNAKE_CASE
+    - PACKAGE_VERSION_SUFFIX
+    - PACKAGE_DIRECTORY_MATCH
+    # Get/Create/Update/Enable/Disable all return the Policy resource.
+    - RPC_RESPONSE_STANDARD_NAME
+    - RPC_REQUEST_RESPONSE_UNIQUE
+  ignore:
+    - third_party
+
+breaking:
+  use:
+    - FILE

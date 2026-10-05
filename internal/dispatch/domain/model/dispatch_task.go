@@ -31,6 +31,10 @@ type DispatchTask struct {
 	StartedAt  *time.Time
 	FinishedAt *time.Time
 
+	// IdempotencyKey deduplicates SubmitTask inside one tenant.
+	// Empty means each submit creates a new task.
+	IdempotencyKey string
+
 	Actions []*DispatchAction
 }
 

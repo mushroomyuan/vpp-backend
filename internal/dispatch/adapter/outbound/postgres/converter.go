@@ -3,6 +3,7 @@ package postgres
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/model"
@@ -50,18 +51,19 @@ func taskTreeToDomain(tree *infrapg.TaskTree) (*model.DispatchTask, error) {
 
 	t := tree.Task
 	return &model.DispatchTask{
-		ID:            t.ID,
-		TenantID:      t.TenantID,
-		Name:          t.Name,
-		Description:   t.Description,
-		Type:          model.TaskType(t.Type),
-		TriggerType:   model.TriggerType(t.TriggerType),
-		FailurePolicy: model.FailurePolicy(t.FailurePolicy),
-		Status:        model.TaskStatus(t.Status),
-		CreatedAt:     t.CreatedAt,
-		StartedAt:     t.StartedAt,
-		FinishedAt:    t.FinishedAt,
-		Actions:       actions,
+		ID:             t.ID,
+		TenantID:       t.TenantID,
+		Name:           t.Name,
+		Description:    t.Description,
+		Type:           model.TaskType(t.Type),
+		TriggerType:    model.TriggerType(t.TriggerType),
+		FailurePolicy:  model.FailurePolicy(t.FailurePolicy),
+		Status:         model.TaskStatus(t.Status),
+		CreatedAt:      t.CreatedAt,
+		StartedAt:      t.StartedAt,
+		FinishedAt:     t.FinishedAt,
+		IdempotencyKey: idempotencyKeyFromDB(t.IdempotencyKey),
+		Actions:        actions,
 	}, nil
 }
 
@@ -91,18 +93,34 @@ func actionDBToDomain(row *infrapg.DispatchActionModel, cmdRows []*infrapg.Contr
 
 func taskDomainToDB(t *model.DispatchTask) *infrapg.DispatchTaskModel {
 	return &infrapg.DispatchTaskModel{
-		ID:            t.ID,
-		TenantID:      t.TenantID,
-		Name:          t.Name,
-		Description:   t.Description,
-		Type:          string(t.Type),
-		TriggerType:   string(t.TriggerType),
-		FailurePolicy: string(t.FailurePolicy),
-		Status:        string(t.Status),
-		CreatedAt:     t.CreatedAt,
-		StartedAt:     t.StartedAt,
-		FinishedAt:    t.FinishedAt,
+		ID:             t.ID,
+		TenantID:       t.TenantID,
+		Name:           t.Name,
+		Description:    t.Description,
+		Type:           string(t.Type),
+		TriggerType:    string(t.TriggerType),
+		FailurePolicy:  string(t.FailurePolicy),
+		Status:         string(t.Status),
+		CreatedAt:      t.CreatedAt,
+		StartedAt:      t.StartedAt,
+		FinishedAt:     t.FinishedAt,
+		IdempotencyKey: idempotencyKeyToDB(t.IdempotencyKey),
 	}
+}
+
+func idempotencyKeyToDB(key string) *string {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return nil
+	}
+	return &key
+}
+
+func idempotencyKeyFromDB(key *string) string {
+	if key == nil {
+		return ""
+	}
+	return *key
 }
 
 func actionDomainToDB(a *model.DispatchAction) *infrapg.DispatchActionModel {

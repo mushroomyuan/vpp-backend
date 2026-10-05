@@ -4,13 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/model"
 	"github.com/mushroomyuan/vpp-backend/dispatch/domain/port"
 	infrapg "github.com/mushroomyuan/vpp-backend/dispatch/infrastructure/persistent/postgres"
 	"gorm.io/gorm"
 )
+
+// tenantIdempotencyConstraint is the partial unique index on dispatch_tasks.
+const tenantIdempotencyConstraint = "uq_dispatch_tasks_tenant_idempotency"
 
 // TaskRepositoryPostgres implements port.TaskRepository.
 type TaskRepositoryPostgres struct {
@@ -42,7 +47,23 @@ func (r *TaskRepositoryPostgres) Save(ctx context.Context, task *model.DispatchT
 		}
 	}
 
-	return r.repo.CreateTaskTree(ctx, taskRow, actions, commands)
+	err := r.repo.CreateTaskTree(ctx, taskRow, actions, commands)
+	if errors.Is(err, infrapg.ErrIdempotencyConflict) || isIdempotencyConflict(err) {
+		return domain.ErrIdempotencyConflict
+	}
+	return err
+}
+
+func isIdempotencyConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return pgErr.ConstraintName == tenantIdempotencyConstraint ||
+			strings.Contains(pgErr.Message, tenantIdempotencyConstraint)
+	}
+	return strings.Contains(err.Error(), tenantIdempotencyConstraint)
 }
 
 func (r *TaskRepositoryPostgres) Update(ctx context.Context, task *model.DispatchTask) error {
@@ -55,6 +76,17 @@ func (r *TaskRepositoryPostgres) Update(ctx context.Context, task *model.Dispatc
 
 func (r *TaskRepositoryPostgres) FindByID(ctx context.Context, id string) (*model.DispatchTask, error) {
 	tree, err := r.repo.FindTaskByID(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrTaskNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return taskTreeToDomain(tree)
+}
+
+func (r *TaskRepositoryPostgres) FindByIdempotencyKey(ctx context.Context, tenantID, key string) (*model.DispatchTask, error) {
+	tree, err := r.repo.FindTaskByIdempotencyKey(ctx, strings.TrimSpace(tenantID), strings.TrimSpace(key))
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domain.ErrTaskNotFound
 	}

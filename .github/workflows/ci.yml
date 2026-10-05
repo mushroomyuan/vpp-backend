@@ -29,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [platform, resource, telemetry, gateway, dispatch, simulator, alarm, optimization, forecast]
+        module: [platform, resource, telemetry, gateway, dispatch, simulator, alarm, decision, forecast]
     steps:
       - uses: actions/checkout@v4
 
@@ -56,7 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [platform, resource, telemetry, gateway, dispatch, simulator, alarm, optimization, forecast]
+        module: [platform, resource, telemetry, gateway, dispatch, simulator, alarm, decision, forecast]
     steps:
       - uses: actions/checkout@v4
 
@@ -124,7 +124,7 @@ jobs:
         run: go test ./... -v -timeout=8m -count=1
 
   # ── docker ────────────────────────────────────────────────────────────────
-  # Builds all 8 service images on every push/PR to catch Dockerfile
+  # Builds all service images on every push/PR to catch Dockerfile
   # breakage early. Only pushes to GHCR on push to main or a v* tag — PRs
   # build for validation only, they never publish.
   docker:
@@ -137,7 +137,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [resource, telemetry, gateway, dispatch, simulator, alarm, optimization, forecast]
+        service: [resource, telemetry, gateway, dispatch, simulator, alarm, decision, forecast]
     steps:
       - uses: actions/checkout@v4
 

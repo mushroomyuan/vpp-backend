@@ -25,7 +25,7 @@ resources:
   - dispatch
   - simulator
   - alarm
-  - optimization
+  - decision
   - forecast
 
 patches:

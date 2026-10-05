@@ -14,16 +14,34 @@ import (
 )
 
 type stubTaskRepo struct {
-	saved   *model.DispatchTask
-	byCmd   map[string]*model.DispatchTask
-	updates int
-	saveErr error
+	saved       *model.DispatchTask
+	byCmd       map[string]*model.DispatchTask
+	byKey       map[string]*model.DispatchTask
+	updates     int
+	saves       int
+	saveErr     error
+	missLookups int
+}
+
+func taskIdempotencyIndex(tenantID, key string) string {
+	return tenantID + "\x00" + key
 }
 
 func (r *stubTaskRepo) Save(_ context.Context, task *model.DispatchTask) error {
 	if r.saveErr != nil {
 		return r.saveErr
 	}
+	if task.IdempotencyKey != "" {
+		if r.byKey == nil {
+			r.byKey = map[string]*model.DispatchTask{}
+		}
+		index := taskIdempotencyIndex(task.TenantID, task.IdempotencyKey)
+		if existing, ok := r.byKey[index]; ok && existing.ID != task.ID {
+			return domain.ErrIdempotencyConflict
+		}
+		r.byKey[index] = task
+	}
+	r.saves++
 	r.saved = task
 	if r.byCmd == nil {
 		r.byCmd = map[string]*model.DispatchTask{}
@@ -42,6 +60,20 @@ func (r *stubTaskRepo) Update(_ context.Context, task *model.DispatchTask) error
 }
 func (r *stubTaskRepo) FindByID(context.Context, string) (*model.DispatchTask, error) {
 	return r.saved, nil
+}
+func (r *stubTaskRepo) FindByIdempotencyKey(_ context.Context, tenantID, key string) (*model.DispatchTask, error) {
+	if r.missLookups > 0 {
+		r.missLookups--
+		return nil, domain.ErrTaskNotFound
+	}
+	if key == "" || r.byKey == nil {
+		return nil, domain.ErrTaskNotFound
+	}
+	task, ok := r.byKey[taskIdempotencyIndex(tenantID, key)]
+	if !ok {
+		return nil, domain.ErrTaskNotFound
+	}
+	return task, nil
 }
 func (r *stubTaskRepo) FindByCommandID(_ context.Context, commandID string) (*model.DispatchTask, error) {
 	if t, ok := r.byCmd[commandID]; ok {
@@ -193,6 +225,125 @@ func TestSubmitTask_Validation(t *testing.T) {
 	_, err := h.Handle(context.Background(), SubmitTask{TenantID: "t", Name: "n"})
 	if err == nil {
 		t.Fatal("want actions required")
+	}
+}
+
+func TestSubmitTask_IdempotentReplayReturnsSameTask(t *testing.T) {
+	t.Parallel()
+	tasks := &stubTaskRepo{}
+	gw := &stubGateway{status: appport.GatewayAccepted}
+	h := newSubmitHandler(tasks, gw)
+
+	first, err := h.Handle(context.Background(), sampleSubmit("ten", "first", "  step-1:1  "))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tasks.saved.Status = model.TaskStatusCompleted
+	second, err := h.Handle(context.Background(), sampleSubmit("ten", "different-name", "step-1:1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.TaskID != first.TaskID || second.Status != string(model.TaskStatusCompleted) {
+		t.Fatalf("replay = %+v, first = %+v", second, first)
+	}
+	if tasks.saves != 1 || gw.n != 1 {
+		t.Fatalf("saves=%d gateway=%d, want one of each", tasks.saves, gw.n)
+	}
+	if tasks.saved.Name != "first" || tasks.saved.IdempotencyKey != "step-1:1" {
+		t.Fatalf("stored task = %+v", tasks.saved)
+	}
+}
+
+func TestSubmitTask_IdempotencyKeyIsTenantScoped(t *testing.T) {
+	t.Parallel()
+	tasks := &stubTaskRepo{}
+	gw := &stubGateway{status: appport.GatewayAccepted}
+	h := newSubmitHandler(tasks, gw)
+
+	first, err := h.Handle(context.Background(), sampleSubmit("tenant-a", "a", "step-1:1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := h.Handle(context.Background(), sampleSubmit("tenant-b", "b", "step-1:1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.TaskID == "" || second.TaskID == "" || first.TaskID == second.TaskID {
+		t.Fatalf("task ids = %s %s", first.TaskID, second.TaskID)
+	}
+	if tasks.saves != 2 || gw.n != 2 {
+		t.Fatalf("saves=%d gateway=%d", tasks.saves, gw.n)
+	}
+}
+
+func TestSubmitTask_EmptyIdempotencyKeyCreatesDistinctTasks(t *testing.T) {
+	t.Parallel()
+	tasks := &stubTaskRepo{}
+	gw := &stubGateway{status: appport.GatewayAccepted}
+	h := newSubmitHandler(tasks, gw)
+
+	first, err := h.Handle(context.Background(), sampleSubmit("ten", "one", "   "))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := h.Handle(context.Background(), sampleSubmit("ten", "two", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.TaskID == second.TaskID {
+		t.Fatal("empty keys must not collapse into one task")
+	}
+	if tasks.saves != 2 || gw.n != 2 {
+		t.Fatalf("saves=%d gateway=%d", tasks.saves, gw.n)
+	}
+	if tasks.saved.IdempotencyKey != "" {
+		t.Fatalf("stored key = %q", tasks.saved.IdempotencyKey)
+	}
+}
+
+func TestSubmitTask_IdempotencyConflictReturnsExisting(t *testing.T) {
+	t.Parallel()
+	existing := &model.DispatchTask{
+		ID: "task-existing", TenantID: "ten", Name: "winner",
+		IdempotencyKey: "step-1:1", Status: model.TaskStatusRunning,
+	}
+	tasks := &stubTaskRepo{
+		byKey:       map[string]*model.DispatchTask{taskIdempotencyIndex("ten", "step-1:1"): existing},
+		missLookups: 1,
+	}
+	gw := &stubGateway{status: appport.GatewayAccepted}
+	h := newSubmitHandler(tasks, gw)
+
+	res, err := h.Handle(context.Background(), sampleSubmit("ten", "loser", "step-1:1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.TaskID != existing.ID || res.Status != string(model.TaskStatusRunning) {
+		t.Fatalf("result = %+v", res)
+	}
+	if tasks.saves != 0 || gw.n != 0 {
+		t.Fatalf("saves=%d gateway=%d, conflict must not create or dispatch", tasks.saves, gw.n)
+	}
+}
+
+func newSubmitHandler(tasks *stubTaskRepo, gw *stubGateway) submitTaskHandler {
+	return submitTaskHandler{
+		helper:                newDispatchHelper(tasks, &stubActionRepo{}, &stubCommandRepo{}, gw, &stubPublisher{}, service.NewDispatcher()),
+		validator:             service.NewValidator(),
+		defaultCommandTimeout: time.Second,
+		defaultMaxRetries:     1,
+	}
+}
+
+func sampleSubmit(tenantID, name, key string) SubmitTask {
+	return SubmitTask{
+		TenantID: tenantID, Name: name, IdempotencyKey: key,
+		Actions: []SubmitActionDTO{{
+			Name: "a1", Sequence: 1, ExecutionPolicy: model.Sequential,
+			Commands: []SubmitCommandDTO{{
+				CUCode: "cu", PointKey: "p", Value: model.FloatCommandValue(1),
+			}},
+		}},
 	}
 }
 

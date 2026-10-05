@@ -12,7 +12,7 @@ import (
 const defaultCycleInterval = 15 * time.Minute
 
 // ForecastLoop is Forecast's primary process: an independent goroutine
-// driven by time.NewTicker, mirroring optimization's DecisionLoop. Each
+// driven by time.NewTicker, mirroring decision's DecisionLoop. Each
 // tick runs one RunForecastCycle covering every enabled target. A
 // per-cycle (joined) error is logged and the loop continues — one bad
 // target or a transient Telemetry blip must not stop the rest, and must

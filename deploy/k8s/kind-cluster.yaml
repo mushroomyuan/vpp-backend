@@ -21,7 +21,7 @@
 #   30006  dispatch gRPC
 # simulator 只被集群内 gateway 调用，不映射到 host。
 # alarm 是 ClusterIP；联调：kubectl -n vpp port-forward svc/alarm 8087:8087
-# optimization 是 ClusterIP（仅 /healthz）；无入站业务 API，不映射、不挂 APISIX。
+# decision 是 ClusterIP（gRPC :5008 + HTTP :8088）；Policy API 不挂 APISIX，不映射到 host。
 # forecast 是 ClusterIP（gRPC :5007 + HTTP /healthz :8089）；v1 无外部调用方，不映射、不挂 APISIX。
 # v1 不新增 extraPortMappings / APISIX /alarm/*。
 kind: Cluster

@@ -21,19 +21,24 @@ func (s *Server) SubmitTask(
 	}
 
 	res, err := s.submitTask.Handle(ctx, command.SubmitTask{
-		TenantID:    req.GetTenantID(),
-		Name:        req.GetName(),
-		Description: req.GetDescription(),
-		Type:        model.TaskType(req.GetTaskType()),
-		TriggerType: model.TriggerType(req.GetTriggerType()),
-		Actions:     actions,
+		TenantID:       req.GetTenantID(),
+		Name:           req.GetName(),
+		Description:    req.GetDescription(),
+		Type:           model.TaskType(req.GetTaskType()),
+		TriggerType:    model.TriggerType(req.GetTriggerType()),
+		Actions:        actions,
+		IdempotencyKey: req.GetIdempotencyKey(),
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
+	status := res.Status
+	if status == "" {
+		status = string(model.TaskStatusRunning)
+	}
 	return &dispatchpb.SubmitTaskResponse{
 		TaskID: res.TaskID,
-		Status: string(model.TaskStatusRunning),
+		Status: status,
 	}, nil
 }
 

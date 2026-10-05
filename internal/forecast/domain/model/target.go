@@ -6,7 +6,7 @@ package model
 // globally unique (Resource CU UUID), so a cross-product of tenants ×
 // targets would issue QueryAggregation calls that cannot succeed.
 //
-// This is a plain struct (not an interface like optimization.Target)
+// This is a plain struct rather than an interface
 // because both algorithms share TenantID/CUCode/MetricName and only
 // differ by one sidecar parameter. That matches dispatch.CommandValue's
 // "few branches, simple scalars, not expected to grow" case (discussion

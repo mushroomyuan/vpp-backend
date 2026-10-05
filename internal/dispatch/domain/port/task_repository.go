@@ -24,6 +24,10 @@ type TaskRepository interface {
 	// FindByID loads the complete Task tree including all Actions and Commands.
 	FindByID(ctx context.Context, id string) (*model.DispatchTask, error)
 
+	// FindByIdempotencyKey loads the task previously stored for this tenant and key.
+	// Returns domain.ErrTaskNotFound when the key is empty or no task exists.
+	FindByIdempotencyKey(ctx context.Context, tenantID, key string) (*model.DispatchTask, error)
+
 	// FindByCommandID loads the complete Task tree for the task that owns the
 	// given CommandID. Used by HandleCommandResult and TimeoutScanner to
 	// reconstruct the in-memory aggregate before running domain logic.
