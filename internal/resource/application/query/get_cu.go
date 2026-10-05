@@ -15,23 +15,18 @@ type GetCU struct {
 type GetCUHandler decorator.QueryHandler[GetCU, *CUView]
 
 type getCUHandler struct {
-	cuRepo    port.CURepository
-	cuRuntime port.CURuntimeReader
+	cuRepo port.CURepository
 }
 
 func NewGetCUHandler(
 	cuRepo port.CURepository,
-	cuRuntime port.CURuntimeReader,
 	metricClient decorator.MetricsClient,
 ) GetCUHandler {
 	if cuRepo == nil {
 		panic("NewGetCUHandler parameter cuRepo is nil")
 	}
-	if cuRuntime == nil {
-		panic("NewGetCUHandler parameter cuRuntime is nil")
-	}
 	return decorator.ApplyQueryDecorators[GetCU, *CUView](
-		getCUHandler{cuRepo: cuRepo, cuRuntime: cuRuntime},
+		getCUHandler{cuRepo: cuRepo},
 		metricClient,
 	)
 }
@@ -41,9 +36,5 @@ func (h getCUHandler) Handle(ctx context.Context, q GetCU) (*CUView, error) {
 	if err != nil {
 		return nil, err
 	}
-	runtime, err := h.cuRuntime.GetCURuntime(ctx, q.TenantID, q.ID)
-	if err != nil {
-		return nil, err
-	}
-	return &CUView{CU: cu, Runtime: runtime}, nil
+	return &CUView{CU: cu}, nil
 }

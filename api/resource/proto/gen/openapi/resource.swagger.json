@@ -1917,9 +1917,6 @@
         },
         "Metadata": {
           "type": "object"
-        },
-        "Runtime": {
-          "$ref": "#/definitions/resourcepbAssetRuntime"
         }
       }
     },
@@ -1977,45 +1974,6 @@
           "type": "object"
         }
       }
-    },
-    "resourcepbAssetRuntime": {
-      "type": "object",
-      "properties": {
-        "Online": {
-          "type": "boolean"
-        },
-        "CurrentPowerKW": {
-          "type": "number",
-          "format": "double"
-        },
-        "AvailablePowerKW": {
-          "type": "number",
-          "format": "double"
-        },
-        "SOC": {
-          "type": "number",
-          "format": "double"
-        },
-        "Dispatchable": {
-          "type": "boolean"
-        },
-        "NotDispatchableReason": {
-          "type": "string"
-        },
-        "MaxChargePowerKW": {
-          "type": "number",
-          "format": "double"
-        },
-        "MaxDischargePowerKW": {
-          "type": "number",
-          "format": "double"
-        },
-        "UpdatedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "description": "AssetRuntime is hot scheduling state cached in Redis."
     },
     "resourcepbBatchItemError": {
       "type": "object",
@@ -2076,9 +2034,6 @@
         },
         "Connection": {
           "$ref": "#/definitions/resourcepbConnectionConfig"
-        },
-        "Runtime": {
-          "$ref": "#/definitions/resourcepbCURuntime"
         }
       }
     },
@@ -2163,30 +2118,6 @@
           "$ref": "#/definitions/resourcepbConnectionConfig"
         }
       }
-    },
-    "resourcepbCURuntime": {
-      "type": "object",
-      "properties": {
-        "ConnStatus": {
-          "type": "string"
-        },
-        "LastSeenAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "LatencyMS": {
-          "type": "string",
-          "format": "int64"
-        },
-        "LastError": {
-          "type": "string"
-        },
-        "UpdatedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "description": "CURuntime is connection-plane runtime cached in Redis."
     },
     "resourcepbConnectionConfig": {
       "type": "object",

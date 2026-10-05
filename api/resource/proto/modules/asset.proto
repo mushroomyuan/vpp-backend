@@ -7,10 +7,12 @@ option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;
 import "google/protobuf/struct.proto";
 import "modules/common.proto";
 import "modules/error.proto";
-import "modules/runtime.proto";
 
 
 message Asset {
+  reserved 14; // was Runtime — current values live in Telemetry snapshots
+  reserved "Runtime";
+
   string ID = 1;
   string TenantID = 2;
   string SiteID = 3;
@@ -24,7 +26,6 @@ message Asset {
   string Description = 11;
   bool MarketEnabled = 12;
   google.protobuf.Struct Metadata = 13;
-  AssetRuntime Runtime = 14;
 }
 
 

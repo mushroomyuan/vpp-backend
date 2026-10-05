@@ -269,6 +269,7 @@ func buildEnv() (*env, func(), error) {
 	lifecycleConsumer := gatewaylifecyclekafka.NewLifecycleConsumer(
 		gatewaylifecyclekafka.LifecycleConsumerConfig{Brokers: brokers, Topic: resourceTopic, GroupID: "it-gateway-lifecycle"},
 		gatewayApplication.Commands.DisableMappingByCUCode,
+		nil,
 	)
 	lifecycleCtx, cancelLifecycle := context.WithCancel(context.Background())
 	go func() { _ = lifecycleConsumer.Run(lifecycleCtx) }()
@@ -342,7 +343,6 @@ func buildEnv() (*env, func(), error) {
 	closers = append(closers, cancelScanner)
 
 	chain, chainClosers, err := startDecisionChain(ctx, decisionChainInput{
-		RedisURI:      redisAddr,
 		TelemetryDial: telemetryBufDialer,
 		Dispatch:      dispatchApplication,
 	})

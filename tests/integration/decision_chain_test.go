@@ -6,7 +6,6 @@ import (
 	"net"
 	"time"
 
-	goredis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 
@@ -27,11 +26,9 @@ import (
 	dispatchapp "github.com/mushroomyuan/vpp-backend/dispatch/application"
 	"github.com/mushroomyuan/vpp-backend/platform/idgen"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
-	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 	resourceinbound "github.com/mushroomyuan/vpp-backend/resource/adapter/inbound/grpc"
 	resourcepg "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/postgres"
-	resourceredis "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/redis"
 	resourceapp "github.com/mushroomyuan/vpp-backend/resource/application"
 	resourceinfra "github.com/mushroomyuan/vpp-backend/resource/infrastructure/persistent/postgres"
 )
@@ -46,7 +43,6 @@ type decisionChain struct {
 }
 
 type decisionChainInput struct {
-	RedisURI      string
 	TelemetryDial func(context.Context, string) (net.Conn, error)
 	Dispatch      dispatchapp.Application
 }
@@ -64,6 +60,7 @@ func startDecisionChain(ctx context.Context, in decisionChainInput) (decisionCha
 		"../../migrations/resource/000001_init.up.sql",
 		"../../migrations/resource/000002_import_jobs_operation_target.up.sql",
 		"../../migrations/resource/000003_scope_resolve_indexes.up.sql",
+		"../../migrations/resource/000004_drop_cu_conn_status.up.sql",
 	)
 	if err != nil {
 		return fail(fmt.Errorf("start resource postgres: %w", err))
@@ -79,21 +76,7 @@ func startDecisionChain(ctx context.Context, in decisionChainInput) (decisionCha
 	}
 	closers = append(closers, decisionClose)
 
-	redisOpts, err := goredis.ParseURL(in.RedisURI)
-	if err != nil {
-		return fail(fmt.Errorf("parse redis url: %w", err))
-	}
-	redisClient, err := platformredis.New(platformredis.Config{
-		Addr:     redisOpts.Addr,
-		Password: redisOpts.Password,
-		DB:       redisOpts.DB,
-	})
-	if err != nil {
-		return fail(fmt.Errorf("connect resource redis: %w", err))
-	}
-	closers = append(closers, func() { _ = redisClient.Close() })
-
-	resourceApp := newResourceApplication(resourceDSN, redisClient)
+	resourceApp := newResourceApplication(resourceDSN)
 	resourceLis := bufconn.Listen(bufSize)
 	resourceGRPC := platformserver.NewGRPCServer()
 	resourcepb.RegisterResourceServiceServer(resourceGRPC, resourceinbound.NewServer(resourceApp))
@@ -182,7 +165,7 @@ func startDecisionChain(ctx context.Context, in decisionChainInput) (decisionCha
 	}, closers, nil
 }
 
-func newResourceApplication(dsn string, redisClient *platformredis.Client) resourceapp.Application {
+func newResourceApplication(dsn string) resourceapp.Application {
 	pg := resourceinfra.NewPostgres(platformpostgres.Config{DSN: dsn})
 	nodeInfra := resourceinfra.NewNodeRepository(pg)
 	return resourceapp.NewApplication(resourceapp.Dependencies{
@@ -194,8 +177,6 @@ func newResourceApplication(dsn string, redisClient *platformredis.Client) resou
 		ScopeRepo:        resourcepg.NewScopeRepositoryPostgres(resourceinfra.NewScopeRepository(pg)),
 		JobRepo:          resourcepg.NewJobRepositoryPostgres(resourceinfra.NewJobRepository(pg)),
 		NodeRepo:         resourcepg.NewNodeRepositoryPostgres(nodeInfra),
-		AssetRuntime:     resourceredis.NewAssetRuntimeCache(redisClient, 0),
-		CURuntime:        resourceredis.NewCURuntimeCache(redisClient, 0),
 		Metrics:          noopMetrics{},
 	})
 }

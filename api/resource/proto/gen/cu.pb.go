@@ -171,7 +171,6 @@ type CU struct {
 	Provider       string                 `protobuf:"bytes,11,opt,name=Provider,proto3" json:"Provider,omitempty"`
 	ExternalID     string                 `protobuf:"bytes,12,opt,name=ExternalID,proto3" json:"ExternalID,omitempty"`
 	Connection     *ConnectionConfig      `protobuf:"bytes,13,opt,name=Connection,proto3" json:"Connection,omitempty"`
-	Runtime        *CURuntime             `protobuf:"bytes,14,opt,name=Runtime,proto3" json:"Runtime,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -279,13 +278,6 @@ func (x *CU) GetExternalID() string {
 func (x *CU) GetConnection() *ConnectionConfig {
 	if x != nil {
 		return x.Connection
-	}
-	return nil
-}
-
-func (x *CU) GetRuntime() *CURuntime {
-	if x != nil {
-		return x.Runtime
 	}
 	return nil
 }
@@ -891,7 +883,7 @@ var File_modules_cu_proto protoreflect.FileDescriptor
 const file_modules_cu_proto_rawDesc = "" +
 	"\n" +
 	"\x10modules/cu.proto\x12\n" +
-	"resourcepb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x15modules/runtime.proto\"\xad\x01\n" +
+	"resourcepb\x1a\x1cgoogle/protobuf/struct.proto\"\xad\x01\n" +
 	"\vRetryPolicy\x12 \n" +
 	"\vMaxAttempts\x18\x01 \x01(\x05R\vMaxAttempts\x12*\n" +
 	"\x10InitialBackoffMS\x18\x02 \x01(\x05R\x10InitialBackoffMS\x12\"\n" +
@@ -901,7 +893,7 @@ const file_modules_cu_proto_rawDesc = "" +
 	"\x04Host\x18\x01 \x01(\tR\x04Host\x12\x12\n" +
 	"\x04Port\x18\x02 \x01(\x05R\x04Port\x12\x18\n" +
 	"\aTimeout\x18\x03 \x01(\x05R\aTimeout\x129\n" +
-	"\vRetryPolicy\x18\x04 \x01(\v2\x17.resourcepb.RetryPolicyR\vRetryPolicy\"\xd9\x03\n" +
+	"\vRetryPolicy\x18\x04 \x01(\v2\x17.resourcepb.RetryPolicyR\vRetryPolicy\"\xb7\x03\n" +
 	"\x02CU\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x1a\n" +
 	"\bTenantID\x18\x02 \x01(\tR\bTenantID\x12\x1a\n" +
@@ -917,10 +909,9 @@ const file_modules_cu_proto_rawDesc = "" +
 	"ExternalID\x12<\n" +
 	"\n" +
 	"Connection\x18\r \x01(\v2\x1c.resourcepb.ConnectionConfigR\n" +
-	"Connection\x12/\n" +
-	"\aRuntime\x18\x0e \x01(\v2\x15.resourcepb.CURuntimeR\aRuntimeJ\x04\b\n" +
-	"\x10\vJ\x04\b\x06\x10\aR\n" +
-	"ConnStatusR\x0eCapabilityTags\"\xb5\x03\n" +
+	"ConnectionJ\x04\b\n" +
+	"\x10\vJ\x04\b\x0e\x10\x0fJ\x04\b\x06\x10\aR\n" +
+	"ConnStatusR\aRuntimeR\x0eCapabilityTags\"\xb5\x03\n" +
 	"\x0fCreateCURequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x1a\n" +
 	"\bParentID\x18\x02 \x01(\tR\bParentID\x12\x12\n" +
@@ -1013,29 +1004,27 @@ var file_modules_cu_proto_goTypes = []any{
 	(*ListCUsResponse)(nil),  // 8: resourcepb.ListCUsResponse
 	(*CUItem)(nil),           // 9: resourcepb.CUItem
 	(*structpb.Struct)(nil),  // 10: google.protobuf.Struct
-	(*CURuntime)(nil),        // 11: resourcepb.CURuntime
 }
 var file_modules_cu_proto_depIdxs = []int32{
 	0,  // 0: resourcepb.ConnectionConfig.RetryPolicy:type_name -> resourcepb.RetryPolicy
 	10, // 1: resourcepb.CU.Metadata:type_name -> google.protobuf.Struct
 	10, // 2: resourcepb.CU.ProtocolConfig:type_name -> google.protobuf.Struct
 	1,  // 3: resourcepb.CU.Connection:type_name -> resourcepb.ConnectionConfig
-	11, // 4: resourcepb.CU.Runtime:type_name -> resourcepb.CURuntime
-	10, // 5: resourcepb.CreateCURequest.Metadata:type_name -> google.protobuf.Struct
-	10, // 6: resourcepb.CreateCURequest.ProtocolConfig:type_name -> google.protobuf.Struct
-	1,  // 7: resourcepb.CreateCURequest.Connection:type_name -> resourcepb.ConnectionConfig
-	10, // 8: resourcepb.UpdateCURequest.Metadata:type_name -> google.protobuf.Struct
-	10, // 9: resourcepb.UpdateCURequest.ProtocolConfig:type_name -> google.protobuf.Struct
-	1,  // 10: resourcepb.UpdateCURequest.Connection:type_name -> resourcepb.ConnectionConfig
-	2,  // 11: resourcepb.ListCUsResponse.CUs:type_name -> resourcepb.CU
-	10, // 12: resourcepb.CUItem.Metadata:type_name -> google.protobuf.Struct
-	10, // 13: resourcepb.CUItem.ProtocolConfig:type_name -> google.protobuf.Struct
-	1,  // 14: resourcepb.CUItem.Connection:type_name -> resourcepb.ConnectionConfig
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	10, // 4: resourcepb.CreateCURequest.Metadata:type_name -> google.protobuf.Struct
+	10, // 5: resourcepb.CreateCURequest.ProtocolConfig:type_name -> google.protobuf.Struct
+	1,  // 6: resourcepb.CreateCURequest.Connection:type_name -> resourcepb.ConnectionConfig
+	10, // 7: resourcepb.UpdateCURequest.Metadata:type_name -> google.protobuf.Struct
+	10, // 8: resourcepb.UpdateCURequest.ProtocolConfig:type_name -> google.protobuf.Struct
+	1,  // 9: resourcepb.UpdateCURequest.Connection:type_name -> resourcepb.ConnectionConfig
+	2,  // 10: resourcepb.ListCUsResponse.CUs:type_name -> resourcepb.CU
+	10, // 11: resourcepb.CUItem.Metadata:type_name -> google.protobuf.Struct
+	10, // 12: resourcepb.CUItem.ProtocolConfig:type_name -> google.protobuf.Struct
+	1,  // 13: resourcepb.CUItem.Connection:type_name -> resourcepb.ConnectionConfig
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_modules_cu_proto_init() }
@@ -1043,7 +1032,6 @@ func file_modules_cu_proto_init() {
 	if File_modules_cu_proto != nil {
 		return
 	}
-	file_modules_runtime_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

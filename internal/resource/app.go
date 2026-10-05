@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
-	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -73,9 +72,8 @@ func runApp(opts *options.Options) error {
 	// through to the wiring layer.  The application config (config.Config)
 	// intentionally knows nothing about database details.
 	dbCfg := dbConfigFromOptions(opts.Database)
-	redisCfg := redisConfigFromOptions(opts.Redis)
 
-	return Run(appCfg, dbCfg, redisCfg)
+	return Run(appCfg, dbCfg)
 }
 
 // dbConfigFromOptions maps the external database options (filled by viper) to
@@ -95,20 +93,6 @@ func dbConfigFromOptions(o options.DatabaseOptions) platformpostgres.Config {
 		MaxIdleConns:           o.MaxIdleConns,
 		ConnMaxLifetimeSeconds: o.ConnMaxLifetimeSeconds,
 		ConnMaxIdleTimeSeconds: o.ConnMaxIdleTimeSeconds,
-	}
-}
-
-func redisConfigFromOptions(o options.RedisOptions) platformredis.Config {
-	return platformredis.Config{
-		Addr:                o.Addr,
-		Password:            o.Password,
-		DB:                  o.DB,
-		PoolSize:            o.PoolSize,
-		MinIdleConns:        o.MinIdleConns,
-		DialTimeoutSeconds:  o.DialTimeoutSeconds,
-		ReadTimeoutSeconds:  o.ReadTimeoutSeconds,
-		WriteTimeoutSeconds: o.WriteTimeoutSeconds,
-		PingTimeoutSeconds:  o.PingTimeoutSeconds,
 	}
 }
 

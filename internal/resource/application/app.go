@@ -94,10 +94,6 @@ type Dependencies struct {
 	NodeRepo         port.NodeRepository
 	ScopeRepo        port.ScopeRepository
 
-	// Runtime readers (Redis-backed hot state)
-	AssetRuntime port.AssetRuntimeReader
-	CURuntime    port.CURuntimeReader
-
 	// Cross-cutting
 	Metrics decorator.MetricsClient
 
@@ -111,12 +107,6 @@ type Dependencies struct {
 func NewApplication(deps Dependencies) Application {
 	if deps.NodeRepo == nil {
 		panic("NewApplication: NodeRepo is required")
-	}
-	if deps.AssetRuntime == nil {
-		panic("NewApplication: AssetRuntime is required")
-	}
-	if deps.CURuntime == nil {
-		panic("NewApplication: CURuntime is required")
 	}
 	if deps.CUCapabilityRepo == nil {
 		panic("NewApplication: CUCapabilityRepo is required")
@@ -172,16 +162,16 @@ func NewApplication(deps Dependencies) Application {
 			ListSites: query.NewListSitesHandler(deps.SiteRepo, deps.Metrics),
 
 			// Asset
-			GetAsset:           query.NewGetAssetHandler(deps.AssetRepo, deps.AssetRuntime, deps.Metrics),
-			ListAssets:         query.NewListAssetsHandler(deps.AssetRepo, deps.AssetRuntime, deps.Metrics),
+			GetAsset:           query.NewGetAssetHandler(deps.AssetRepo, deps.Metrics),
+			ListAssets:         query.NewListAssetsHandler(deps.AssetRepo, deps.Metrics),
 			GetResourceDetail:  query.NewGetResourceDetailHandler(deps.NodeRepo, deps.Metrics),
 			ListChildren:       query.NewListChildrenHandler(deps.NodeRepo, deps.Metrics),
 			GetBreadcrumb:      query.NewGetBreadcrumbHandler(deps.NodeRepo, deps.Metrics),
 			ExportResourceTree: query.NewExportResourceTreeHandler(deps.NodeRepo, deps.Metrics),
 
 			// CU
-			GetCU:              query.NewGetCUHandler(deps.CURepo, deps.CURuntime, deps.Metrics),
-			ListCUs:            query.NewListCUsHandler(deps.CURepo, deps.CURuntime, deps.Metrics),
+			GetCU:              query.NewGetCUHandler(deps.CURepo, deps.Metrics),
+			ListCUs:            query.NewListCUsHandler(deps.CURepo, deps.Metrics),
 			GetCUCapability:    query.NewGetCUCapabilityHandler(deps.CUCapabilityRepo, deps.Metrics),
 			ListCUCapabilities: query.NewListCUCapabilitiesHandler(deps.CUCapabilityRepo, deps.Metrics),
 

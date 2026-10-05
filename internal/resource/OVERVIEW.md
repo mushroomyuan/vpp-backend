@@ -23,9 +23,9 @@ Site
 - 支持创建 / 更新 / 删除 / 移动 / 重命名 / 面包屑 / 子树导出  
 - 生命周期：`active` / `inactive` / `decommissioned`；变更可发 Kafka 事件  
 
-### 2. 运行时状态外置
+### 2. 目录与当前值分开
 
-连接状态、功率、点值等**不进资源主库**：Gateway / Telemetry 写入 Redis（db=0），Resource 查询时合并返回。配置与运行时分离。
+本服务只回答资源树、能力、指标绑定和安全约束。当前测点值在 Telemetry 快照里。Decision 自己做范围展开和状态采集。Resource 不连接 Redis，也不合并运行时字段。
 
 ### 3. 异步批量导入（重点）
 
@@ -124,7 +124,6 @@ flowchart TB
         Exec["Executors<br/>import asset/cu/point<br/>delete point"]
         Dom["Domain<br/>Site · Asset · CU · Point · Job"]
         PG[("Postgres<br/>nodes + 扩展表<br/>import_jobs")]
-        Redis[("Redis db=0<br/>runtime")]
         Pub["Event Publisher"]
     end
 
@@ -140,7 +139,6 @@ flowchart TB
     GRPC --> App
     App --> Dom
     App --> PG
-    App --> Redis
     App --> Pub
     Pub --> Kafka
     Kafka --> GW
@@ -162,14 +160,11 @@ flowchart LR
     Res -.->|resource.events| GW[Gateway]
     Admin -->|CreateMapping| GW
     Sim[Simulator] -->|加载 CU| Res
-    GW -.->|写 ConnStatus 等| Redis[(Redis)]
-    Res -->|查询合并 runtime| Redis
 ```
 
 | 服务 | 关系 |
 |------|------|
 | **Gateway** | 消费生命周期事件清理 mapping；Onboarding 与 Resource 分步、互不 RPC |
 | **Simulator** | 只读拉取 `provider=simulator` 的 CU/Point 作为虚拟设备配置 |
-| **Telemetry / Dispatch** | 不直连 Resource；通过 CUCode 间接对齐资产身份 |
-| **Decision** | 只调用 `ResolveScope`。不读本库，不使用 Runtime 缓存作为决策输入 |
-| **Redis** | 运行时热数据；Resource 读、Gateway 等写 |
+| **Telemetry / Dispatch** | 不直连 Resource；通过 CUCode 间接对齐资产身份。当前值在 Telemetry |
+| **Decision** | 只调用 `ResolveScope`。当前值走 Telemetry `GetSnapshots` |

@@ -28,23 +28,18 @@ type ListCUsResult struct {
 type ListCUsHandler decorator.QueryHandler[ListCUs, *ListCUsResult]
 
 type listCUsHandler struct {
-	cuRepo    port.CURepository
-	cuRuntime port.CURuntimeReader
+	cuRepo port.CURepository
 }
 
 func NewListCUsHandler(
 	cuRepo port.CURepository,
-	cuRuntime port.CURuntimeReader,
 	metricClient decorator.MetricsClient,
 ) ListCUsHandler {
 	if cuRepo == nil {
 		panic("NewListCUsHandler parameter cuRepo is nil")
 	}
-	if cuRuntime == nil {
-		panic("NewListCUsHandler parameter cuRuntime is nil")
-	}
 	return decorator.ApplyQueryDecorators[ListCUs, *ListCUsResult](
-		listCUsHandler{cuRepo: cuRepo, cuRuntime: cuRuntime},
+		listCUsHandler{cuRepo: cuRepo},
 		metricClient,
 	)
 }
@@ -78,21 +73,8 @@ func (h listCUsHandler) Handle(ctx context.Context, q ListCUs) (*ListCUsResult, 
 		}, nil
 	}
 
-	cuIDs := make([]string, len(page.Items))
-	for i, cu := range page.Items {
-		cuIDs[i] = cu.ID
-	}
-	runtimes, err := h.cuRuntime.ListCURuntimes(ctx, q.TenantID, cuIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, cu := range page.Items {
-		item := &CUView{CU: cu}
-		if i < len(runtimes) {
-			item.Runtime = runtimes[i]
-		}
-		items = append(items, item)
+	for _, cu := range page.Items {
+		items = append(items, &CUView{CU: cu})
 	}
 
 	return &ListCUsResult{

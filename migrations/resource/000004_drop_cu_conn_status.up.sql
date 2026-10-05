@@ -1,0 +1,1 @@
+ALTER TABLE cus DROP COLUMN IF EXISTS conn_status;

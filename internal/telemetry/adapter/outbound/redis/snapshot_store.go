@@ -20,7 +20,6 @@ import (
 //
 //	tenant:{tenantID}:cu:{cuCode}:snapshot
 //
-// This matches the PointRuntime pattern used by the resource module.
 // TTL is optional; set ttl = 0 for no expiry (recommended for snapshots that
 // should survive service restarts, as opposed to ephemeral hot-path caches).
 type SnapshotStore struct {

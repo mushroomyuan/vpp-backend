@@ -75,7 +75,7 @@ func (s *Server) GetCU(ctx context.Context, req *resourcepb.GetCURequest) (*reso
 		return nil, toGRPCError(err)
 	}
 
-	out, err := CUToProto(cu.CU, cu.Runtime)
+	out, err := CUToProto(cu.CU)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -101,7 +101,7 @@ func (s *Server) ListCUs(ctx context.Context, req *resourcepb.ListCUsRequest) (*
 
 	out := make([]*resourcepb.CU, 0, len(result.Items))
 	for _, item := range result.Items {
-		pb, err := CUToProto(item.CU, item.Runtime)
+		pb, err := CUToProto(item.CU)
 		if err != nil {
 			return nil, toGRPCError(err)
 		}

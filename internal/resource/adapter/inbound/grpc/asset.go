@@ -53,7 +53,7 @@ func (s *Server) GetAsset(ctx context.Context, req *resourcepb.GetAssetRequest) 
 		return nil, toGRPCError(err)
 	}
 
-	out, err := AssetToProto(a.Asset, a.Runtime)
+	out, err := AssetToProto(a.Asset)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -78,7 +78,7 @@ func (s *Server) ListAssets(ctx context.Context, req *resourcepb.ListAssetsReque
 
 	assets := make([]*resourcepb.Asset, 0, len(result.Items))
 	for _, item := range result.Items {
-		pb, err := AssetToProto(item.Asset, item.Runtime)
+		pb, err := AssetToProto(item.Asset)
 		if err != nil {
 			return nil, toGRPCError(err)
 		}

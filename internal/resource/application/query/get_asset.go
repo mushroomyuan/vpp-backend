@@ -15,23 +15,18 @@ type GetAsset struct {
 type GetAssetHandler decorator.QueryHandler[GetAsset, *AssetView]
 
 type getAssetHandler struct {
-	assetRepo    port.AssetRepository
-	assetRuntime port.AssetRuntimeReader
+	assetRepo port.AssetRepository
 }
 
 func NewGetAssetHandler(
 	assetRepo port.AssetRepository,
-	assetRuntime port.AssetRuntimeReader,
 	metricClient decorator.MetricsClient,
 ) GetAssetHandler {
 	if assetRepo == nil {
 		panic("NewGetAssetHandler parameter assetRepo is nil")
 	}
-	if assetRuntime == nil {
-		panic("NewGetAssetHandler parameter assetRuntime is nil")
-	}
 	return decorator.ApplyQueryDecorators[GetAsset, *AssetView](
-		getAssetHandler{assetRepo: assetRepo, assetRuntime: assetRuntime},
+		getAssetHandler{assetRepo: assetRepo},
 		metricClient,
 	)
 }
@@ -41,9 +36,5 @@ func (h getAssetHandler) Handle(ctx context.Context, q GetAsset) (*AssetView, er
 	if err != nil {
 		return nil, err
 	}
-	runtime, err := h.assetRuntime.GetAssetRuntime(ctx, q.TenantID, q.ID)
-	if err != nil {
-		return nil, err
-	}
-	return &AssetView{Asset: asset, Runtime: runtime}, nil
+	return &AssetView{Asset: asset}, nil
 }

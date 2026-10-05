@@ -58,7 +58,6 @@ CREATE INDEX IF NOT EXISTS idx_assets_tenant_id ON assets (tenant_id);
 CREATE TABLE IF NOT EXISTS cus (
     node_id UUID PRIMARY KEY,
     tenant_id TEXT NOT NULL,
-    conn_status TEXT NOT NULL DEFAULT 'disconnected',
     provider TEXT NULL,
     external_id TEXT NULL,
     protocol TEXT NULL,

@@ -6,21 +6,6 @@ import (
 	"time"
 )
 
-// ConnStatus describes CU link health.
-type ConnStatus string
-
-const (
-	ConnStatusUnknown      ConnStatus = "unknown"
-	ConnStatusDisconnected ConnStatus = "disconnected"
-	ConnStatusConnecting   ConnStatus = "connecting"
-	ConnStatusConnected    ConnStatus = "connected"
-	ConnStatusDegraded     ConnStatus = "degraded"
-	ConnStatusRetrying     ConnStatus = "retrying"
-	ConnStatusAuthFailed   ConnStatus = "auth_failed"
-	ConnStatusError        ConnStatus = "error"
-	ConnStatusDisabled     ConnStatus = "disabled"
-)
-
 type RetryPolicy struct {
 	MaxAttempts       int
 	InitialBackoffMS  int
@@ -37,9 +22,7 @@ type ConnectionConfig struct {
 }
 
 // CU (Control Unit) is the control / telemetry boundary toward EMS, SCADA, or IoT.
-//
-// ConnStatus is NOT persisted here. Connection state is runtime-only and lives
-// in CURuntime (Redis). Use CURuntimeReader.GetCURuntime to read it.
+// Connection health and live measurements are not stored on this aggregate.
 type CU struct {
 	Node
 
@@ -166,9 +149,7 @@ func (cu *CU) UpdateConnection(conn ConnectionConfig) error {
 	return nil
 }
 
-// CanControl checks whether the CU is eligible for dispatch.
-// Connection health is runtime-only (stored in Redis CURuntime); this method
-// only checks the persistent lifecycle status.
+// CanControl checks whether the CU lifecycle allows dispatch.
 func (cu *CU) CanControl() bool {
 	return cu.LifecycleStatus == NodeLifecycleActive
 }

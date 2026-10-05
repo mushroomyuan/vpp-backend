@@ -68,7 +68,6 @@ func (AssetModel) TableName() string { return "assets" }
 type CUModel struct {
 	NodeID         string    `gorm:"column:node_id;primaryKey;type:uuid"`
 	TenantID       string    `gorm:"column:tenant_id;not null;index"`
-	ConnStatus     string    `gorm:"column:conn_status;not null;default:disconnected"`
 	Provider       *string   `gorm:"column:provider"`
 	ExternalID     *string   `gorm:"column:external_id"`
 	Protocol       *string   `gorm:"column:protocol"`

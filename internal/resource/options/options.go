@@ -12,7 +12,6 @@ type Options struct {
 	Resource ResourceOptions `mapstructure:"resource"`
 	Tracing  TracingOptions  `mapstructure:"tracing"`
 	Database DatabaseOptions `mapstructure:"database"`
-	Redis    RedisOptions    `mapstructure:"redis"`
 	Kafka    KafkaOptions    `mapstructure:"kafka"`
 }
 
@@ -90,18 +89,6 @@ type DatabaseOptions struct {
 	ConnMaxIdleTimeSeconds int `mapstructure:"conn-max-idle-time-seconds"`
 }
 
-type RedisOptions struct {
-	Addr                string `mapstructure:"addr"`
-	Password            string `mapstructure:"password"`
-	DB                  int    `mapstructure:"db"`
-	PoolSize            int    `mapstructure:"pool-size"`
-	MinIdleConns        int    `mapstructure:"min-idle-conns"`
-	DialTimeoutSeconds  int    `mapstructure:"dial-timeout-seconds"`
-	ReadTimeoutSeconds  int    `mapstructure:"read-timeout-seconds"`
-	WriteTimeoutSeconds int    `mapstructure:"write-timeout-seconds"`
-	PingTimeoutSeconds  int    `mapstructure:"ping-timeout-seconds"`
-}
-
 // KafkaOptions configures the resource event publisher.
 type KafkaOptions struct {
 	Brokers []string `mapstructure:"brokers"`
@@ -129,16 +116,6 @@ func NewOptions() *Options {
 			ConnMaxLifetimeSeconds: 1800,
 			ConnMaxIdleTimeSeconds: 300,
 		},
-		Redis: RedisOptions{
-			Addr:                "127.0.0.1:6379",
-			DB:                  0,
-			PoolSize:            10,
-			MinIdleConns:        2,
-			DialTimeoutSeconds:  5,
-			ReadTimeoutSeconds:  3,
-			WriteTimeoutSeconds: 3,
-			PingTimeoutSeconds:  3,
-		},
 		Kafka: KafkaOptions{
 			Topic: "vpp.resource.events",
 		},
@@ -158,9 +135,6 @@ func (o *Options) Validate() []error {
 	}
 	if o.Database.Driver == "" {
 		errs = append(errs, fmt.Errorf("database.driver must not be empty"))
-	}
-	if o.Redis.Addr == "" {
-		errs = append(errs, fmt.Errorf("redis.addr must not be empty"))
 	}
 	// When DSN is explicitly set, structured fields are not required.
 	if o.Database.DSN == "" {

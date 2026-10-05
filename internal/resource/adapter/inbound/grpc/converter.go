@@ -139,10 +139,10 @@ func SiteDomainToProto(s *model.Site) *resourcepb.Site {
 }
 
 func AssetDomainToProto(a *model.Asset) (*resourcepb.Asset, error) {
-	return AssetToProto(a, nil)
+	return AssetToProto(a)
 }
 
-func AssetToProto(a *model.Asset, runtime *model.AssetRuntime) (*resourcepb.Asset, error) {
+func AssetToProto(a *model.Asset) (*resourcepb.Asset, error) {
 	if a == nil {
 		return nil, nil
 	}
@@ -196,46 +196,7 @@ func AssetToProto(a *model.Asset, runtime *model.AssetRuntime) (*resourcepb.Asse
 		Description:     desc,
 		MarketEnabled:   market,
 		Metadata:        meta,
-		Runtime:         AssetRuntimeDomainToProto(runtime),
 	}, nil
-}
-
-func AssetRuntimeDomainToProto(r *model.AssetRuntime) *resourcepb.AssetRuntime {
-	if r == nil {
-		return nil
-	}
-	pb := &resourcepb.AssetRuntime{
-		Online:       r.Online,
-		Dispatchable: r.Dispatchable,
-	}
-	if r.CurrentPowerKW != nil {
-		v := *r.CurrentPowerKW
-		pb.CurrentPowerKW = &v
-	}
-	if r.AvailablePowerKW != nil {
-		v := *r.AvailablePowerKW
-		pb.AvailablePowerKW = &v
-	}
-	if r.SOC != nil {
-		v := *r.SOC
-		pb.SOC = &v
-	}
-	if r.NotDispatchableReason != nil {
-		v := *r.NotDispatchableReason
-		pb.NotDispatchableReason = &v
-	}
-	if r.MaxChargePowerKW != nil {
-		v := *r.MaxChargePowerKW
-		pb.MaxChargePowerKW = &v
-	}
-	if r.MaxDischargePowerKW != nil {
-		v := *r.MaxDischargePowerKW
-		pb.MaxDischargePowerKW = &v
-	}
-	if !r.UpdatedAt.IsZero() {
-		pb.UpdatedAt = timestamppb.New(r.UpdatedAt)
-	}
-	return pb
 }
 
 func ResourceDomainToProto(n *model.Node) (*resourcepb.Resource, error) {
@@ -337,10 +298,10 @@ func ConnectionProtoToDomain(pb *resourcepb.ConnectionConfig) (*model.Connection
 }
 
 func CUDomainToProto(cu *model.CU) (*resourcepb.CU, error) {
-	return CUToProto(cu, nil)
+	return CUToProto(cu)
 }
 
-func CUToProto(cu *model.CU, runtime *model.CURuntime) (*resourcepb.CU, error) {
+func CUToProto(cu *model.CU) (*resourcepb.CU, error) {
 	if cu == nil {
 		return nil, nil
 	}
@@ -383,32 +344,8 @@ func CUToProto(cu *model.CU, runtime *model.CURuntime) (*resourcepb.CU, error) {
 		ProtocolConfig: protocolConfig,
 		Provider:       provider,
 		ExternalID:     externalID,
-		Connection:     ConnectionDomainToProto(cu.Connection), Runtime: CURuntimeDomainToProto(runtime),
+		Connection:     ConnectionDomainToProto(cu.Connection),
 	}, nil
-}
-
-func CURuntimeDomainToProto(r *model.CURuntime) *resourcepb.CURuntime {
-	if r == nil {
-		return nil
-	}
-	pb := &resourcepb.CURuntime{
-		ConnStatus: r.ConnStatus,
-	}
-	if !r.LastSeenAt.IsZero() {
-		pb.LastSeenAt = timestamppb.New(r.LastSeenAt)
-	}
-	if r.LatencyMS != nil {
-		v := *r.LatencyMS
-		pb.LatencyMS = &v
-	}
-	if r.LastError != nil {
-		v := *r.LastError
-		pb.LastError = &v
-	}
-	if !r.UpdatedAt.IsZero() {
-		pb.UpdatedAt = timestamppb.New(r.UpdatedAt)
-	}
-	return pb
 }
 
 func PointDomainToProto(p *model.Point) (*resourcepb.Point, error) {

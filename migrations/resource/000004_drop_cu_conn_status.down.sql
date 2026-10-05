@@ -1,0 +1,1 @@
+ALTER TABLE cus ADD COLUMN IF NOT EXISTS conn_status TEXT NOT NULL DEFAULT 'disconnected';

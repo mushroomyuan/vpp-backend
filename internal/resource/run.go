@@ -8,7 +8,6 @@ import (
 	"github.com/mushroomyuan/vpp-backend/platform/discovery"
 	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
-	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	"github.com/mushroomyuan/vpp-backend/platform/telemetry"
 	"github.com/mushroomyuan/vpp-backend/resource/config"
 )
@@ -21,7 +20,7 @@ import (
 // dbCfg is the driver-agnostic database configuration; it is an infrastructure
 // concern assembled in the composition root and passed straight through without
 // touching any application-layer types.
-func Run(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg platformredis.Config) error {
+func Run(appCfg *config.Config, dbCfg platformpostgres.Config) error {
 	logging.Init(logging.Config{ServiceName: appCfg.ServiceName})
 
 	if appCfg.TelemetryEndpoint != "" {
@@ -59,7 +58,7 @@ func Run(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg platform
 		logrus.Info("consul-addr empty, skip Consul registration")
 	}
 
-	srv, err := createServer(appCfg, dbCfg, redisCfg)
+	srv, err := createServer(appCfg, dbCfg)
 	if err != nil {
 		return err
 	}

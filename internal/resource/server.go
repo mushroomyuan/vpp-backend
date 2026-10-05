@@ -20,12 +20,10 @@ import (
 	"github.com/mushroomyuan/vpp-backend/platform/authz"
 	"github.com/mushroomyuan/vpp-backend/platform/metrics"
 	platformpostgres "github.com/mushroomyuan/vpp-backend/platform/postgres"
-	platformredis "github.com/mushroomyuan/vpp-backend/platform/redis"
 	platformserver "github.com/mushroomyuan/vpp-backend/platform/server"
 	grpcpkg "github.com/mushroomyuan/vpp-backend/resource/adapter/inbound/grpc"
 	kafka "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/kafka"
 	adapter "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/postgres"
-	"github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/redis"
 	"github.com/mushroomyuan/vpp-backend/resource/application"
 	"github.com/mushroomyuan/vpp-backend/resource/config"
 	"github.com/mushroomyuan/vpp-backend/resource/infrastructure/persistent/postgres"
@@ -43,7 +41,6 @@ type resourceServer struct {
 	cfg                  *config.Config
 	metricsClient        *metrics.Client
 	metricsCancel        context.CancelFunc
-	redisClient          *platformredis.Client
 	eventPublisher       *kafka.EventPublisher
 	authzSyncer          *authz.Syncer
 	authzAdmin           authz.PermissionAdmin
@@ -64,7 +61,7 @@ type preparedServer struct {
 //
 // dbCfg is driver-agnostic and intentionally separate from appCfg so that
 // infrastructure details never leak into the application config type.
-func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg platformredis.Config) (*resourceServer, error) {
+func createServer(appCfg *config.Config, dbCfg platformpostgres.Config) (*resourceServer, error) {
 	cfg := appCfg
 
 	// ── metrics ───────────────────────────────────────────────────────────────
@@ -83,12 +80,6 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 
 	// ── infrastructure layer ──────────────────────────────────────────────────
 	pg := postgres.NewPostgres(dbCfg)
-	redisClient, err := platformredis.New(redisCfg)
-	if err != nil {
-		metricsCancel()
-		return nil, fmt.Errorf("init redis client: %w", err)
-	}
-	logrus.Infof("redis client connected to %s (db=%d)", redisCfg.Addr, redisCfg.DB)
 
 	// Register DB connection-pool metrics on the same /metrics endpoint.
 	if sqlDB, err := pg.SQLDb(); err != nil {
@@ -118,9 +109,6 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 	jobRepo := adapter.NewJobRepositoryPostgres(jobInfra)
 	nodeRepo := adapter.NewNodeRepositoryPostgres(nodeInfra)
 
-	assetRuntime := redis.NewAssetRuntimeCache(redisClient, 0)
-	cuRuntime := redis.NewCURuntimeCache(redisClient, 0)
-
 	// ── event publisher (Kafka; no-op when brokers empty) ─────────────────────
 	eventPublisher := kafka.NewEventPublisher(kafka.Config{
 		Brokers: cfg.Kafka.Brokers,
@@ -137,8 +125,6 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 		ScopeRepo:          scopeRepo,
 		JobRepo:            jobRepo,
 		NodeRepo:           nodeRepo,
-		AssetRuntime:       assetRuntime,
-		CURuntime:          cuRuntime,
 		Metrics:            metricsClient,
 		ImportWorkerConfig: cfg.WorkerConfig,
 		EventPublisher:     eventPublisher,
@@ -165,7 +151,6 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 		wired, err := wireAuthz(cfg.Authz, cfg.ServiceName, metricsClient)
 		if err != nil {
 			metricsCancel()
-			_ = redisClient.Close()
 			return nil, fmt.Errorf("wire authz: %w", err)
 		}
 		permissionChecker = wired.checker
@@ -180,7 +165,6 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 
 	if err := gatewaypkg.MountGateway(context.Background(), ginEngine, resourceSvc); err != nil {
 		metricsCancel()
-		_ = redisClient.Close()
 		return nil, fmt.Errorf("mount grpc-gateway: %w", err)
 	}
 
@@ -196,7 +180,6 @@ func createServer(appCfg *config.Config, dbCfg platformpostgres.Config, redisCfg
 		cfg:                  cfg,
 		metricsClient:        metricsClient,
 		metricsCancel:        metricsCancel,
-		redisClient:          redisClient,
 		eventPublisher:       eventPublisher,
 		authzSyncer:          authzSyncer,
 		authzAdmin:           authzAdmin,
@@ -395,12 +378,7 @@ func (s *preparedServer) Run() error {
 			logrus.WithError(err).Warn("event publisher close error")
 		}
 
-		// 4. Close redis client.
-		if err := s.redisClient.Close(); err != nil {
-			logrus.WithError(err).Warn("redis close error")
-		}
-
-		// 5. Stop metrics last — /metrics remains scrapeable during drain.
+		// 4. Stop metrics last — /metrics remains scrapeable during drain.
 		s.metricsCancel()
 	}()
 

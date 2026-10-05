@@ -2,16 +2,16 @@ package query
 
 import "github.com/mushroomyuan/vpp-backend/resource/domain/model"
 
-// AssetView combines persistent asset metadata with hot runtime state.
+// AssetView is the persistent asset catalog view.
+// Live measurements belong to Telemetry snapshots.
 type AssetView struct {
-	Asset   *model.Asset
-	Runtime *model.AssetRuntime
+	Asset *model.Asset
 }
 
-// CUView combines persistent CU metadata with connection-plane runtime state.
+// CUView is the persistent control-unit catalog view.
+// Connection diagnostics and live measurements are outside Resource.
 type CUView struct {
-	CU      *model.CU
-	Runtime *model.CURuntime
+	CU *model.CU
 }
 
 // PointView is the persistent metric binding view. Runtime values belong to Telemetry.

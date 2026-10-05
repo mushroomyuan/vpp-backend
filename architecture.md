@@ -110,8 +110,6 @@ flowchart TB
 
     PG -->|decision 库| Decision
 
-    Redis -->|db=0 运行时缓存| Resource
-
     Redis -->|db=1 CU 快照| Telemetry
 
     Redis -->|db=2 最新预测批次| Forecast
@@ -227,7 +225,7 @@ flowchart TB
 | gateway   | telemetry                | gRPC `:5003` | ✅ 已通        | `IngestTelemetry`，配置写死在 `gateway.yaml`        |
 | 管理端       | dispatch                 | gRPC `:5006` | ✅ **v2 已通** | 人工 `SubmitTask` / `GetTask` / `CancelTask`   |
 | **decision** | resource             | gRPC `:5002` | ✅ **已通**    | `ResolveScope`；不读 Resource 库，不调用 `GetAsset` |
-| **decision** | telemetry            | gRPC `:5003` | ✅ **已通**    | `GetSnapshots`；per-metric 质量与新鲜度；绕开 Resource Runtime 缓存 |
+| **decision** | telemetry            | gRPC `:5003` | ✅ **已通**    | `GetSnapshots`；per-metric 质量与新鲜度。当前值的权威源是 Telemetry 快照 |
 | **decision** | dispatch             | gRPC `:5006` | ✅ **已通**    | 一个 Plan step 提交一个 Task，`TriggerType=automatic`，带租户幂等键 |
 | 管理端       | **decision**         | gRPC `:5008` / HTTP `:8088` | ✅ **已通** | Policy CRUD / Enable / Disable；kind 为 ClusterIP，不挂 APISIX |
 | **forecast** | telemetry            | gRPC `:5003` | ✅ **已通**    | `QueryAggregation` AVG+LAST；熔断默认开；不查 Resource |
@@ -333,48 +331,13 @@ CU 创建        → 不触发 gateway 自动创建 Mapping               ✅ �
 
 这保持了服务的自治性：resource 只管"VPP 里有什么资源"，gateway 只管"这些资源如何与外部系统建立连接"。
 
-### 3.3 ConnStatus 数据归属
+### 3.3 当前值与连接状态
 
-| 存储位置 | 内容 | 说明 |
-|---|---|---|
-| Redis `CURuntime` (db=0) | `ConnStatus`, `LastSeenAt`, `LatencyMS`, … | ⚠️ 端口/Redis 实现已完整（`resource/domain/port/runtime_cache.go`），但**目前无任何服务写入**，见 §3.3.1 |
-| Postgres `cus.conn_status` | （已废弃，不再写入）| ⚠️ 列保留但不写，下次 migration 可删 |
+Resource 只保存目录：资源树、能力实例、指标绑定和安全约束。当前测点值的权威源是 Telemetry 快照（Redis db=1）。Decision 用 `ResolveScope` 取目录，用 `GetSnapshots` 取当前值，并在当次策略里计算聚合 SOC 和可调度功率。
 
-`CU` domain model 不再有 `ConnStatus` 字段。
+早期的 Asset / CU / Point Runtime 缓存和 `cus.conn_status` 已删除。Resource 不连接 Redis。协议会话诊断（连接状态、时延、上次错误）目前没有服务保存；若以后需要，归 Gateway。
 
-> **2026-09 更新：** 本节曾计划"连接状态由 gateway / IoT 平台通过 `CURuntimeWriter.PatchCURuntime` 写入 Redis"，但这条写入路径从未被实现——`resource_service.proto` 没有暴露任何写 Runtime 的 RPC，gateway/telemetry 代码里也找不到对应调用。`GetCU`/`ListCUs` 读到的 `CURuntime` 目前恒为空。详见 §3.3.1 的现状说明与后续方案。
-
-`UpdateCURequest` 不再接受 `ConnStatus` 参数（proto field 12 已 reserved）。
-
-### 3.3.1 三级 Runtime 缓存（AssetRuntime / CURuntime / PointRuntime）现状与后续方案
-
-`resource/domain/port/runtime_cache.go` 为 Asset / CU / Point 三级都定义了完整的 Reader + Writer + Redis 实现（`adapter/outbound/redis/{asset,cu,point}_cache.go`），这是早期"冷热分离"设计的产物：Postgres 存配置，Redis 存高频运行态。**读路径完整可用**（`GetAsset`/`ListAssets` 等 query handler 会合并 Runtime 一起返回），但**写路径至今是空的**——没有任何服务、任何 RPC 调用过 `Set*Runtime`/`Patch*Runtime`。
-
-**和 Telemetry 的关系（按级拆开看，不能一概而论）：**
-
-| 级别 | 内容 | 与 Telemetry `Snapshot`（Redis db=1，按 CUCode 存 `map[MetricName]float64`）的关系 |
-|---|---|---|
-| `PointRuntime` | 单点最新值 `Value`/`NumericValue`/`QualityStatus`/`Sequence` | **概念重复**：Telemetry `Snapshot.Metrics[metricName]` 就是同一份"最新点值"，只是粒度组织不同。若两边都写会产生数据不一致风险 |
-| `CURuntime` | 连接健康度 `ConnStatus`/`LatencyMS`/`LastError` | **不重复，纯空白**：Telemetry 只有整体 `Snapshot.UpdatedAt` + `IsStale()` 做粗粒度判断，没有细粒度连接诊断字段 |
-| `AssetRuntime` | 业务聚合 `Dispatchable`/`SOC`/`MaxChargePowerKW` | **不重复，是衍生数据**：一个 Asset 可能对应多个 CU，这层"多 CU 汇总成一个可调度判断"的加工逻辑，Telemetry（只认单 CU）和 Resource 都没实现 |
-
-**为什么应该是 Resource 主动拉取 Telemetry（pull），而不是 Telemetry 主动写 Resource（push）：**
-
-1. Telemetry 自身文档明确"只认 `(TenantID, CUCode)`，不查 Resource、不做资产树"——push 模型要求 Telemetry 理解 Asset 分组，直接违反它自己的边界声明（见 `internal/telemetry/OVERVIEW.md`）。
-2. Asset 级聚合（哪些 CU 组成一个 Asset、怎么算 `Dispatchable`）是纯 Resource 业务概念，理应由 Resource 自己算，不需要教会 Telemetry 任何业务规则。
-3. push 会把"通知 Resource"这一步塞进 Telemetry 的 ingest 热路径（现有 硬门槛写 Timescale + 快照 Apply + SOE 发布三步已经够多），增加故障点；pull 由 Resource 按自己的节奏轮询，Telemetry 挂了只影响 Resource 侧缓存新鲜度，不影响 Telemetry 的可用性。
-4. 项目里已有同构先例可以直接复用：`ImportWorker`（单 goroutine 定时轮询，ADR-002/003）。
-
-**后续方案（未实现）：** 在 Resource 内新增 `RuntimeSyncWorker`，定时调用 Telemetry 的 `GetFleetSnapshot`/`QueryAggregation`（只读接口，Telemetry 无需新增任何 API），按 Asset→CU→Point 映射做聚合，写入本地 `AssetRuntime`/`PointRuntime`；`CURuntime.ConnStatus` 可用 Telemetry Snapshot 的 staleness 判断推导，不需要 Gateway 单独上报。
-
-**谁该用这层缓存——纠正一个容易搞反的直觉：**
-
-- **前端 / 管理端才是这层缓存的主要受益者，不是 Decision。** 资产详情页/列表页需要"配置 + 当前状态"一次性拿全，`GetAsset`/`ListAssets` 已经在做这件事（`AssetView{Asset, Runtime}`），前端不用自己分别调 Resource 和 Telemetry 再拼接。这类场景对新鲜度的容忍度高（滞后 15~30s 不影响体验），恰好匹配"周期轮询缓存"的特性。
-  - 例外：如果前端要看的是**原始 Telemetry 指标的历史曲线/图表**（不是资产详情页的当前状态摘要），那应该直接查 Telemetry 的 `QueryAggregation`，和这层缓存无关，Resource 加工一遍没有意义。
-- **Decision 绕开这层缓存。** 目录走 Resource `ResolveScope`，当前值走 Telemetry `GetSnapshots`。决策对新鲜度的要求比前端高，缓存的轮询间隔对它是实质性的延迟成本。详见 [`internal/decision/OVERVIEW.md`](internal/decision/OVERVIEW.md)。
-- 如果以后 Decision 要复用 Resource 已经算好的 Asset 级运行时摘要，可以再给 `GetAssetRuntime` 加一个按需强制刷新的变体。当前聚合 SOC 由 Decision 自己按 `usable_energy_kwh` 计算。
-
-**现状结论：** `RuntimeSyncWorker` 的驱动力来自"前端想要一次性聚合视图"，不是"Decision 需要它"；先不实现，前端如果暂时不需要"资产详情页一次拿全"这种体验，可以继续搁置。Decision 无论这层缓存实现与否，都直连 Telemetry。
+`Asset.Runtime`、`CU.Runtime` 和 `UpdateCURequest.ConnStatus` 的 proto 字段号已 reserved。
 
 ### 3.4 CU.ExternalID / CU.Provider 的处置
 
@@ -451,9 +414,11 @@ Gateway 负责：发给谁、怎么发、结果何时回调
 
 │                         Redis (单实例，分 db)                              │
 
-│  db=0: resource 运行时状态 (Asset/CU/Point Runtime)                         │
-
 │  db=1: telemetry CU 实时快照 (GetSnapshot)                                 │
+
+│  db=2: forecast 最新预测批次                                                │
+
+│  Resource 不使用 Redis                                                     │
 
 └──────────────────────────────────────────────────────────────────────────┘
 
@@ -516,7 +481,7 @@ EMS ──HTTP──▶ gateway ──查 mapping(DB)──▶ gRPC IngestTeleme
 
 管理端 ──Bearer JWT──▶ APISIX :9080/resource/* ──X-Userinfo──▶ resource :8082
                                                                       │
-                                                                      └──▶ Postgres + Redis(db=0)
+                                                                      └──▶ Postgres
                                                                              │
                                                                              └──▶ Kafka: vpp.resource.events ──▶ gateway lifecycle_consumer
 
@@ -612,4 +577,4 @@ Decision ForecastProvider 本轮不接。
 
 ---
 
-**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`，含 `trigger_type`）与 `vpp.soe.events`，人管面直连 HTTP `:8087`。**decision 已落地**为 Policy → Objective → Plan → Dispatch：Resource `ResolveScope`、Telemetry `GetSnapshots`、Postgres 持久化与幂等执行；Policy API 在 gRPC `:5008`。**forecast v1 已落地**为独立批算服务：ticker → Telemetry `QueryAggregation` → 朴素算法 → Redis db=2 + Postgres `forecast_history`；只读 gRPC 已暴露，Decision `ForecastProvider` 本轮不接。ConnStatus 归 Redis CURuntime。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。**`CancelTask` 已实现**：非终态 Action/Pending Command 置 Cancelled，`Sending` 中的 Command 不强制撤回（无 Gateway 侧撤回 RPC），其迟到回调由 `task.IsFinished()` 幂等守卫吞掉；发布 `task.cancelled` 事件。后续重点：Decision 接真实 Forecast、Gateway 外部点名翻译、Alarm canonical 规则、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。Gateway 与 Alarm 未完成项见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。
+**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`，含 `trigger_type`）与 `vpp.soe.events`，人管面直连 HTTP `:8087`。**decision 已落地**为 Policy → Objective → Plan → Dispatch：Resource `ResolveScope`、Telemetry `GetSnapshots`、Postgres 持久化与幂等执行；Policy API 在 gRPC `:5008`。**forecast v1 已落地**为独立批算服务：ticker → Telemetry `QueryAggregation` → 朴素算法 → Redis db=2 + Postgres `forecast_history`；只读 gRPC 已暴露，Decision `ForecastProvider` 本轮不接。Resource 不保存当前值或连接状态。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。**`CancelTask` 已实现**：非终态 Action/Pending Command 置 Cancelled，`Sending` 中的 Command 不强制撤回（无 Gateway 侧撤回 RPC），其迟到回调由 `task.IsFinished()` 幂等守卫吞掉；发布 `task.cancelled` 事件。后续重点：Decision 接真实 Forecast、Gateway 外部点名翻译、Alarm canonical 规则、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。Gateway 与 Alarm 未完成项见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。

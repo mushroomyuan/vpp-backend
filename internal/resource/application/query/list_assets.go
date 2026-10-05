@@ -27,23 +27,18 @@ type ListAssetsResult struct {
 type ListAssetsHandler decorator.QueryHandler[ListAssets, *ListAssetsResult]
 
 type listAssetsHandler struct {
-	assetRepo    port.AssetRepository
-	assetRuntime port.AssetRuntimeReader
+	assetRepo port.AssetRepository
 }
 
 func NewListAssetsHandler(
 	assetRepo port.AssetRepository,
-	assetRuntime port.AssetRuntimeReader,
 	metricClient decorator.MetricsClient,
 ) ListAssetsHandler {
 	if assetRepo == nil {
 		panic("NewListAssetsHandler parameter assetRepo is nil")
 	}
-	if assetRuntime == nil {
-		panic("NewListAssetsHandler parameter assetRuntime is nil")
-	}
 	return decorator.ApplyQueryDecorators[ListAssets, *ListAssetsResult](
-		listAssetsHandler{assetRepo: assetRepo, assetRuntime: assetRuntime},
+		listAssetsHandler{assetRepo: assetRepo},
 		metricClient,
 	)
 }
@@ -76,21 +71,8 @@ func (h listAssetsHandler) Handle(ctx context.Context, q ListAssets) (*ListAsset
 		}, nil
 	}
 
-	assetIDs := make([]string, len(page.Items))
-	for i, asset := range page.Items {
-		assetIDs[i] = asset.ID
-	}
-	runtimes, err := h.assetRuntime.ListAssetRuntimes(ctx, q.TenantID, assetIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, asset := range page.Items {
-		item := &AssetView{Asset: asset}
-		if i < len(runtimes) {
-			item.Runtime = runtimes[i]
-		}
-		items = append(items, item)
+	for _, asset := range page.Items {
+		items = append(items, &AssetView{Asset: asset})
 	}
 
 	return &ListAssetsResult{

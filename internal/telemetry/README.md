@@ -270,7 +270,7 @@ timescaledb:
 
 redis:
   addr: 127.0.0.1:6379
-  db: 1   # db=1，与 resource 服务（db=0）隔离
+  db: 1   # db=1，CU 快照。Resource 不使用 Redis
 ```
 
 ### 3. 启动服务

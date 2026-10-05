@@ -37,7 +37,6 @@ type Asset struct {
 	Description     string                 `protobuf:"bytes,11,opt,name=Description,proto3" json:"Description,omitempty"`
 	MarketEnabled   bool                   `protobuf:"varint,12,opt,name=MarketEnabled,proto3" json:"MarketEnabled,omitempty"`
 	Metadata        *structpb.Struct       `protobuf:"bytes,13,opt,name=Metadata,proto3" json:"Metadata,omitempty"`
-	Runtime         *AssetRuntime          `protobuf:"bytes,14,opt,name=Runtime,proto3" json:"Runtime,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -159,13 +158,6 @@ func (x *Asset) GetMarketEnabled() bool {
 func (x *Asset) GetMetadata() *structpb.Struct {
 	if x != nil {
 		return x.Metadata
-	}
-	return nil
-}
-
-func (x *Asset) GetRuntime() *AssetRuntime {
-	if x != nil {
-		return x.Runtime
 	}
 	return nil
 }
@@ -923,7 +915,7 @@ var File_modules_asset_proto protoreflect.FileDescriptor
 const file_modules_asset_proto_rawDesc = "" +
 	"\n" +
 	"\x13modules/asset.proto\x12\n" +
-	"resourcepb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x14modules/common.proto\x1a\x13modules/error.proto\x1a\x15modules/runtime.proto\"\xde\x03\n" +
+	"resourcepb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x14modules/common.proto\x1a\x13modules/error.proto\"\xb9\x03\n" +
 	"\x05Asset\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x1a\n" +
 	"\bTenantID\x18\x02 \x01(\tR\bTenantID\x12\x16\n" +
@@ -940,8 +932,7 @@ const file_modules_asset_proto_rawDesc = "" +
 	" \x01(\tR\aSubType\x12 \n" +
 	"\vDescription\x18\v \x01(\tR\vDescription\x12$\n" +
 	"\rMarketEnabled\x18\f \x01(\bR\rMarketEnabled\x123\n" +
-	"\bMetadata\x18\r \x01(\v2\x17.google.protobuf.StructR\bMetadata\x122\n" +
-	"\aRuntime\x18\x0e \x01(\v2\x18.resourcepb.AssetRuntimeR\aRuntime\"\xa7\x03\n" +
+	"\bMetadata\x18\r \x01(\v2\x17.google.protobuf.StructR\bMetadataJ\x04\b\x0e\x10\x0fR\aRuntime\"\xa7\x03\n" +
 	"\x12CreateAssetRequest\x12\x1a\n" +
 	"\bTenantID\x18\x01 \x01(\tR\bTenantID\x12\x16\n" +
 	"\x06SiteID\x18\x02 \x01(\tR\x06SiteID\x12\x12\n" +
@@ -1041,23 +1032,21 @@ var file_modules_asset_proto_goTypes = []any{
 	(*BatchCreateAssetsRequest)(nil),  // 8: resourcepb.BatchCreateAssetsRequest
 	(*BatchCreateAssetsResponse)(nil), // 9: resourcepb.BatchCreateAssetsResponse
 	(*structpb.Struct)(nil),           // 10: google.protobuf.Struct
-	(*AssetRuntime)(nil),              // 11: resourcepb.AssetRuntime
-	(*BatchItemError)(nil),            // 12: resourcepb.BatchItemError
+	(*BatchItemError)(nil),            // 11: resourcepb.BatchItemError
 }
 var file_modules_asset_proto_depIdxs = []int32{
 	10, // 0: resourcepb.Asset.Metadata:type_name -> google.protobuf.Struct
-	11, // 1: resourcepb.Asset.Runtime:type_name -> resourcepb.AssetRuntime
-	10, // 2: resourcepb.CreateAssetRequest.Metadata:type_name -> google.protobuf.Struct
-	10, // 3: resourcepb.UpdateAssetRequest.Metadata:type_name -> google.protobuf.Struct
-	0,  // 4: resourcepb.ListAssetsResponse.Assets:type_name -> resourcepb.Asset
-	10, // 5: resourcepb.AssetItem.Metadata:type_name -> google.protobuf.Struct
-	7,  // 6: resourcepb.BatchCreateAssetsRequest.Items:type_name -> resourcepb.AssetItem
-	12, // 7: resourcepb.BatchCreateAssetsResponse.FailedItems:type_name -> resourcepb.BatchItemError
-	8,  // [8:8] is the sub-list for method output_type
-	8,  // [8:8] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	10, // 1: resourcepb.CreateAssetRequest.Metadata:type_name -> google.protobuf.Struct
+	10, // 2: resourcepb.UpdateAssetRequest.Metadata:type_name -> google.protobuf.Struct
+	0,  // 3: resourcepb.ListAssetsResponse.Assets:type_name -> resourcepb.Asset
+	10, // 4: resourcepb.AssetItem.Metadata:type_name -> google.protobuf.Struct
+	7,  // 5: resourcepb.BatchCreateAssetsRequest.Items:type_name -> resourcepb.AssetItem
+	11, // 6: resourcepb.BatchCreateAssetsResponse.FailedItems:type_name -> resourcepb.BatchItemError
+	7,  // [7:7] is the sub-list for method output_type
+	7,  // [7:7] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_modules_asset_proto_init() }
@@ -1067,7 +1056,6 @@ func file_modules_asset_proto_init() {
 	}
 	file_modules_common_proto_init()
 	file_modules_error_proto_init()
-	file_modules_runtime_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

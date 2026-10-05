@@ -5,7 +5,6 @@ package resourcepb;
 option go_package = "github.com/mushroomyuan/vpp-backend/api/resource/proto/gen;resourcepb";
 
 import "google/protobuf/struct.proto";
-import "modules/runtime.proto";
 
 message RetryPolicy {
   int32 MaxAttempts = 1;
@@ -22,8 +21,8 @@ message ConnectionConfig {
 }
 
 message CU {
-  reserved 10; // was ConnStatus — connection state is runtime-only, lives in CURuntime (Redis)
-  reserved "ConnStatus";
+  reserved 10, 14; // 10 was ConnStatus; 14 was Runtime. Resource does not store connection or live values.
+  reserved "ConnStatus", "Runtime";
 
   string ID = 1;
   string TenantID = 2;
@@ -38,7 +37,6 @@ message CU {
   string Provider = 11;
   string ExternalID = 12;
   ConnectionConfig Connection = 13;
-  CURuntime Runtime = 14;
 }
 
 message CreateCURequest {
@@ -62,7 +60,7 @@ message CreateCUResponse {
 }
 
 message UpdateCURequest {
-  reserved 12; // was ConnStatus — connection state is managed by gateway, not the management API
+  reserved 12; // was ConnStatus — connection state is not part of the resource API
   reserved "ConnStatus";
 
   string TenantID = 1;
