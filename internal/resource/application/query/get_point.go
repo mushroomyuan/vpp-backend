@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -12,7 +13,7 @@ type GetPoint struct {
 	TenantID string
 }
 
-type GetPointHandler decorator.QueryHandler[GetPoint, *PointView]
+type GetPointHandler decorator.QueryHandler[GetPoint, *model.Point]
 
 type getPointHandler struct {
 	pointRepo port.PointRepository
@@ -25,16 +26,12 @@ func NewGetPointHandler(
 	if pointRepo == nil {
 		panic("NewGetPointHandler parameter pointRepo is nil")
 	}
-	return decorator.ApplyQueryDecorators[GetPoint, *PointView](
+	return decorator.ApplyQueryDecorators[GetPoint, *model.Point](
 		getPointHandler{pointRepo: pointRepo},
 		metricClient,
 	)
 }
 
-func (h getPointHandler) Handle(ctx context.Context, q GetPoint) (*PointView, error) {
-	point, err := h.pointRepo.FindByID(ctx, q.TenantID, q.ID)
-	if err != nil {
-		return nil, err
-	}
-	return &PointView{Point: point}, nil
+func (h getPointHandler) Handle(ctx context.Context, q GetPoint) (*model.Point, error) {
+	return h.pointRepo.FindByID(ctx, q.TenantID, q.ID)
 }

@@ -106,15 +106,24 @@ func (c *SOEConsumer) handleMessage(ctx context.Context, msg kafka.Message) (cla
 		}, "kafka: poison SOE payload, committing skip")
 		return DecodePoison()
 	}
+	if payload.SchemaVersion != telEvent.SchemaVersionV2 {
+		logging.Warnf(ctx, logrus.Fields{
+			"component":      "AlarmSOEConsumer",
+			"schema_version": payload.SchemaVersion,
+		}, "kafka: unsupported SOE schema, committing skip")
+		return DecodePoison()
+	}
 
 	res, err := c.handler.Handle(ctx, command.IngestEvent{Incoming: model.IncomingEvent{
-		Source:     model.SourceSOE,
-		TenantID:   payload.TenantID,
-		OccurredAt: payload.OccurredAt,
-		CUCode:     payload.CUCode,
-		MetricName: payload.MetricName,
-		OldValue:   payload.OldValue,
-		NewValue:   payload.NewValue,
+		Source:        model.SourceSOE,
+		TenantID:      payload.TenantID,
+		OccurredAt:    payload.ObservedAt,
+		CUCode:        payload.CUCode,
+		MetricID:      payload.MetricID,
+		Kind:          payload.Kind,
+		Quality:       payload.Quality,
+		Value:         payload.Value,
+		PreviousValue: payload.PreviousValue,
 	}})
 	class = Classify(res, err)
 	if class.Result == ResultPoison || class.Result == ResultRetry {

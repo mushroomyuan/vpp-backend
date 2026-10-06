@@ -35,8 +35,8 @@ type ingestRequest struct {
 }
 
 type ingestMetric struct {
-	Name  string  `json:"name"`
-	Value float64 `json:"value"`
+	ExternalAddress string  `json:"external_address"`
+	Value           float64 `json:"value"`
 }
 
 func New(cfg Config) (*Client, error) {
@@ -71,9 +71,9 @@ func (c *Client) IngestTelemetry(
 	}
 	metrics := make([]ingestMetric, 0, len(points))
 	for _, p := range points {
-		// PointKey is the canonical MetricID. Gateway stores it in the opaque
-		// telemetry name field and does not translate external addresses.
-		metrics = append(metrics, ingestMetric{Name: p.PointKey, Value: p.Value})
+		// PointKey is the address registered on the Resource point. Gateway
+		// resolves that address to a canonical MetricID before writing Telemetry.
+		metrics = append(metrics, ingestMetric{ExternalAddress: p.PointKey, Value: p.Value})
 	}
 	body, err := json.Marshal(ingestRequest{
 		ExternalSystem: ExternalSystem,

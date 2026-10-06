@@ -2,11 +2,10 @@ package service
 
 import "github.com/mushroomyuan/vpp-backend/alarm/domain/model"
 
-// ruleHandler evaluates one IncomingEvent for a single Source. Each business
-// rule lives in its own file (dispatch_task_failed.go, soe_discrete_change.go,
-// ...) and implements this interface. Evaluate itself never needs to change
-// when a new business type is added — only NewEvaluator gains one registry
-// entry.
+// ruleHandler evaluates one IncomingEvent for a single Source. Dispatch is one
+// file. SOE kinds share soeHandler, which selects a rule per kind.
+// Evaluate itself never needs to change when a new business type is added —
+// only NewEvaluator gains one registry entry.
 type ruleHandler interface {
 	// evaluate returns ok=false when the event does not match this rule
 	// (disabled or filtered out); the caller treats that as Drop, not an error.
@@ -22,7 +21,7 @@ func NewEvaluator(rules Rules) *Evaluator {
 	return &Evaluator{
 		handlers: map[model.Source]ruleHandler{
 			model.SourceDispatch: dispatchTaskFailedHandler{rule: rules.DispatchTaskFailed},
-			model.SourceSOE:      soeDiscreteChangeHandler{rule: rules.SOEDiscreteChange},
+			model.SourceSOE:      soeHandler{rules: rules},
 		},
 	}
 }

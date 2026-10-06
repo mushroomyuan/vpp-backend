@@ -9,7 +9,7 @@
 
 8 个业务服务 + platform 共享库（resource / telemetry / gateway / dispatch / simulator / alarm / **decision** / **forecast**）均可编译、单测通过。前 6 个业务服务 + alarm 已跑通主链路；**decision / forecast 已进 Makefile / CI lint·test / GHCR docker 矩阵 / kind ClusterIP**（无 extraPortMappings）。
 
-**vpp-alarm** 消费 `vpp.dispatch.events`（仅 `task.failed`）与 `vpp.soe.events`，人管面纯 HTTP；APISIX `/alarm/*` 尚未接入。`task.failed` payload 现含 `trigger_type`，只进工单属性展示（fingerprint 不变）。
+**vpp-alarm** 消费 `vpp.dispatch.events`（仅 `task.failed`）与 `vpp.soe.events`（schema v2，canonical `metric_id`），人管面纯 HTTP；APISIX `/alarm/*` 尚未接入。`task.failed` payload 现含 `trigger_type`，只进工单属性展示（dispatch fingerprint 仍是 `v1:`）。SOE fingerprint 已显式升到 `v2:`。
 
 **vpp-decision** 内部决策闭环：Policy → Objective → Plan → Dispatch。Resource `ResolveScope`、Telemetry `GetSnapshots`、Postgres 持久化与幂等执行。`ForecastProvider` 仍是 stub。详见 [`internal/decision/OVERVIEW.md`](internal/decision/OVERVIEW.md)。
 
@@ -70,10 +70,10 @@
 ## Phase B2 · Decision 重构与后续配套
 
 - [x] **Decision 主服务重构**：旁路新建 `decision`，建立设备无关 metric/capability contract、Resource `ResolveScope`、Policy→Objective→Plan→Executor、持久化与 CU/Asset/Site 决策闭环；验收后已删除 `optimization`
-- [ ] **Gateway canonical binding 专项**：外部地址与 canonical MetricID 双向翻译、单位/符号转换、binding cache/revision、末端安全校验与未知指标隔离
-- [ ] **Alarm canonical SOE/规则专项**：SOE metric_id 契约、规则校验与迁移、fingerprint 版本策略、质量/陈旧语义
+- [x] **Gateway canonical binding 专项**：外部地址与 canonical MetricID 双向翻译、单位/符号转换、binding cache/revision、末端安全校验与未知指标隔离
+- [x] **Alarm canonical SOE/规则专项**：SOE metric_id 契约、规则校验与迁移、fingerprint 版本策略、质量/陈旧语义
 
-Decision 主重构期间只保证 Simulator 直接使用 canonical MetricID 的内部闭环；在 Gateway 专项完成前，不宣称支持真实 EMS 的异构点名/单位转换。Gateway 与 Alarm 的详细待办和验收标准见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。
+Gateway 与 Alarm 配套已落地。平台可以按 canonical MetricID 做异构点名翻译和告警。详细验收记录见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。
 
 ---
 

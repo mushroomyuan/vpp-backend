@@ -1,6 +1,8 @@
 package application
 
 import (
+	"time"
+
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application/command"
 	"github.com/mushroomyuan/vpp-backend/telemetry/application/query"
@@ -52,6 +54,10 @@ type Dependencies struct {
 	IngestLimiter           *rate.Limiter
 	QueryAggregationLimiter *rate.Limiter
 	GetFleetSnapshotLimiter *rate.Limiter
+
+	// MetricStaleAge is the per-metric freshness window used when publishing
+	// stale and recovery SOE events. Zero selects the domain default.
+	MetricStaleAge time.Duration
 }
 
 func NewApplication(deps Dependencies) Application {
@@ -75,6 +81,7 @@ func NewApplication(deps Dependencies) Application {
 				deps.SnapshotRepo,
 				deps.EventPublisher,
 				deps.Metrics,
+				deps.MetricStaleAge,
 				decorator.WithRateLimiter[command.IngestTelemetry, *command.IngestTelemetryResult](deps.IngestLimiter),
 			),
 		},

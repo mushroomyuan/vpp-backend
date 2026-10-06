@@ -59,7 +59,10 @@ func runApp(opts *options.Options) error {
 		return fmt.Errorf("invalid configuration, see errors above")
 	}
 
-	appCfg := config.CreateFromOptions(opts)
+	appCfg, err := config.CreateFromOptions(opts)
+	if err != nil {
+		return err
+	}
 	dbCfg := dbConfigFromOptions(opts.Database)
 	return Run(appCfg, dbCfg)
 }

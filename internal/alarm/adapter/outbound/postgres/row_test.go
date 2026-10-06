@@ -10,7 +10,11 @@ import (
 func TestAlarmRow_AttributesRoundTrip(t *testing.T) {
 	t.Parallel()
 	oldV, newV := 0.0, 1.0
-	src := &model.SOEAttributes{CUCode: "cu", MetricName: "brk", OldValue: &oldV, NewValue: &newV}
+	src := &model.SOEAttributes{
+		CUCode: "cu", MetricID: "electrical.active_power.v1", DisplayName: "Active power",
+		Unit: "kW", Kind: model.SOEKindDiscreteChange, Quality: model.QualityGood,
+		Value: &newV, PreviousValue: &oldV,
+	}
 	raw, err := marshalAttributes(src)
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +34,7 @@ func TestAlarmRow_AttributesRoundTrip(t *testing.T) {
 	if !ok {
 		t.Fatalf("wrong attributes type %T", got.Attributes)
 	}
-	if attrs.CUCode != "cu" || attrs.OldValue == nil || *attrs.OldValue != 0 {
+	if attrs.CUCode != "cu" || attrs.MetricID != "electrical.active_power.v1" || attrs.Value == nil || *attrs.Value != 1 {
 		t.Fatalf("%+v", attrs)
 	}
 }

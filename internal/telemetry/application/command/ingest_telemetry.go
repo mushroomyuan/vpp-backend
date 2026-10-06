@@ -46,6 +46,7 @@ type ingestTelemetryHandler struct {
 	snapshotRepo  port.SnapshotRepository
 	publisher     port.EventPublisher
 	metrics       decorator.MetricsClient
+	staleAge      time.Duration
 }
 
 func NewIngestTelemetryHandler(
@@ -53,6 +54,7 @@ func NewIngestTelemetryHandler(
 	snapshotRepo port.SnapshotRepository,
 	publisher port.EventPublisher,
 	metricsClient decorator.MetricsClient,
+	staleAge time.Duration,
 	opts ...decorator.Option[IngestTelemetry, *IngestTelemetryResult],
 ) IngestTelemetryHandler {
 	if telemetryRepo == nil {
@@ -64,12 +66,16 @@ func NewIngestTelemetryHandler(
 	if publisher == nil {
 		panic("NewIngestTelemetryHandler: publisher is required")
 	}
+	if staleAge <= 0 {
+		staleAge = model.DefaultMetricStaleAge
+	}
 	return decorator.ApplyCommandDecorators[IngestTelemetry, *IngestTelemetryResult](
 		ingestTelemetryHandler{
 			telemetryRepo: telemetryRepo,
 			snapshotRepo:  snapshotRepo,
 			publisher:     publisher,
 			metrics:       metricsClient,
+			staleAge:      staleAge,
 		},
 		metricsClient,
 		opts...,
@@ -116,7 +122,7 @@ func (h ingestTelemetryHandler) Handle(ctx context.Context, cmd IngestTelemetry)
 		}
 		snapshot = model.NewSnapshot(cmd.TenantID, cmd.CUCode)
 	}
-	soeEvents := snapshot.Apply(record)
+	soeEvents := snapshot.Apply(record, h.staleAge)
 
 	// Step 4: persist the updated snapshot.
 	//

@@ -26,8 +26,16 @@ type LifecycleConsumerConfig struct {
 	GroupID string
 }
 
+// BindingInvalidator drops cached point bindings. Event handling must not
+// load a replacement; the next reader lists the CU from Resource.
+type BindingInvalidator interface {
+	InvalidateCU(tenantID, cuID string)
+	InvalidatePoint(tenantID, pointID string)
+	InvalidateTenant(tenantID string)
+}
+
 // LifecycleConsumer consumes resource lifecycle events and drives gateway
-// mapping state changes.
+// mapping state changes. Point and CU events also drop the binding cache.
 //
 // Design decisions:
 //   - at-least-once delivery: offset is committed only after successful handling.
@@ -35,9 +43,10 @@ type LifecycleConsumerConfig struct {
 //     will retry on the next poll.
 //   - When Brokers is empty the consumer is not started (no-op degradation).
 type LifecycleConsumer struct {
-	cfg     LifecycleConsumerConfig
-	reader  *kafka.Reader
-	handler command.DisableMappingByCUCodeHandler
+	cfg      LifecycleConsumerConfig
+	reader   *kafka.Reader
+	handler  command.DisableMappingByCUCodeHandler
+	bindings BindingInvalidator
 }
 
 // NewLifecycleConsumer constructs the consumer. If cfg.Brokers is empty
@@ -45,8 +54,9 @@ type LifecycleConsumer struct {
 func NewLifecycleConsumer(
 	cfg LifecycleConsumerConfig,
 	handler command.DisableMappingByCUCodeHandler,
+	bindings BindingInvalidator,
 ) *LifecycleConsumer {
-	c := &LifecycleConsumer{cfg: cfg, handler: handler}
+	c := &LifecycleConsumer{cfg: cfg, handler: handler, bindings: bindings}
 	if len(cfg.Brokers) == 0 {
 		logrus.Warn("kafka: no brokers configured — lifecycle consumer will not start")
 		return c
@@ -171,8 +181,23 @@ func (c *LifecycleConsumer) handleMessage(ctx context.Context, msg kafka.Message
 	case resEvent.TypeLifecycleChanged:
 		return c.handleLifecycleChanged(ctx, env)
 
+	case resEvent.TypePointCreated:
+		return c.handlePointCreated(ctx, env)
+
+	case resEvent.TypePointUpdated:
+		return c.handlePointUpdated(ctx, env)
+
+	case resEvent.TypePointDeleted:
+		return c.handlePointDeleted(ctx, env)
+
+	case resEvent.TypeCUUpdated:
+		return c.handleCUUpdated(ctx, env)
+
+	case resEvent.TypeImportCompleted:
+		return c.handleImportCompleted(ctx, env)
+
 	default:
-		// We only care about the two event types above; all others are silently ignored.
+		// Site, asset, and rename events do not change a CU's point bindings.
 		return nil
 	}
 }
@@ -215,6 +240,12 @@ func (c *LifecycleConsumer) handleResourceDeleted(
 		tenantID = payload.TenantID
 	}
 
+	if payload.IncludeDescendants {
+		c.invalidateTenant(tenantID)
+	} else {
+		c.invalidateCU(tenantID, payload.ResourceID)
+	}
+
 	_, err := c.handler.Handle(ctx, command.DisableMappingByCUCode{
 		TenantID: tenantID,
 		CUCode:   payload.ResourceID,
@@ -249,6 +280,8 @@ func (c *LifecycleConsumer) handleLifecycleChanged(
 		tenantID = payload.TenantID
 	}
 
+	c.invalidateCU(tenantID, payload.ResourceID)
+
 	_, err := c.handler.Handle(ctx, command.DisableMappingByCUCode{
 		TenantID: tenantID,
 		CUCode:   payload.ResourceID,
@@ -258,6 +291,103 @@ func (c *LifecycleConsumer) handleLifecycleChanged(
 			payload.ResourceID, payload.Status, err)
 	}
 	return nil
+}
+
+func (c *LifecycleConsumer) handlePointCreated(ctx context.Context, env platEvent.Envelope[json.RawMessage]) error {
+	var payload resEvent.PointCreatedPayload
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		c.warnBadPayload(ctx, env.EventID, err)
+		return nil
+	}
+	c.invalidateCUOrPoint(tenantIDOf(env.TenantID, payload.TenantID), payload.CUID, payload.PointID)
+	return nil
+}
+
+func (c *LifecycleConsumer) handlePointUpdated(ctx context.Context, env platEvent.Envelope[json.RawMessage]) error {
+	var payload resEvent.PointUpdatedPayload
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		c.warnBadPayload(ctx, env.EventID, err)
+		return nil
+	}
+	c.invalidateCUOrPoint(tenantIDOf(env.TenantID, payload.TenantID), payload.CUID, payload.PointID)
+	return nil
+}
+
+func (c *LifecycleConsumer) handlePointDeleted(ctx context.Context, env platEvent.Envelope[json.RawMessage]) error {
+	var payload resEvent.PointDeletedPayload
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		c.warnBadPayload(ctx, env.EventID, err)
+		return nil
+	}
+	c.invalidateCUOrPoint(tenantIDOf(env.TenantID, payload.TenantID), payload.CUID, payload.PointID)
+	return nil
+}
+
+func (c *LifecycleConsumer) handleCUUpdated(ctx context.Context, env platEvent.Envelope[json.RawMessage]) error {
+	var payload resEvent.CUUpdatedPayload
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		c.warnBadPayload(ctx, env.EventID, err)
+		return nil
+	}
+	c.invalidateCU(tenantIDOf(env.TenantID, payload.TenantID), payload.CUID)
+	return nil
+}
+
+func (c *LifecycleConsumer) handleImportCompleted(ctx context.Context, env platEvent.Envelope[json.RawMessage]) error {
+	var payload resEvent.ImportCompletedPayload
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		c.warnBadPayload(ctx, env.EventID, err)
+		return nil
+	}
+	switch payload.TargetType {
+	case "point", "cu":
+		c.invalidateTenant(tenantIDOf(env.TenantID, payload.TenantID))
+	}
+	return nil
+}
+
+func (c *LifecycleConsumer) invalidateCUOrPoint(tenantID, cuID, pointID string) {
+	if cuID != "" {
+		c.invalidateCU(tenantID, cuID)
+		return
+	}
+	c.invalidatePoint(tenantID, pointID)
+}
+
+func (c *LifecycleConsumer) invalidateCU(tenantID, cuID string) {
+	if c.bindings == nil {
+		return
+	}
+	c.bindings.InvalidateCU(tenantID, cuID)
+}
+
+func (c *LifecycleConsumer) invalidatePoint(tenantID, pointID string) {
+	if c.bindings == nil {
+		return
+	}
+	c.bindings.InvalidatePoint(tenantID, pointID)
+}
+
+func (c *LifecycleConsumer) invalidateTenant(tenantID string) {
+	if c.bindings == nil {
+		return
+	}
+	c.bindings.InvalidateTenant(tenantID)
+}
+
+func tenantIDOf(envelopeTenant, payloadTenant string) string {
+	if envelopeTenant != "" {
+		return envelopeTenant
+	}
+	return payloadTenant
+}
+
+func (c *LifecycleConsumer) warnBadPayload(ctx context.Context, eventID string, err error) {
+	logging.Warnf(ctx, logrus.Fields{
+		"component": "LifecycleConsumer",
+		"event_id":  eventID,
+		"error":     err.Error(),
+	}, "kafka: failed to deserialise resource payload, skipping")
 }
 
 // isInactiveStatus returns true for lifecycle states that should cause the

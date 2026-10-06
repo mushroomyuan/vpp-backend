@@ -239,7 +239,7 @@ flowchart TB
 | gateway   | simulator                | HTTP `:8084` | ✅ **新增**    | 命令 `POST /api/v1/commands` |
 | **任意**    | **resource**             | —            | ❌ 无         | gateway **不调用** resource（通过 Kafka 解耦）         |
 | **任意**    | **telemetry → resource** | —            | ❌ 无         | telemetry 不查 resource，只认 `(TenantID, CUCode)` |
-| telemetry | Kafka                    | 生产           | ✅ 已通        | 离散量 SOE → `vpp.soe.events`                    |
+| telemetry | Kafka                    | 生产           | ✅ 已通        | canonical SOE schema v2 → `vpp.soe.events`       |
 | resource  | Kafka                    | 生产           | ✅ **v2 已通** | CU/资源生命周期事件 → `vpp.resource.events`          |
 | gateway   | Kafka                    | 消费           | ✅ **v2 已通** | 订阅 resource 事件，自动 disable mapping             |
 | gateway   | Kafka                    | 生产           | ✅ **v2 已通** | 命令终态 → `vpp.command.events`（供 dispatch 消费）   |
@@ -247,7 +247,7 @@ flowchart TB
 | dispatch  | Kafka                    | 生产           | ✅ **v2 已通** | 任务生命周期 → `vpp.dispatch.events`（alarm 消费 `task.failed`；payload 含 `trigger_type`） |
 | alarm     | Kafka                    | 消费           | ✅ **已通**    | `vpp.dispatch.events`（仅 `task.failed`）+ `vpp.soe.events` |
 | 管理端       | alarm                    | HTTP `:8087` | ✅ **已通**    | List / Get / Ack / Close；路径含 `tenant_id`；**无 APISIX 北向** |
-| **任意**    | Kafka SOE                | 消费           | ✅ **alarm**   | `vpp-alarm` 消费全部离散量变位；其它服务仍不消费 |
+| **任意**    | Kafka SOE                | 消费           | ✅ **alarm**   | `vpp-alarm` 消费 schema v2；其它服务仍不消费 |
 
 
 ```mermaid
@@ -432,13 +432,13 @@ Gateway 负责：发给谁、怎么发、结果何时回调
 
 │  vpp.dispatch.events  — dispatch 生产 / alarm 消费（task.failed + trigger_type） │
 
-│  vpp.soe.events       — telemetry 生产 / alarm 消费（全部离散量变位）         │
+│  vpp.soe.events       — telemetry 生产 / alarm 消费（schema v2，canonical metric_id） │
 
 └──────────────────────────────────────────────────────────────────────────┘
 
 ```
 
-**关键设计点：** gateway 的 `CUCode` 与 resource 的 CU UUID **必须一致**（CUCode = Resource CU UUID 约定）；gateway 的 `lifecycle_consumer` 订阅 `vpp.resource.events`，在 CU 删除或禁用时自动 disable 对应 mapping，实现异步清理解耦。**Decision 使用自己的 Postgres**（Policy、Objective、Plan、冷却、outbox），不占用 Redis 或 Kafka。运行值只读 Telemetry `GetSnapshots`，命令只经 Dispatch。Gateway 仍把 Simulator 的 canonical MetricID 当不透明字符串透传；厂商点名翻译和 Alarm canonical 规则见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。
+**关键设计点：** gateway 的 `CUCode` 与 resource 的 CU UUID **必须一致**（CUCode = Resource CU UUID 约定）；gateway 的 `lifecycle_consumer` 订阅 `vpp.resource.events`，在 CU 删除或禁用时自动 disable 对应 mapping，实现异步清理解耦。**Decision 使用自己的 Postgres**（Policy、Objective、Plan、冷却、outbox），不占用 Redis 或 Kafka。运行值只读 Telemetry `GetSnapshots`，命令只经 Dispatch。Gateway 上行已把设备地址换成 canonical MetricID 再写入 Telemetry，下行按绑定逆转换后下发，可疑绑定拒绝命令。Alarm canonical 规则见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。
 
 ## 五、典型数据流（v2）
 
@@ -452,7 +452,7 @@ EMS ──HTTP──▶ gateway ──查 mapping(DB)──▶ gRPC IngestTeleme
 
                                                       ├──▶ Redis 快照
 
-                                                      └──▶ Kafka SOE (离散量变位)
+                                                      └──▶ Kafka SOE (schema v2)
 
 ```
 
@@ -577,4 +577,4 @@ Decision ForecastProvider 本轮不接。
 
 ---
 
-**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`，含 `trigger_type`）与 `vpp.soe.events`，人管面直连 HTTP `:8087`。**decision 已落地**为 Policy → Objective → Plan → Dispatch：Resource `ResolveScope`、Telemetry `GetSnapshots`、Postgres 持久化与幂等执行；Policy API 在 gRPC `:5008`。**forecast v1 已落地**为独立批算服务：ticker → Telemetry `QueryAggregation` → 朴素算法 → Redis db=2 + Postgres `forecast_history`；只读 gRPC 已暴露，Decision `ForecastProvider` 本轮不接。Resource 不保存当前值或连接状态。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。**`CancelTask` 已实现**：非终态 Action/Pending Command 置 Cancelled，`Sending` 中的 Command 不强制撤回（无 Gateway 侧撤回 RPC），其迟到回调由 `task.IsFinished()` 幂等守卫吞掉；发布 `task.cancelled` 事件。后续重点：Decision 接真实 Forecast、Gateway 外部点名翻译、Alarm canonical 规则、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。Gateway 与 Alarm 未完成项见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。
+**总结（v2）：** resource → Kafka 生产、gateway lifecycle 消费已实现。**dispatch 调度服务已初步打通**：SubmitTask → Gateway ExecuteCommand → Kafka `command.completed` → 任务完成；Gateway 对 `ExternalSystem=simulator` 走 `adapter/outbound/simulator`，其余仍为 `ems_log`。**alarm 已消费** `vpp.dispatch.events`（仅 `task.failed`，含 `trigger_type`）与 schema v2 的 `vpp.soe.events`，人管面直连 HTTP `:8087`。**decision 已落地**为 Policy → Objective → Plan → Dispatch：Resource `ResolveScope`、Telemetry `GetSnapshots`、Postgres 持久化与幂等执行；Policy API 在 gRPC `:5008`。**forecast v1 已落地**为独立批算服务：ticker → Telemetry `QueryAggregation` → 朴素算法 → Redis db=2 + Postgres `forecast_history`；只读 gRPC 已暴露，Decision `ForecastProvider` 本轮不接。Resource 不保存当前值或连接状态。Onboarding 创建流程为非对称设计，由管理端显式协调。**北向已接入 APISIX**：EMS `key-auth`（Phase 1）、Resource Casdoor OIDC + 应用内 RBAC（Phase 2 / C0–C4）。**`CancelTask` 已实现**：非终态 Action/Pending Command 置 Cancelled，`Sending` 中的 Command 不强制撤回（无 Gateway 侧撤回 RPC），其迟到回调由 `task.IsFinished()` 幂等守卫吞掉；发布 `task.cancelled` 事件。后续重点：Decision 接真实 Forecast、APISIX `/alarm/*`、Simulator Scenario Engine、APISIX metrics（Phase 3）。Gateway 点绑定翻译与 Alarm canonical SOE 已落地，见 [`docs/DECISION_FOLLOWUPS.md`](docs/DECISION_FOLLOWUPS.md)。

@@ -38,6 +38,10 @@ func NewDeletePointHandler(
 }
 
 func (h deletePointHandler) Handle(ctx context.Context, cmd DeletePoint) (struct{}, error) {
+	point, err := h.pointRepo.FindByID(ctx, cmd.TenantID, cmd.ID)
+	if err != nil {
+		return struct{}{}, err
+	}
 	if err := h.pointRepo.SoftDelete(ctx, cmd.TenantID, cmd.ID); err != nil {
 		return struct{}{}, err
 	}
@@ -50,6 +54,7 @@ func (h deletePointHandler) Handle(ctx context.Context, cmd DeletePoint) (struct
 			Payload: platEvent.PointDeletedPayload{
 				PointID:  cmd.ID,
 				TenantID: cmd.TenantID,
+				CUID:     point.CUID,
 			},
 		}); pubErr != nil {
 			logging.Warnf(ctx, logrus.Fields{

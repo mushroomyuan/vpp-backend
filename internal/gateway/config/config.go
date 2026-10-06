@@ -10,14 +10,16 @@ import (
 // Database and telemetry gRPC connection details are infrastructure concerns
 // assembled separately in the composition root (server.go).
 type Config struct {
-	GRPCAddr          string
-	HTTPAddr          string
-	MetricsAddr       string
-	TelemetryEndpoint string
-	TelemetryInsecure bool
-	ServiceName       string
-	ConsulAddr        string
-	Kafka             KafkaConfig
+	GRPCAddr           string
+	HTTPAddr           string
+	MetricsAddr        string
+	TelemetryEndpoint  string
+	TelemetryInsecure  bool
+	ServiceName        string
+	ConsulAddr         string
+	Kafka              KafkaConfig
+	BindingCacheTTL    time.Duration
+	BindingCacheMaxAge time.Duration
 
 	TrustProxyHeaders bool
 	Authz             AuthzConfig
@@ -73,7 +75,9 @@ func CreateFromOptions(opts *options.Options) *Config {
 			GroupID:      opts.Kafka.GroupID,
 			CommandTopic: opts.Kafka.CommandTopic,
 		},
-		TrustProxyHeaders: a.TrustProxyHeaders,
+		BindingCacheTTL:    opts.BindingCache.TTL,
+		BindingCacheMaxAge: opts.BindingCache.MaxAge,
+		TrustProxyHeaders:  a.TrustProxyHeaders,
 		Authz: AuthzConfig{
 			Enabled:              authzEnabled,
 			Sync:                 authzEnabled,

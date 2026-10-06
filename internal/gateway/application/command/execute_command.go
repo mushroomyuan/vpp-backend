@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mushroomyuan/vpp-backend/gateway/domain"
+	"github.com/mushroomyuan/vpp-backend/gateway/domain/binding"
 	"github.com/mushroomyuan/vpp-backend/gateway/domain/port"
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
 	"github.com/mushroomyuan/vpp-backend/platform/logging"
@@ -16,15 +17,20 @@ import (
 
 // ExecuteCommand is triggered by the dispatch service (via gRPC in production,
 // or via HTTP for testing). It translates an internal CUCode to an external
-// device identifier and forwards the control command to the EMSClient.
+// device identifier, inverse-converts the canonical setpoint, and forwards
+// the device address and raw value to the EMSClient.
 type ExecuteCommand struct {
 	CommandID string
 	TenantID  string
 	CUCode    string
-	PointKey  string
-	// Value is the numeric setpoint forwarded to EMS (v1 float-only adapter).
-	// Bool maps to 0/1; string values are rejected before reaching this handler.
+	// PointKey is the canonical MetricID. Dispatch still uses this wire name.
+	PointKey string
+	// Value is the canonical setpoint. Bool maps to 0/1 before this handler.
+	// String values are rejected before reaching this handler.
 	Value float64
+	// BindingRevision is the revision the caller planned against.
+	// Zero means the caller did not send one. A positive value must match.
+	BindingRevision int64
 }
 
 // ExecuteCommandResult carries the external device ID that was actually targeted,
@@ -38,6 +44,7 @@ type ExecuteCommandHandler = decorator.CommandHandler[ExecuteCommand, *ExecuteCo
 
 type executeCommandHandler struct {
 	mappingRepo port.MappingRepository
+	bindings    PointBindings
 	emsClient   port.EMSClient
 	publisher   port.CommandEventPublisher
 	metrics     decorator.MetricsClient
@@ -45,12 +52,16 @@ type executeCommandHandler struct {
 
 func NewExecuteCommandHandler(
 	mappingRepo port.MappingRepository,
+	bindings PointBindings,
 	emsClient port.EMSClient,
 	publisher port.CommandEventPublisher,
 	metricsClient decorator.MetricsClient,
 ) ExecuteCommandHandler {
 	if mappingRepo == nil {
 		panic("NewExecuteCommandHandler: mappingRepo is required")
+	}
+	if bindings == nil {
+		panic("NewExecuteCommandHandler: bindings are required")
 	}
 	if emsClient == nil {
 		panic("NewExecuteCommandHandler: emsClient is required")
@@ -61,6 +72,7 @@ func NewExecuteCommandHandler(
 	return decorator.ApplyCommandDecorators[ExecuteCommand, *ExecuteCommandResult](
 		executeCommandHandler{
 			mappingRepo: mappingRepo,
+			bindings:    bindings,
 			emsClient:   emsClient,
 			publisher:   publisher,
 			metrics:     metricsClient,
@@ -94,11 +106,34 @@ func (h executeCommandHandler) Handle(ctx context.Context, cmd ExecuteCommand) (
 		return nil, domain.ErrMappingDisabled
 	}
 
+	snap, origin, err := h.bindings.Load(ctx, mapping.TenantID, mapping.CUCode)
+	if err != nil {
+		return nil, fmt.Errorf("load point bindings: %w", err)
+	}
+	setpoint, err := binding.TranslateDownlink(snap, origin, cmd.PointKey, cmd.Value, cmd.BindingRevision)
+	if err != nil {
+		var rejected *binding.DownlinkError
+		if errors.As(err, &rejected) {
+			h.countDownlink("rejected")
+			logging.Warnf(ctx, logrus.Fields{
+				"component":  "ExecuteCommand",
+				"tenant_id":  mapping.TenantID,
+				"cu_code":    mapping.CUCode,
+				"metric_id":  strings.TrimSpace(cmd.PointKey),
+				"command_id": cmd.CommandID,
+				"reason":     string(rejected.Reason),
+			}, "downlink command rejected")
+			return nil, fmt.Errorf("%w: %s", domain.ErrCommandRejected, rejected.Reason)
+		}
+		return nil, err
+	}
+
 	if err := h.emsClient.SendCommand(
-		ctx, cmd.CommandID, mapping.ExternalSystem, mapping.ExternalID, cmd.PointKey, cmd.Value,
+		ctx, cmd.CommandID, mapping.ExternalSystem, mapping.ExternalID, setpoint.ExternalAddress, setpoint.Raw,
 	); err != nil {
 		return nil, fmt.Errorf("send command to ems: %w", err)
 	}
+	h.countDownlink("sent")
 
 	// v1 ems_log is synchronous: publish CommandCompleted immediately so Dispatch
 	// can advance via Kafka. Future async EMS adapters publish when the device acks.
@@ -123,4 +158,11 @@ func (h executeCommandHandler) Handle(ctx context.Context, cmd ExecuteCommand) (
 		ExternalSystem: mapping.ExternalSystem,
 		ExternalID:     mapping.ExternalID,
 	}, nil
+}
+
+func (h executeCommandHandler) countDownlink(status string) {
+	if h.metrics == nil {
+		return
+	}
+	h.metrics.Count("downlink", "command", status)
 }

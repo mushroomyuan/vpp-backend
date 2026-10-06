@@ -58,6 +58,7 @@ func TestToGRPCError(t *testing.T) {
 		{domain.ErrMappingNotFound, codes.NotFound},
 		{domain.ErrMappingDisabled, codes.FailedPrecondition},
 		{domain.ErrMappingConflict, codes.AlreadyExists},
+		{domain.ErrCommandRejected, codes.FailedPrecondition},
 		{errors.New("tenant_id is required"), codes.InvalidArgument},
 		{errors.New("invalid telemetry"), codes.InvalidArgument},
 		{errors.New("boom"), codes.Internal},

@@ -52,6 +52,9 @@ func NewApplication(deps Dependencies) Application {
 	if deps.Rules != nil {
 		rules = *deps.Rules
 	}
+	if err := rules.Validate(); err != nil {
+		panic("NewApplication: " + err.Error())
+	}
 	evaluator := service.NewEvaluator(rules)
 	return Application{
 		Commands: Commands{

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -12,7 +13,7 @@ type GetAsset struct {
 	ID       string
 }
 
-type GetAssetHandler decorator.QueryHandler[GetAsset, *AssetView]
+type GetAssetHandler decorator.QueryHandler[GetAsset, *model.Asset]
 
 type getAssetHandler struct {
 	assetRepo port.AssetRepository
@@ -25,16 +26,12 @@ func NewGetAssetHandler(
 	if assetRepo == nil {
 		panic("NewGetAssetHandler parameter assetRepo is nil")
 	}
-	return decorator.ApplyQueryDecorators[GetAsset, *AssetView](
+	return decorator.ApplyQueryDecorators[GetAsset, *model.Asset](
 		getAssetHandler{assetRepo: assetRepo},
 		metricClient,
 	)
 }
 
-func (h getAssetHandler) Handle(ctx context.Context, q GetAsset) (*AssetView, error) {
-	asset, err := h.assetRepo.FindByID(ctx, q.TenantID, q.ID)
-	if err != nil {
-		return nil, err
-	}
-	return &AssetView{Asset: asset}, nil
+func (h getAssetHandler) Handle(ctx context.Context, q GetAsset) (*model.Asset, error) {
+	return h.assetRepo.FindByID(ctx, q.TenantID, q.ID)
 }

@@ -37,10 +37,11 @@ type Client struct {
 var _ port.EMSClient = (*Client)(nil)
 
 type commandRequest struct {
-	CommandID  string  `json:"command_id"`
-	ExternalID string  `json:"external_id"`
-	PointKey   string  `json:"point_key"`
-	Value      float64 `json:"value"`
+	CommandID  string `json:"command_id"`
+	ExternalID string `json:"external_id"`
+	// PointKey is the device external address. Simulator stores points under that name.
+	PointKey string  `json:"point_key"`
+	Value    float64 `json:"value"`
 }
 
 type commandResponse struct {

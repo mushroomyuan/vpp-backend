@@ -31,17 +31,13 @@ const (
 	QualityUncertain QualityStatus = "UNCERTAIN"
 )
 
-// MetricValue is a typed, quality-annotated metric reading inside a StandardTelemetry.
-//
-// When translating from ExternalTelemetry, the application layer defaults to
-// MetricTypeAnalog / QualityGood because most external systems do not carry
-// type or quality metadata. These defaults can be overridden per-mapping in a
-// future version via a mapping configuration extension.
+// MetricValue is one canonical reading inside a StandardTelemetry.
+// MetricID comes from the point binding. Value is already in canonical units.
 type MetricValue struct {
-	Name    string
-	Value   float64
-	Type    MetricType
-	Quality QualityStatus
+	MetricID string
+	Value    float64
+	Type     MetricType
+	Quality  QualityStatus
 }
 
 // StandardTelemetry is the canonical internal representation of a single CU's

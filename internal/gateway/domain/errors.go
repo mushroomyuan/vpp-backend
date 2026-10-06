@@ -13,4 +13,8 @@ var (
 	// ErrMappingConflict is returned when a Create would violate the unique constraint
 	// (tenant_id, external_system, external_id).
 	ErrMappingConflict = errors.New("device mapping already exists for this external ID")
+
+	// ErrCommandRejected means the command was not sent. The binding was missing,
+	// stale, duplicated, not writable, out of bounds, or not reversible.
+	ErrCommandRejected = errors.New("command rejected")
 )

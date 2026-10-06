@@ -130,7 +130,8 @@ flowchart LR
     Sim[Simulator]
     EMS[真实 EMS]
 
-    Res -.->|Kafka: CU 删除/禁用| GW
+    Res -.->|Kafka: 点/CU 变更只失效缓存| GW
+    GW -->|ListPoints| Res
     Admin[管理端] -->|CreateMapping| GW
     Sim -->|遥测上报| GW
     EMS -->|遥测上报| GW
@@ -141,7 +142,7 @@ flowchart LR
     GW -.->|command.completed| Dis
 ```
 
-Gateway 把上报 name 和下发 PointKey 当作不透明字符串。Simulator 使用 canonical MetricID，因此内部闭环可以透传。厂商外部点名、单位和符号转换不在本服务，见 [`docs/DECISION_FOLLOWUPS.md`](../../docs/DECISION_FOLLOWUPS.md)。
+Gateway 按控制单元缓存 Resource 的点绑定。缓存命中不访问 Resource；点或控制单元变更事件只丢掉对应副本，下一次读取再调用 `ListPoints`。上行把设备 `external_address` 和原始值换成 canonical MetricID 与 canonical 值后再写入 Telemetry，未知点计数并隔离。下行把 canonical MetricID 和 canonical 值逆转换成 external address 与原始值后再下发；缓存回退、revision 对不上、不可写、越界或不可逆时拒绝命令。两个厂商的点名、单位和功率符号由集成测试覆盖。Alarm canonical 规则还没做，见 [`docs/DECISION_FOLLOWUPS.md`](../../docs/DECISION_FOLLOWUPS.md)。
 
 
 

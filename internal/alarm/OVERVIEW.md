@@ -6,7 +6,7 @@
 
 Alarm 是运行告警中心：消费已有 Kafka 事件，按规则开单 / 合单，提供租户内查询、确认、关闭。
 
-告警是**充血聚合**，不是事件副本。同一故障在打开期间只有一条。不改 dispatch / telemetry 生产者，也不做全量审计。
+告警是**充血聚合**，不是事件副本。同一故障在打开期间只有一条。不做全量审计。
 
 ## 功能特点
 
@@ -15,7 +15,7 @@ Alarm 是运行告警中心：消费已有 Kafka 事件，按规则开单 / 合�
 | 来源 | Topic | 吃什么 | 合单 |
 |------|-------|--------|------|
 | Dispatch | `vpp.dispatch.events` | 仅 `task.failed` | 一次失败一张单 |
-| Telemetry | `vpp.soe.events` | 全部离散量变位 | 同一测点在 **open** 期间合并，`count` 累加 |
+| Telemetry | `vpp.soe.events` schema v2 | 离散变位、质量 BAD / UNCERTAIN、测点陈旧、恢复 | 同一 CU + canonical metric + kind 在 **open** 期间合并，`count` 累加 |
 
 `task.started` / `task.completed`、`vpp.command.events`、`vpp.resource.events` 都不吃：命令失败已被 FailFast 收成 `task.failed`；资源生命周期不是运行告警。
 
@@ -31,7 +31,7 @@ Kafka at-least-once 重投  ──▶  alarm_event_dedup (tenant_id, event_id)
 - **Fingerprint**：决定和哪条 **open** 告警聚合。SOE 不含时间 / 数值；dispatch 含 `event_id`（所以两次失败不会并成一条）。
 - **`alarm_event_dedup`**：任意历史 event_id 重投都算已处理。`LastEventID` 只是展示字段。
 
-哈希输入用 `\x1f` 拼接后 sha256，前缀 `v1:`。粒度一旦落库不可默默改，详见 README。
+哈希输入用 `\x1f` 拼接后 sha256。Dispatch 前缀 `v1:`，SOE 前缀 `v2:`。粒度一旦落库不可默默改，详见 README。
 
 ### 3. 原子 ingest，人管面纯 HTTP
 
@@ -47,7 +47,7 @@ Kafka 消息 → 规则 → 一条 SQL（dedup INSERT 先于 alarms upsert）→
 
 ```mermaid
 flowchart TB
-    subgraph Producers["生产者（不改）"]
+    subgraph Producers["生产者"]
         Dis["vpp-dispatch"]
         Tel["vpp-telemetry"]
     end
@@ -100,7 +100,7 @@ task.failed / SOE
 ```mermaid
 flowchart LR
     Dis[Dispatch] -.->|task.failed + trigger_type| Alarm
-    Tel[Telemetry] -.->|SOE 变位| Alarm
+    Tel[Telemetry] -.->|SOE v2| Alarm
     Admin[管理端] -->|HTTP :8087| Alarm
     GW[Gateway]
     Sim[Simulator]
@@ -118,7 +118,7 @@ Alarm **不直连** Gateway / Resource / Simulator。失败告警来自 Dispatch
 | 服务 | 关系 |
 |------|------|
 | **Dispatch** | 只消费 `task.failed`；不调 `GetTask`，不拼失败原因。`trigger_type` 只进属性，不进 fingerprint |
-| **Telemetry** | 只消费 SOE；不写时序、不查快照 |
+| **Telemetry** | 只消费 SOE v2；不写时序、不查快照。展示名和单位来自契约描述符 |
 | **Gateway / Resource / Simulator** | 不直连；身份仍是共享的 `CUCode` / `tenant_id` |
 | **Decision** | 不直连；自动任务失败经 `task.failed` + `trigger_type` 进属性 |
 | **管理端** | 直连 HTTP `:8087`；v1 不挂 APISIX `/alarm/*` |
@@ -128,4 +128,4 @@ Alarm **不直连** Gateway / Resource / Simulator。失败告警来自 Dispatch
 
 **v1 已具备：** 双 consumer、原子去重 / 合单、HTTP 人管、authz catalog、Prometheus 指标、kind ClusterIP、CI 镜像。
 
-**刻意未做：** APISIX 北向、closed / dedup 表 retention、SOE 自动恢复、webhook、多副本、规则 DSL。这些不影响「今天就能吃到任务失败和测点变位」。
+**刻意未做：** APISIX 北向、closed / dedup 表 retention、恢复事件自动关单、webhook、多副本、规则 DSL。质量、陈旧和恢复已经各自开单。

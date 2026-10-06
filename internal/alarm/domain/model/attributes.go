@@ -26,12 +26,18 @@ type DispatchAttributes struct {
 
 func (*DispatchAttributes) isAttributesPayload() {}
 
-// SOEAttributes is the JSONB snapshot for RuleSOEDiscreteChange.
+// SOEAttributes is the JSONB snapshot for canonical SOE rules.
+// DisplayName and Unit come from the contract descriptor, never from an
+// external address.
 type SOEAttributes struct {
-	CUCode     string   `json:"cu_code,omitempty"`
-	MetricName string   `json:"metric_name,omitempty"`
-	OldValue   *float64 `json:"old_value,omitempty"`
-	NewValue   *float64 `json:"new_value,omitempty"`
+	CUCode        string   `json:"cu_code,omitempty"`
+	MetricID      string   `json:"metric_id,omitempty"`
+	DisplayName   string   `json:"display_name,omitempty"`
+	Unit          string   `json:"unit,omitempty"`
+	Kind          string   `json:"kind,omitempty"`
+	Quality       string   `json:"quality,omitempty"`
+	Value         *float64 `json:"value,omitempty"`
+	PreviousValue *float64 `json:"previous_value,omitempty"`
 }
 
 func (*SOEAttributes) isAttributesPayload() {}

@@ -77,10 +77,10 @@ fingerprint 会互相碰撞、把语义完全不同的告警错误合并）。�
 
 阶段 2 对它做的唯一改动是：把原来 dispatch 和 soe **共用同一个 Go 常量**
 `fingerprintSchema = "v1:"`，拆成 `dispatchFingerprintSchema` /
-`soeFingerprintSchema` 两个**独立**常量——**值完全没变**，都还是 `"v1:"`，不影响
-任何已产生的 fingerprint，也不用改 `fingerprint_test.go`。目的只是解除两个独立
-业务之间的耦合：以后只想把 SOE 的聚合算法升到 v2，不会因为常量共享而被迫牵连
-dispatch 的版本号。
+`soeFingerprintSchema` 两个**独立**常量——当时值都还是 `"v1:"`。
+
+SOE 后来单独升到 `"v2:"` / `"soe:v2:"`：聚合键从自由文本点名改成 canonical
+`metric_id` 加 kind。Dispatch 仍是 `"v1:"`。无生产数据，不双读 v1 SOE。
 
 ## 有意没做的事
 

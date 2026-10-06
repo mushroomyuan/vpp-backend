@@ -63,7 +63,7 @@ flowchart TB
 | **Resource** | 只调用 `ResolveScope`。不读 Resource 库，不调用 `GetAsset` |
 | **Telemetry** | 批量 `GetSnapshots`。不使用 Resource Runtime 缓存 |
 | **Dispatch** | 一个到期步骤一个 Task，`TriggerType=automatic`，带租户幂等键 |
-| **Gateway** | 不直连。Simulator 的 canonical MetricID 由 Gateway 原样透传；厂商点名翻译不在本服务 |
+| **Gateway** | 不直连。上行在 Gateway 内把设备地址换成 canonical MetricID；本服务只读 Telemetry 里的 canonical 值 |
 | **Forecast** | 独立服务。`ForecastProvider` 本轮不接 |
 | **Alarm** | 不直连。自动任务失败仍经 Dispatch `task.failed` 进入告警属性 |
 

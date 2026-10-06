@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -19,7 +20,7 @@ type ListCUs struct {
 }
 
 type ListCUsResult struct {
-	Items      []*CUView
+	Items      []*model.CU
 	TotalCount int64
 	Offset     int
 	Limit      int
@@ -62,23 +63,8 @@ func (h listCUsHandler) Handle(ctx context.Context, q ListCUs) (*ListCUsResult, 
 	if err != nil {
 		return nil, err
 	}
-
-	items := make([]*CUView, 0, len(page.Items))
-	if len(page.Items) == 0 {
-		return &ListCUsResult{
-			Items:      items,
-			TotalCount: page.TotalCount,
-			Offset:     page.Offset,
-			Limit:      page.Limit,
-		}, nil
-	}
-
-	for _, cu := range page.Items {
-		items = append(items, &CUView{CU: cu})
-	}
-
 	return &ListCUsResult{
-		Items:      items,
+		Items:      page.Items,
 		TotalCount: page.TotalCount,
 		Offset:     page.Offset,
 		Limit:      page.Limit,

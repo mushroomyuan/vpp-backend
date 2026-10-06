@@ -15,10 +15,9 @@ type IngestTelemetryRequest struct {
 }
 
 type MetricValueRequest struct {
-	// Name is forwarded unchanged. Telemetry accepts only a canonical MetricID;
-	// Gateway does not translate vendor addresses.
-	Name  string  `json:"name" binding:"required"`
-	Value float64 `json:"value"`
+	// ExternalAddress is the device point name. Gateway converts it with the CU binding.
+	ExternalAddress string  `json:"external_address" binding:"required"`
+	Value           float64 `json:"value"`
 }
 
 // ─── Mapping CRUD ─────────────────────────────────────────────────────────────

@@ -11,6 +11,8 @@ type Options struct {
 	Tracing       TracingOptions       `mapstructure:"tracing"`
 	Database      DatabaseOptions      `mapstructure:"database"`
 	TelemetryGRPC TelemetryGRPCOptions `mapstructure:"telemetry-grpc"`
+	ResourceGRPC  ResourceGRPCOptions  `mapstructure:"resource-grpc"`
+	BindingCache  BindingCacheOptions  `mapstructure:"binding-cache"`
 	Simulator     SimulatorOptions     `mapstructure:"simulator"`
 	Kafka         KafkaOptions         `mapstructure:"kafka"`
 }
@@ -101,6 +103,20 @@ type CircuitBreakerOptions struct {
 	OpenTimeout         time.Duration `mapstructure:"open-timeout"`
 }
 
+// ResourceGRPCOptions configures the read-only client that lists point bindings.
+type ResourceGRPCOptions struct {
+	Addr           string                `mapstructure:"addr"`
+	Timeout        time.Duration         `mapstructure:"timeout"`
+	CircuitBreaker CircuitBreakerOptions `mapstructure:"circuit-breaker"`
+}
+
+// BindingCacheOptions is how long a CU binding list is reused.
+// TTL skips Resource. MaxAge is the last-known-good window after Resource fails.
+type BindingCacheOptions struct {
+	TTL    time.Duration `mapstructure:"ttl"`
+	MaxAge time.Duration `mapstructure:"max-age"`
+}
+
 // SimulatorOptions configures the outbound HTTP client to vpp-simulator.
 // Addr empty → commands for external_system=simulator fall through to ems_log.
 type SimulatorOptions struct {
@@ -143,6 +159,14 @@ func NewOptions() *Options {
 			Addr:    "127.0.0.1:5003",
 			Timeout: 5 * time.Second,
 		},
+		ResourceGRPC: ResourceGRPCOptions{
+			Addr:    "127.0.0.1:5002",
+			Timeout: 5 * time.Second,
+		},
+		BindingCache: BindingCacheOptions{
+			TTL:    30 * time.Second,
+			MaxAge: 5 * time.Minute,
+		},
 		Kafka: KafkaOptions{
 			Topic:        "vpp.resource.events",
 			GroupID:      "vpp-gateway-resource-events",
@@ -164,6 +188,15 @@ func (o *Options) Validate() []error {
 	}
 	if o.TelemetryGRPC.Addr == "" {
 		errs = append(errs, fmt.Errorf("telemetry-grpc.addr must not be empty"))
+	}
+	if o.ResourceGRPC.Addr == "" {
+		errs = append(errs, fmt.Errorf("resource-grpc.addr must not be empty"))
+	}
+	if o.BindingCache.TTL <= 0 {
+		errs = append(errs, fmt.Errorf("binding-cache.ttl must be positive"))
+	}
+	if o.BindingCache.MaxAge < o.BindingCache.TTL {
+		errs = append(errs, fmt.Errorf("binding-cache.max-age must be at least ttl"))
 	}
 	if o.Database.Driver == "" {
 		errs = append(errs, fmt.Errorf("database.driver must not be empty"))

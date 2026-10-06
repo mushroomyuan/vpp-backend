@@ -20,6 +20,8 @@ func toGRPCError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrMappingConflict):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, domain.ErrCommandRejected):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		msg := err.Error()
 		lower := strings.ToLower(msg)

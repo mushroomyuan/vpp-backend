@@ -46,6 +46,9 @@ telemetry:
       rps: 50
       burst: 100
 
+  # Gap after which the previous sample is a stale SOE, not current health.
+  metric-stale-age: 90s
+
 # TimescaleDB (PostgreSQL + TimescaleDB extension).
 # Keep in sync with compose.yaml → postgres environment.*
 timescaledb:

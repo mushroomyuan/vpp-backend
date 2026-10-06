@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-// ExternalMetric is a single raw metric reading from an external system.
-// External systems (EMS / IoT Platform) typically provide only a name and value;
-// type and quality metadata are assigned by the gateway during translation.
+// ExternalMetric is one raw sample from a device.
+// ExternalAddress is the vendor point name. It is not a canonical MetricID.
+// Type and quality are assigned after the binding translation.
 type ExternalMetric struct {
-	Name  string
-	Value float64
+	ExternalAddress string
+	Value           float64
 }
 
 // ExternalTelemetry is the raw inbound data model received from an external system.
@@ -47,8 +47,8 @@ func (e *ExternalTelemetry) Validate() error {
 		return errors.New("domain: at least one metric is required")
 	}
 	for _, m := range e.Metrics {
-		if strings.TrimSpace(m.Name) == "" {
-			return errors.New("domain: metric name cannot be empty")
+		if strings.TrimSpace(m.ExternalAddress) == "" {
+			return errors.New("domain: external_address cannot be empty")
 		}
 	}
 	return nil

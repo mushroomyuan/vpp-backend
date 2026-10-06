@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,17 @@ import (
 	"github.com/mushroomyuan/vpp-backend/alarm/domain/port"
 	"github.com/mushroomyuan/vpp-backend/alarm/domain/service"
 )
+
+const canonicalMetric = "electrical.active_power.v1"
+
+func soeEvent(ts time.Time, old, new float64) IngestEvent {
+	prev := old
+	return IngestEvent{Incoming: model.IncomingEvent{
+		Source: model.SourceSOE, TenantID: "t1", OccurredAt: ts,
+		CUCode: "cu", MetricID: canonicalMetric, Kind: model.SOEKindDiscreteChange,
+		Quality: model.QualityGood, Value: new, PreviousValue: &prev,
+	}}
+}
 
 var (
 	_ port.AlarmRepository = (*memRepo)(nil)
@@ -208,18 +220,12 @@ func TestIngestEvent_SOEMergeAndDedup(t *testing.T) {
 	h := newIngestHandler(repo, note)
 	ts1 := time.Unix(10, 0).UTC()
 	ts2 := time.Unix(20, 0).UTC()
-	in := func(ts time.Time, old, new float64) IngestEvent {
-		return IngestEvent{Incoming: model.IncomingEvent{
-			Source: model.SourceSOE, TenantID: "t1", OccurredAt: ts,
-			CUCode: "cu", MetricName: "brk", OldValue: old, NewValue: new,
-		}}
-	}
 
-	r1, err := h.Handle(context.Background(), in(ts1, 0, 1))
+	r1, err := h.Handle(context.Background(), soeEvent(ts1, 0, 1))
 	if err != nil || r1.Outcome != OutcomeOK {
 		t.Fatalf("%+v %v", r1, err)
 	}
-	r2, err := h.Handle(context.Background(), in(ts2, 1, 0))
+	r2, err := h.Handle(context.Background(), soeEvent(ts2, 1, 0))
 	if err != nil || r2.Outcome != OutcomeOK || r2.AlarmID != r1.AlarmID {
 		t.Fatalf("merge %+v %v", r2, err)
 	}
@@ -230,14 +236,42 @@ func TestIngestEvent_SOEMergeAndDedup(t *testing.T) {
 	if got.Count != 2 || got.LastOccurredAt.Equal(ts1) {
 		t.Fatalf("count/last %+v", got)
 	}
+	wantFP := model.FingerprintSOE("t1", "cu", canonicalMetric, model.SOEKindDiscreteChange)
+	if got.Fingerprint != wantFP || !strings.HasPrefix(got.Fingerprint, "v2:") {
+		t.Fatalf("fingerprint %s", got.Fingerprint)
+	}
 
-	r3, err := h.Handle(context.Background(), in(ts1, 0, 1)) // replay first event_id
+	r3, err := h.Handle(context.Background(), soeEvent(ts1, 0, 1)) // replay first event_id
 	if err != nil || r3.Outcome != OutcomeDedupHit {
 		t.Fatalf("dedup %+v %v", r3, err)
 	}
 	got, _ = repo.FindByID(context.Background(), "t1", r1.AlarmID)
-	if got.Count != 2 {
-		t.Fatalf("dedup bumped count to %d", got.Count)
+	if got.Count != 2 || got.Fingerprint != wantFP {
+		t.Fatalf("replay changed ticket %+v", got)
+	}
+}
+
+func TestIngestEvent_VendorNameDroppedAndQualitySeparate(t *testing.T) {
+	t.Parallel()
+	repo := newMemRepo()
+	h := newIngestHandler(repo, &recordingNotifier{})
+	vendor := soeEvent(time.Unix(1, 0).UTC(), 0, 1)
+	vendor.Incoming.MetricID = "vendor.breaker"
+	dropped, err := h.Handle(context.Background(), vendor)
+	if err != nil || dropped.Outcome != OutcomeDropped {
+		t.Fatalf("vendor %+v %v", dropped, err)
+	}
+	opened, err := h.Handle(context.Background(), soeEvent(time.Unix(2, 0).UTC(), 0, 1))
+	if err != nil || opened.Outcome != OutcomeOK {
+		t.Fatalf("discrete %+v %v", opened, err)
+	}
+	bad := soeEvent(time.Unix(3, 0).UTC(), 1, 9)
+	bad.Incoming.Kind = model.SOEKindQualityBad
+	bad.Incoming.Quality = model.QualityBad
+	bad.Incoming.PreviousValue = nil
+	fault, err := h.Handle(context.Background(), bad)
+	if err != nil || fault.Outcome != OutcomeOK || fault.AlarmID == opened.AlarmID {
+		t.Fatalf("quality ticket %+v %v", fault, err)
 	}
 }
 
@@ -245,10 +279,7 @@ func TestIngestEvent_CloseThenNewSOE(t *testing.T) {
 	t.Parallel()
 	repo := newMemRepo()
 	h := newIngestHandler(repo, &recordingNotifier{})
-	in := IngestEvent{Incoming: model.IncomingEvent{
-		Source: model.SourceSOE, TenantID: "t1", OccurredAt: time.Unix(1, 0).UTC(),
-		CUCode: "cu", MetricName: "brk", OldValue: 0, NewValue: 1,
-	}}
+	in := soeEvent(time.Unix(1, 0).UTC(), 0, 1)
 	r1, _ := h.Handle(context.Background(), in)
 	ackH := closeHandler{repo: repo}
 	if _, err := ackH.Handle(context.Background(), Close{
@@ -321,17 +352,11 @@ func TestIngest_ObserverOpenedOnNewNotOnMerge(t *testing.T) {
 		notifier:  &recordingNotifier{},
 		observer:  obs,
 	}
-	in := func(ts time.Time, old, new float64) IngestEvent {
-		return IngestEvent{Incoming: model.IncomingEvent{
-			Source: model.SourceSOE, TenantID: "t1", OccurredAt: ts,
-			CUCode: "cu", MetricName: "brk", OldValue: old, NewValue: new,
-		}}
-	}
-	r1, err := h.Handle(context.Background(), in(time.Unix(1, 0).UTC(), 0, 1))
+	r1, err := h.Handle(context.Background(), soeEvent(time.Unix(1, 0).UTC(), 0, 1))
 	if err != nil || !r1.Opened {
 		t.Fatalf("%+v %v", r1, err)
 	}
-	r2, err := h.Handle(context.Background(), in(time.Unix(2, 0).UTC(), 1, 0))
+	r2, err := h.Handle(context.Background(), soeEvent(time.Unix(2, 0).UTC(), 1, 0))
 	if err != nil || r2.Opened {
 		t.Fatalf("merge must not open %+v %v", r2, err)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -12,7 +13,7 @@ type GetCU struct {
 	ID       string
 }
 
-type GetCUHandler decorator.QueryHandler[GetCU, *CUView]
+type GetCUHandler decorator.QueryHandler[GetCU, *model.CU]
 
 type getCUHandler struct {
 	cuRepo port.CURepository
@@ -25,16 +26,12 @@ func NewGetCUHandler(
 	if cuRepo == nil {
 		panic("NewGetCUHandler parameter cuRepo is nil")
 	}
-	return decorator.ApplyQueryDecorators[GetCU, *CUView](
+	return decorator.ApplyQueryDecorators[GetCU, *model.CU](
 		getCUHandler{cuRepo: cuRepo},
 		metricClient,
 	)
 }
 
-func (h getCUHandler) Handle(ctx context.Context, q GetCU) (*CUView, error) {
-	cu, err := h.cuRepo.FindByID(ctx, q.TenantID, q.ID)
-	if err != nil {
-		return nil, err
-	}
-	return &CUView{CU: cu}, nil
+func (h getCUHandler) Handle(ctx context.Context, q GetCU) (*model.CU, error) {
+	return h.cuRepo.FindByID(ctx, q.TenantID, q.ID)
 }

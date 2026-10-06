@@ -13,6 +13,7 @@ import (
 //
 // Dispatch: EventID is the envelope event_id (required).
 // SOE: EventID is left empty; Evaluator fills it via SOEEventID.
+// MetricID is a canonical contract ID. Kind and Quality select the rule.
 type IncomingEvent struct {
 	Source     Source
 	TenantID   string
@@ -25,10 +26,12 @@ type IncomingEvent struct {
 	TaskStatus  string
 	TriggerType string // optional; empty on pre-field dispatch events
 
-	CUCode     string
-	MetricName string
-	OldValue   float64
-	NewValue   float64
+	CUCode        string
+	MetricID      string
+	Kind          string
+	Quality       string
+	Value         float64
+	PreviousValue *float64
 }
 
 func (e IncomingEvent) Validate() error {
@@ -51,8 +54,14 @@ func (e IncomingEvent) Validate() error {
 		if strings.TrimSpace(e.CUCode) == "" {
 			return fmt.Errorf("%w: missing cu_code", domain.ErrInvalidIncoming)
 		}
-		if strings.TrimSpace(e.MetricName) == "" {
-			return fmt.Errorf("%w: missing metric_name", domain.ErrInvalidIncoming)
+		if strings.TrimSpace(e.MetricID) == "" {
+			return fmt.Errorf("%w: missing metric_id", domain.ErrInvalidIncoming)
+		}
+		if !IsSOEKind(e.Kind) {
+			return fmt.Errorf("%w: invalid soe kind %q", domain.ErrInvalidIncoming, e.Kind)
+		}
+		if !QualityMatchesKind(e.Kind, e.Quality) {
+			return fmt.Errorf("%w: quality %q does not match kind %q", domain.ErrInvalidIncoming, e.Quality, e.Kind)
 		}
 		return nil
 	default:

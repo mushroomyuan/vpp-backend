@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -18,7 +19,7 @@ type ListAssets struct {
 }
 
 type ListAssetsResult struct {
-	Items      []*AssetView
+	Items      []*model.Asset
 	TotalCount int64
 	Offset     int
 	Limit      int
@@ -60,23 +61,8 @@ func (h listAssetsHandler) Handle(ctx context.Context, q ListAssets) (*ListAsset
 	if err != nil {
 		return nil, err
 	}
-
-	items := make([]*AssetView, 0, len(page.Items))
-	if len(page.Items) == 0 {
-		return &ListAssetsResult{
-			Items:      items,
-			TotalCount: page.TotalCount,
-			Offset:     page.Offset,
-			Limit:      page.Limit,
-		}, nil
-	}
-
-	for _, asset := range page.Items {
-		items = append(items, &AssetView{Asset: asset})
-	}
-
 	return &ListAssetsResult{
-		Items:      items,
+		Items:      page.Items,
 		TotalCount: page.TotalCount,
 		Offset:     page.Offset,
 		Limit:      page.Limit,

@@ -26,8 +26,8 @@ func (h *Handler) IngestTelemetry(c *gin.Context) {
 	metrics := make([]model.ExternalMetric, 0, len(req.Metrics))
 	for _, m := range req.Metrics {
 		metrics = append(metrics, model.ExternalMetric{
-			Name:  m.Name,
-			Value: m.Value,
+			ExternalAddress: m.ExternalAddress,
+			Value:           m.Value,
 		})
 	}
 

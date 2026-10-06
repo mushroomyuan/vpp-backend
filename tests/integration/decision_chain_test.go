@@ -45,15 +45,17 @@ type decisionChain struct {
 type decisionChainInput struct {
 	TelemetryDial func(context.Context, string) (net.Conn, error)
 	Dispatch      dispatchapp.Application
+	Resource      resourceapp.Application
+	ResourceDial  func(context.Context, string) (net.Conn, error)
 }
 
-func startDecisionChain(ctx context.Context, in decisionChainInput) (decisionChain, []func(), error) {
+func startResource(ctx context.Context) (resourceapp.Application, func(context.Context, string) (net.Conn, error), []func(), error) {
 	var closers []func()
-	fail := func(err error) (decisionChain, []func(), error) {
+	fail := func(err error) (resourceapp.Application, func(context.Context, string) (net.Conn, error), []func(), error) {
 		for i := len(closers) - 1; i >= 0; i-- {
 			closers[i]()
 		}
-		return decisionChain{}, nil, err
+		return resourceapp.Application{}, nil, nil, err
 	}
 
 	resourceDSN, resourceClose, err := startPostgres(ctx, "postgres:16-alpine", "resource",
@@ -67,6 +69,31 @@ func startDecisionChain(ctx context.Context, in decisionChainInput) (decisionCha
 	}
 	closers = append(closers, resourceClose)
 
+	resourceApp := newResourceApplication(resourceDSN)
+	resourceLis := bufconn.Listen(bufSize)
+	resourceGRPC := platformserver.NewGRPCServer()
+	resourcepb.RegisterResourceServiceServer(resourceGRPC, resourceinbound.NewServer(resourceApp))
+	go func() { _ = resourceGRPC.Serve(resourceLis) }()
+	closers = append(closers, resourceGRPC.Stop)
+
+	dial := func(ctx context.Context, _ string) (net.Conn, error) {
+		return resourceLis.DialContext(ctx)
+	}
+	return resourceApp, dial, closers, nil
+}
+
+func startDecisionChain(ctx context.Context, in decisionChainInput) (decisionChain, []func(), error) {
+	var closers []func()
+	fail := func(err error) (decisionChain, []func(), error) {
+		for i := len(closers) - 1; i >= 0; i-- {
+			closers[i]()
+		}
+		return decisionChain{}, nil, err
+	}
+	if in.ResourceDial == nil {
+		return fail(fmt.Errorf("resource dialer is required"))
+	}
+
 	decisionDSN, decisionClose, err := startPostgres(ctx, "postgres:16-alpine", "decision",
 		"../../migrations/decision/000001_init.up.sql",
 		"../../migrations/decision/000002_plan_execution.up.sql",
@@ -76,13 +103,6 @@ func startDecisionChain(ctx context.Context, in decisionChainInput) (decisionCha
 	}
 	closers = append(closers, decisionClose)
 
-	resourceApp := newResourceApplication(resourceDSN)
-	resourceLis := bufconn.Listen(bufSize)
-	resourceGRPC := platformserver.NewGRPCServer()
-	resourcepb.RegisterResourceServiceServer(resourceGRPC, resourceinbound.NewServer(resourceApp))
-	go func() { _ = resourceGRPC.Serve(resourceLis) }()
-	closers = append(closers, resourceGRPC.Stop)
-
 	dispatchLis := bufconn.Listen(bufSize)
 	dispatchGRPC := platformserver.NewGRPCServer()
 	dispatchpb.RegisterDispatchServiceServer(dispatchGRPC, dispatchinbound.NewServer(in.Dispatch))
@@ -90,10 +110,8 @@ func startDecisionChain(ctx context.Context, in decisionChainInput) (decisionCha
 	closers = append(closers, dispatchGRPC.Stop)
 
 	resourceClient, err := decisionresource.NewClient(decisionresource.Config{
-		Addr: "passthrough:///bufresource",
-		DialOptions: []grpc.DialOption{grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return resourceLis.DialContext(ctx)
-		})},
+		Addr:        "passthrough:///bufresource",
+		DialOptions: []grpc.DialOption{grpc.WithContextDialer(in.ResourceDial)},
 	})
 	if err != nil {
 		return fail(fmt.Errorf("dial resource: %w", err))
@@ -154,7 +172,7 @@ func startDecisionChain(ctx context.Context, in decisionChainInput) (decisionCha
 	})
 
 	return decisionChain{
-		Resource: resourceApp,
+		Resource: in.Resource,
 		Policies: decisionapp.New(decisionapp.Dependencies{
 			Policies: policies,
 			Resource: resourceClient,

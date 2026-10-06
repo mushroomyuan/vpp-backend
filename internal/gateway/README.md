@@ -90,17 +90,21 @@ EMS HTTP POST
 
 ```
 dispatch gRPC ExecuteCommand
-  { TenantID, CUCode, Command, Value }
+  { TenantID, CUCode, PointKey=canonical MetricID, Value=canonical }
        │
        ▼
 [1] 反查 device_mappings（tenant + cu_code）
        │
        ▼
-[2] EMSClient.SendCommand(external_system, external_id, ...)
+[2] 按 (tenant, cu, metric_id) 取绑定，逆转换
+       │  raw = (canonical - offset) / scale
+       │  缓存回退、revision 不一致、不可写、越界、不可逆 → 拒绝，不下发
+       ▼
+[3] EMSClient.SendCommand(external_system, external_id, external_address, raw)
        │  ExternalSystem=simulator → adapter/outbound/simulator
        │  其它 → ems_log（仅打日志）
        ▼
-[3] 返回 { ExternalID, ExternalSystem }
+[4] 返回 { ExternalID, ExternalSystem }
 ```
 
 ---
@@ -125,7 +129,7 @@ device_mappings (
 )
 ```
 
-> v1 **不调用 resource 服务**：CU 存在性不在 gateway 侧校验；映射由运维/API 手动维护。
+> 映射仍不校验 CU 是否存在，由运维显式创建。遥测上行会按 CU 调用 Resource `ListPoints` 读取点绑定并短时缓存。
 
 ---
 
@@ -361,13 +365,13 @@ curl -v -X POST "${BASE}/telemetry:ingest" \
     "external_id": "SG001",
     "timestamp": "2026-06-29T10:00:00Z",
     "metrics": [
-      {"name": "p_act", "value": 100.5},
-      {"name": "q_act", "value": 20.0}
+      {"external_address": "p_act", "value": 100.5},
+      {"external_address": "q_act", "value": 20.0}
     ]
   }'
 ```
 
-预期：**HTTP 204 No Content**（gateway 查映射 → 转发 telemetry gRPC）。
+预期：**HTTP 204 No Content**。Gateway 用该 CU 的点绑定把 `external_address` 和原始值换成 canonical MetricID 后再写入 Telemetry。没有绑定的点被隔离，不会原样入库，也不阻断同批已知点。
 
 ---
 
@@ -384,13 +388,15 @@ grpcurl -plaintext -d '{
 
 预期响应（示例）：
 
+快照键是绑定后的 canonical MetricID。下面假设 `p_act` 绑到 `electrical.active_power.v1`、`q_act` 绑到 `electrical.reactive_power.v1`，且 scale 为 1、offset 为 0：
+
 ```json
 {
   "TenantID": "001",
   "CUCode": "cu-001",
   "Metrics": {
-    "p_act": 100.5,
-    "q_act": 20
+    "electrical.active_power.v1": 100.5,
+    "electrical.reactive_power.v1": 20
   },
   "UpdatedAt": "2026-06-29T10:00:00Z",
   "Stale": true
@@ -417,7 +423,7 @@ curl -v -X POST "${BASE}/telemetry:ingest" \
   -d '{
     "external_system": "ems-sg",
     "external_id": "SG001",
-    "metrics": [{"name": "p_act", "value": 100}]
+    "metrics": [{"external_address": "p_act", "value": 100}]
   }'
 ```
 
@@ -451,10 +457,12 @@ curl -s -X POST "${BASE}/mappings" \
 grpcurl -plaintext -d '{
   "TenantID": "001",
   "CUCode":   "cu-001",
-  "Command":  "set_power",
-  "Value":    500
+  "PointKey": "electrical.active_power_setpoint.v1",
+  "FloatValue": -20
 }' 127.0.0.1:5005 gatewaypb.GatewayService/ExecuteCommand
 ```
+
+`PointKey` 是 canonical MetricID。该 CU 上要有可写绑定，Gateway 才把值逆转换后发给设备。没有绑定、缓存回退、revision 不一致或越界时，命令会被拒绝。
 
 预期响应：
 

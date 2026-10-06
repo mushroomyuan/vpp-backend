@@ -2,7 +2,7 @@
 
 > 本文记录从 Decision 重构主计划中主动拆出的 Gateway 与 Alarm 配套工作，避免扩大当前重构范围，也避免后续遗忘。
 >
-> 当前阶段的临时前提：Simulator 直接使用 canonical MetricID；Gateway 继续把遥测 name 和命令 PointKey 当作不透明字符串透传。该状态只适合内部闭环和模拟器，不代表已完成真实 EMS 异构设备接入。
+> 当前阶段：Gateway 已用两个厂商的不同点名、单位和功率符号验证上行归一化与下行逆转换。Telemetry 只保留 canonical MetricID。改 external address 后策略仍按 canonical 指标规划，越界或 revision 不一致的命令不会下发。Dispatch 的 wire 字段仍叫 `PointKey`。`vpp.soe.events` 已是 schema v2：canonical `metric_id`，并带 observed_at、quality、value 和 CU。Alarm 规则只接受契约注册表里的 MetricID，fingerprint 为 `v2:` / `soe:v2:`。质量 BAD、UNCERTAIN、测点陈旧和恢复各自开单，不把陈旧的 good 值当成当前健康。
 
 ## 一、Gateway canonical binding 专项
 
@@ -46,6 +46,8 @@ Resource 是 point binding 的权威源，但不进入遥测和命令热路径�
 
 ## 二、Alarm canonical SOE/规则专项
 
+已完成。无生产数据，种子规则按契约注册表重建，不双读旧 `metric_name` 消息。
+
 ### 目标
 
 让 Alarm 的 SOE 消费、规则选择和展示统一使用 canonical MetricID，同时保持告警去重与历史语义可解释。
@@ -70,5 +72,5 @@ Resource 是 point binding 的权威源，但不进入遥测和命令热路径�
 
 1. Decision 重构完成内部 canonical MetricID + Simulator 闭环。
 2. 实施 Gateway binding/cache/conversion 专项，解除“设备必须直接上报 canonical ID”的临时限制。
-3. 实施 Alarm canonical SOE/规则专项。
-4. 最后再宣称平台支持真实异构 EMS 接入和 canonical 告警闭环。
+3. 实施 Alarm canonical SOE/规则专项。已完成。
+4. 两段都已落地，平台可以宣称真实异构点名和 canonical 告警。

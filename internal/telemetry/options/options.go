@@ -1,6 +1,9 @@
 package options
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Options holds all configurable parameters for the telemetry service.
 // Fields are populated by viper.Unmarshal via mapstructure tags, mapping
@@ -26,6 +29,10 @@ type TelemetryOptions struct {
 	// platform/decorator.WithRateLimit). Every rule defaults to disabled;
 	// this section is purely additive.
 	RateLimit RateLimitOptions `mapstructure:"rate-limit"`
+
+	// MetricStaleAge is the gap after which the previous sample of a metric
+	// is published as stale instead of being treated as current health.
+	MetricStaleAge string `mapstructure:"metric-stale-age"`
 }
 
 // RateLimitOptions configures rate limiting for individual telemetry RPCs.
@@ -119,9 +126,10 @@ type KafkaOptions struct {
 func NewOptions() *Options {
 	return &Options{
 		Telemetry: TelemetryOptions{
-			GRPCAddr:    ":9092",
-			MetricsAddr: ":9093",
-			ServiceName: "vpp-telemetry",
+			GRPCAddr:       ":9092",
+			MetricsAddr:    ":9093",
+			ServiceName:    "vpp-telemetry",
+			MetricStaleAge: "90s",
 		},
 		TimescaleDB: TimescaleDBOptions{
 			Host:     "127.0.0.1",
@@ -158,6 +166,12 @@ func (o *Options) Validate() []error {
 	}
 	if o.Redis.Addr == "" {
 		errs = append(errs, fmt.Errorf("redis.addr must not be empty"))
+	}
+	if o.Telemetry.MetricStaleAge != "" {
+		d, err := time.ParseDuration(o.Telemetry.MetricStaleAge)
+		if err != nil || d <= 0 {
+			errs = append(errs, fmt.Errorf("telemetry.metric-stale-age must be a positive duration"))
+		}
 	}
 	if o.TimescaleDB.DSN == "" {
 		if o.TimescaleDB.Host == "" {

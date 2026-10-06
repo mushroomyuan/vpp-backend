@@ -138,10 +138,6 @@ func SiteDomainToProto(s *model.Site) *resourcepb.Site {
 	}
 }
 
-func AssetDomainToProto(a *model.Asset) (*resourcepb.Asset, error) {
-	return AssetToProto(a)
-}
-
 func AssetToProto(a *model.Asset) (*resourcepb.Asset, error) {
 	if a == nil {
 		return nil, nil
@@ -297,10 +293,6 @@ func ConnectionProtoToDomain(pb *resourcepb.ConnectionConfig) (*model.Connection
 	return cc, nil
 }
 
-func CUDomainToProto(cu *model.CU) (*resourcepb.CU, error) {
-	return CUToProto(cu)
-}
-
 func CUToProto(cu *model.CU) (*resourcepb.CU, error) {
 	if cu == nil {
 		return nil, nil
@@ -346,10 +338,6 @@ func CUToProto(cu *model.CU) (*resourcepb.CU, error) {
 		ExternalID:     externalID,
 		Connection:     ConnectionDomainToProto(cu.Connection),
 	}, nil
-}
-
-func PointDomainToProto(p *model.Point) (*resourcepb.Point, error) {
-	return PointToProto(p)
 }
 
 func PointToProto(p *model.Point) (*resourcepb.Point, error) {

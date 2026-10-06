@@ -1,17 +1,17 @@
-// Package telemetry defines the Kafka topic and wire payload for discrete
-// metric state-change (SOE) events published by vpp-telemetry.
+// Package telemetry defines the Kafka topic and wire payload for SOE events
+// published by vpp-telemetry and consumed by vpp-alarm.
 //
-// v1 messages are flat JSON (SOEPayload), not event.Envelope. The producer is
-// unchanged; consumers MUST unmarshal the Kafka value into SOEPayload directly.
-// Do not wrap these events in Envelope without a coordinated producer change.
+// Messages are flat JSON (SOEPayload), not event.Envelope. schema_version is
+// a field on the payload. Consumers accept only SchemaVersionV2 and do not
+// dual-read the retired metric_name shape.
 package telemetry
 
 const (
-	// TopicSOEEvents is the Kafka topic for discrete metric state-change events.
+	// TopicSOEEvents is the Kafka topic for canonical SOE events.
 	TopicSOEEvents = "vpp.soe.events"
 
-	// VersionV1 is the documented payload schema version. It is not a JSON
-	// field on the v1 wire (there is no Envelope); consumers treat every
-	// message on TopicSOEEvents as this schema.
-	VersionV1 = "v1"
+	// SchemaVersionV2 is the payload schema. The metric identity is a
+	// canonical metric_id. v1 (metric_name, old_value, new_value, occurred_at)
+	// is retired; there is no production data and no alias read.
+	SchemaVersionV2 = "v2"
 )

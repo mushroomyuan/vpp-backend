@@ -13,7 +13,10 @@ func TestCreateFromOptions_Defaults(t *testing.T) {
 	if errs := opts.Validate(); len(errs) != 0 {
 		t.Fatalf("%v", errs)
 	}
-	cfg := CreateFromOptions(opts)
+	cfg, err := CreateFromOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if cfg.HTTPAddr != ":8087" || cfg.MetricsAddr != ":9107" {
 		t.Fatalf("addrs %+v", cfg)
 	}
@@ -31,13 +34,28 @@ func TestCreateFromOptions_Defaults(t *testing.T) {
 func TestCreateFromOptions_SOEWhitelist(t *testing.T) {
 	t.Parallel()
 	opts := options.NewOptions()
-	opts.Alarm.Rules.SOEDiscreteChange.MetricNames = []string{"brk"}
+	opts.Alarm.Rules.SOEDiscreteChange.MetricIDs = []string{"electrical.active_power.v1"}
 	opts.Alarm.Rules.SOEDiscreteChange.Severity = "info"
-	cfg := CreateFromOptions(opts)
+	cfg, err := CreateFromOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if cfg.Rules.SOEDiscreteChange.Severity != model.SeverityInfo {
 		t.Fatalf("%+v", cfg.Rules.SOEDiscreteChange)
 	}
-	if len(cfg.Rules.SOEDiscreteChange.MetricNames) != 1 {
-		t.Fatal(cfg.Rules.SOEDiscreteChange.MetricNames)
+	if len(cfg.Rules.SOEDiscreteChange.MetricIDs) != 1 {
+		t.Fatal(cfg.Rules.SOEDiscreteChange.MetricIDs)
+	}
+	if cfg.Rules.SOEQualityBad.Severity != model.SeverityCritical || !cfg.Rules.SOERecovery.Enabled {
+		t.Fatalf("seed rules %+v", cfg.Rules)
+	}
+}
+
+func TestCreateFromOptions_RejectsVendorMetricID(t *testing.T) {
+	t.Parallel()
+	opts := options.NewOptions()
+	opts.Alarm.Rules.SOEDiscreteChange.MetricIDs = []string{"switch_pos"}
+	if _, err := CreateFromOptions(opts); err == nil {
+		t.Fatal("vendor point name must fail rule validation")
 	}
 }

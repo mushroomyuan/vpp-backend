@@ -32,12 +32,18 @@ type alarmRow struct {
 	Version          int        `gorm:"column:version"`
 }
 
+func soeAttributes() model.AttributesPayload { return &model.SOEAttributes{} }
+
 // attributePayloadFactories maps a RuleID to the concrete AttributesPayload
 // type stored under it. Adding a business type means adding one entry here —
 // no other decode logic changes.
 var attributePayloadFactories = map[string]func() model.AttributesPayload{
-	model.RuleDispatchTaskFailed: func() model.AttributesPayload { return &model.DispatchAttributes{} },
-	model.RuleSOEDiscreteChange:  func() model.AttributesPayload { return &model.SOEAttributes{} },
+	model.RuleDispatchTaskFailed:  func() model.AttributesPayload { return &model.DispatchAttributes{} },
+	model.RuleSOEDiscreteChange:   soeAttributes,
+	model.RuleSOEQualityBad:       soeAttributes,
+	model.RuleSOEQualityUncertain: soeAttributes,
+	model.RuleSOEMetricStale:      soeAttributes,
+	model.RuleSOERecovery:         soeAttributes,
 }
 
 func decodeAttributes(ruleID string, raw []byte) (model.AttributesPayload, error) {

@@ -6,11 +6,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/mushroomyuan/vpp-backend/api/contracts"
 	dispatchcommand "github.com/mushroomyuan/vpp-backend/dispatch/application/command"
 	dispatchquery "github.com/mushroomyuan/vpp-backend/dispatch/application/query"
 	dispatchmodel "github.com/mushroomyuan/vpp-backend/dispatch/domain/model"
 
 	gatewaycommand "github.com/mushroomyuan/vpp-backend/gateway/application/command"
+	resourcecommand "github.com/mushroomyuan/vpp-backend/resource/application/command"
+	resourcemodel "github.com/mushroomyuan/vpp-backend/resource/domain/model"
 )
 
 // TestSubmitTask_HappyPath exercises the full chain described in the plan's
@@ -30,9 +33,17 @@ func TestSubmitTask_HappyPath(t *testing.T) {
 	ctx := context.Background()
 
 	const tenantID = "tenant-happy-path"
-	const cuCode = "cu-001"
 
-	_, err := e.Gateway.Commands.CreateMapping.Handle(ctx, gatewaycommand.CreateMapping{
+	site, err := e.Resource.Commands.CreateSite.Handle(ctx, resourcecommand.CreateSite{
+		TenantID: tenantID,
+		Name:     "happy-site",
+	})
+	require.NoError(t, err)
+	assetID := mustAsset(t, ctx, e, tenantID, site.SiteID, "happy-asset")
+	cuCode := mustCU(t, ctx, e, tenantID, assetID, "happy-cu", "battery")
+	mustPoint(t, ctx, e, tenantID, assetID, cuCode, contracts.MetricElectricalActivePowerSetpoint, resourcemodel.AccessModeWrite)
+
+	_, err = e.Gateway.Commands.CreateMapping.Handle(ctx, gatewaycommand.CreateMapping{
 		TenantID:       tenantID,
 		ExternalSystem: "ems-test",
 		ExternalID:     "device-001",
@@ -48,7 +59,7 @@ func TestSubmitTask_HappyPath(t *testing.T) {
 			Sequence: 1,
 			Commands: []dispatchcommand.SubmitCommandDTO{{
 				CUCode:   cuCode,
-				PointKey: "switch",
+				PointKey: string(contracts.MetricElectricalActivePowerSetpoint),
 				Value:    dispatchmodel.BoolCommandValue(true),
 			}},
 		}},

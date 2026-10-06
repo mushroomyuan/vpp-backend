@@ -269,7 +269,7 @@ grpcurl -plaintext 127.0.0.1:5003 describe telemetrypb.TelemetryService
 curl -s -o /dev/null -w '%{http_code}\n' -X POST \
   "$GW/api/v1/tenants/$TENANT/telemetry:ingest" \
   -H 'Content-Type: application/json' \
-  -d "{\"external_system\":\"simulator\",\"external_id\":\"$BAT_EXT\",\"metrics\":[{\"name\":\"energy_storage.state_of_charge.v1\",\"value\":61.2}]}"
+  -d "{\"external_system\":\"simulator\",\"external_id\":\"$BAT_EXT\",\"metrics\":[{\"external_address\":\"energy_storage.state_of_charge.v1\",\"value\":61.2}]}"
 # 期望 204
 ```
 
@@ -447,7 +447,7 @@ curl -s -X POST $SIM/api/v1/runtime/reload | jq .
 curl -s -o /dev/null -w '%{http_code}\n' -X POST \
   "$GW/api/v1/tenants/$TENANT/telemetry:ingest" \
   -H 'Content-Type: application/json' \
-  -d '{"external_system":"simulator","external_id":"no-such-device","metrics":[{"name":"energy_storage.state_of_charge.v1","value":1}]}'
+  -d '{"external_system":"simulator","external_id":"no-such-device","metrics":[{"external_address":"energy_storage.state_of_charge.v1","value":1}]}'
 # 期望 404
 ```
 

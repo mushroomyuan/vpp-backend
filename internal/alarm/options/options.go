@@ -48,8 +48,12 @@ type AuthzOptions struct {
 }
 
 type RulesOptions struct {
-	DispatchTaskFailed RuleOptions    `mapstructure:"dispatch-task-failed"`
-	SOEDiscreteChange  SOERuleOptions `mapstructure:"soe-discrete-change"`
+	DispatchTaskFailed  RuleOptions    `mapstructure:"dispatch-task-failed"`
+	SOEDiscreteChange   SOERuleOptions `mapstructure:"soe-discrete-change"`
+	SOEQualityBad       SOERuleOptions `mapstructure:"soe-quality-bad"`
+	SOEQualityUncertain SOERuleOptions `mapstructure:"soe-quality-uncertain"`
+	SOEMetricStale      SOERuleOptions `mapstructure:"soe-metric-stale"`
+	SOERecovery         SOERuleOptions `mapstructure:"soe-recovery"`
 }
 
 type RuleOptions struct {
@@ -58,9 +62,9 @@ type RuleOptions struct {
 }
 
 type SOERuleOptions struct {
-	Enabled     bool     `mapstructure:"enabled"`
-	Severity    string   `mapstructure:"severity"`
-	MetricNames []string `mapstructure:"metric-names"`
+	Enabled   bool     `mapstructure:"enabled"`
+	Severity  string   `mapstructure:"severity"`
+	MetricIDs []string `mapstructure:"metric-ids"`
 }
 
 type TracingOptions struct {
@@ -100,8 +104,12 @@ func NewOptions() *Options {
 			MetricsAddr: ":9107",
 			ServiceName: "alarm",
 			Rules: RulesOptions{
-				DispatchTaskFailed: RuleOptions{Enabled: true, Severity: "critical"},
-				SOEDiscreteChange:  SOERuleOptions{Enabled: true, Severity: "warning"},
+				DispatchTaskFailed:  RuleOptions{Enabled: true, Severity: "critical"},
+				SOEDiscreteChange:   SOERuleOptions{Enabled: true, Severity: "warning"},
+				SOEQualityBad:       SOERuleOptions{Enabled: true, Severity: "critical"},
+				SOEQualityUncertain: SOERuleOptions{Enabled: true, Severity: "warning"},
+				SOEMetricStale:      SOERuleOptions{Enabled: true, Severity: "warning"},
+				SOERecovery:         SOERuleOptions{Enabled: true, Severity: "info"},
 			},
 		},
 		Database: DatabaseOptions{

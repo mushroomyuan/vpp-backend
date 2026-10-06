@@ -53,7 +53,7 @@ func (s *Server) GetPoint(ctx context.Context, req *resourcepb.GetPointRequest) 
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
-	out, err := PointToProto(p.Point)
+	out, err := PointToProto(p)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -94,7 +94,7 @@ func (s *Server) ListPoints(ctx context.Context, req *resourcepb.ListPointsReque
 
 	points := make([]*resourcepb.Point, 0, len(result.Items))
 	for _, item := range result.Items {
-		pb, err := PointToProto(item.Point)
+		pb, err := PointToProto(item)
 		if err != nil {
 			return nil, toGRPCError(err)
 		}

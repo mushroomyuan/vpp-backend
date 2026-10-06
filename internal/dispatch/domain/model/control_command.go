@@ -25,8 +25,8 @@ type ControlCommand struct {
 
 	CUCode string
 	// PointKey is the gateway ExecuteCommandRequest.point_key wire field.
-	// This round it carries a canonical MetricID string. Gateway forwards that
-	// string unchanged and does not translate external addresses.
+	// It carries a canonical MetricID. Gateway inverse-converts it to the
+	// device external address before the command leaves the platform.
 	PointKey string
 
 	Value CommandValue

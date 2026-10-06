@@ -10,17 +10,16 @@ import (
 
 const (
 	// dispatchFingerprintSchema and soeFingerprintSchema each prefix their own
-	// hex digest so a future aggregation change (e.g. whole-CU) can introduce
-	// v2 without colliding with v1 rows. They are separate constants — not one
-	// shared value — on purpose: bumping SOE's aggregation algorithm must
-	// never touch, or be coupled to, dispatch's fingerprint version (and vice
-	// versa), even though both currently read "v1:".
+	// hex digest so a future aggregation change can introduce a new version
+	// without colliding with existing rows. They are separate constants on
+	// purpose: SOE is v2 because the key is canonical metric_id plus kind.
+	// Dispatch stays v1.
 	dispatchFingerprintSchema = "v1:"
-	soeFingerprintSchema      = "v1:"
-	soeEventIDSchema          = "soe:v1:"
+	soeFingerprintSchema      = "v2:"
+	soeEventIDSchema          = "soe:v2:"
 
 	// unitSep is ASCII unit separator. Do not replace with "|" — cu_code /
-	// metric_name / task_id may contain that character, and concatenating
+	// metric_id / task_id may contain that character, and concatenating
 	// without a separator makes cu="AB",metric="C" collide with cu="A",metric="BC".
 	unitSep = "\x1f"
 )
@@ -34,23 +33,31 @@ func FingerprintDispatch(tenantID, taskID, eventID string) string {
 	return dispatchFingerprintSchema + hashCanonical(string(SourceDispatch), tenantID, taskID, eventID)
 }
 
-// FingerprintSOE is the v1 open-ticket key for a discrete point.
-// Time and values are intentionally excluded so repeated changes on the same
-// point merge while the ticket is not closed.
-func FingerprintSOE(tenantID, cuCode, metricName string) string {
-	return soeFingerprintSchema + hashCanonical(string(SourceSOE), tenantID, cuCode, metricName)
+// FingerprintSOE is the v2 open-ticket key for one canonical metric and one
+// SOE kind. Time and values are excluded so repeated facts of the same kind
+// merge while the ticket is not closed. Kind is included so a quality fault,
+// a stale observation, a recovery, and a discrete change do not share a ticket.
+// The v2 prefix is explicit: v1 hashed a free-text metric name.
+func FingerprintSOE(tenantID, cuCode, metricID, kind string) string {
+	return soeFingerprintSchema + hashCanonical(string(SourceSOE), kind, tenantID, cuCode, metricID)
 }
 
 // SOEEventID synthesizes a stable id for a flat SOE message (no Envelope).
-// Same displacement replayed → same id; different time or values → different id.
-func SOEEventID(tenantID, cuCode, metricName string, occurredAt time.Time, oldValue, newValue float64) string {
+// The same canonical fact replayed produces the same id.
+func SOEEventID(tenantID, cuCode, metricID, kind string, observedAt time.Time, quality string, value float64, previous *float64) string {
+	prev := ""
+	if previous != nil {
+		prev = FormatFloat(*previous)
+	}
 	return soeEventIDSchema + hashCanonical(
 		tenantID,
 		cuCode,
-		metricName,
-		occurredAt.UTC().Format(time.RFC3339Nano),
-		FormatFloat(oldValue),
-		FormatFloat(newValue),
+		metricID,
+		kind,
+		observedAt.UTC().Format(time.RFC3339Nano),
+		quality,
+		FormatFloat(value),
+		prev,
 	)
 }
 

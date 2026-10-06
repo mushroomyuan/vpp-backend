@@ -58,7 +58,7 @@ func TestExternalTelemetry_Validate(t *testing.T) {
 	valid := &ExternalTelemetry{
 		TenantID: "t", ExternalSystem: "ems", ExternalID: "d1",
 		Timestamp: time.Now(),
-		Metrics:   []ExternalMetric{{Name: "p", Value: 1}},
+		Metrics:   []ExternalMetric{{ExternalAddress: "p", Value: 1}},
 	}
 	if err := valid.Validate(); err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func TestExternalTelemetry_Validate(t *testing.T) {
 		{"id", func(e *ExternalTelemetry) { e.ExternalID = "" }, "external_id"},
 		{"ts", func(e *ExternalTelemetry) { e.Timestamp = time.Time{} }, "timestamp"},
 		{"metrics", func(e *ExternalTelemetry) { e.Metrics = nil }, "metric"},
-		{"metric name", func(e *ExternalTelemetry) { e.Metrics = []ExternalMetric{{Name: " "}} }, "metric name"},
+		{"address", func(e *ExternalTelemetry) { e.Metrics = []ExternalMetric{{ExternalAddress: " "}} }, "external_address"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -94,7 +94,7 @@ func TestStandardTelemetry_Validate(t *testing.T) {
 	t.Parallel()
 	valid := &StandardTelemetry{
 		TenantID: "t", CUCode: "cu", Timestamp: time.Now(),
-		Metrics: []MetricValue{{Name: "p", Value: 1, Type: MetricTypeAnalog, Quality: QualityGood}},
+		Metrics: []MetricValue{{MetricID: "p", Value: 1, Type: MetricTypeAnalog, Quality: QualityGood}},
 	}
 	if err := valid.Validate(); err != nil {
 		t.Fatal(err)

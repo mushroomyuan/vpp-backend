@@ -32,8 +32,24 @@ alarm:
     soe-discrete-change:
       enabled: true
       severity: warning
-      # Empty = all SOE metric names.
-      metric-names: []
+      # Empty = every registered canonical metric. Listed IDs must exist in api/contracts.
+      metric-ids: []
+    soe-quality-bad:
+      enabled: true
+      severity: critical
+      metric-ids: []
+    soe-quality-uncertain:
+      enabled: true
+      severity: warning
+      metric-ids: []
+    soe-metric-stale:
+      enabled: true
+      severity: warning
+      metric-ids: []
+    soe-recovery:
+      enabled: true
+      severity: info
+      metric-ids: []
 
 database:
   driver: postgres

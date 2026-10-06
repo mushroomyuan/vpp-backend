@@ -9,6 +9,7 @@ import (
 	"github.com/segmentio/kafka-go"
 	"github.com/sirupsen/logrus"
 
+	telEvent "github.com/mushroomyuan/vpp-backend/platform/event/telemetry"
 	"github.com/mushroomyuan/vpp-backend/platform/logging"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/model"
 	"github.com/mushroomyuan/vpp-backend/telemetry/domain/port"
@@ -64,16 +65,19 @@ func NewEventPublisher(cfg Config) *EventPublisher {
 }
 
 // soePayload is the JSON body sent to Kafka. Tags must stay identical to
-// platform/event/telemetry.SOEPayload (the consumer-side contract). The
-// producer still marshals this local type so the wire format cannot drift
-// from a platform change without an explicit edit here.
+// platform/event/telemetry.SOEPayload. The producer marshals this local type
+// so the wire format cannot drift from a platform change without an explicit
+// edit here.
 type soePayload struct {
-	TenantID   string    `json:"tenant_id"`
-	CUCode     string    `json:"cu_code"`
-	MetricName string    `json:"metric_name"`
-	OldValue   float64   `json:"old_value"`
-	NewValue   float64   `json:"new_value"`
-	OccurredAt time.Time `json:"occurred_at"`
+	SchemaVersion string    `json:"schema_version"`
+	TenantID      string    `json:"tenant_id"`
+	CUCode        string    `json:"cu_code"`
+	MetricID      string    `json:"metric_id"`
+	Kind          string    `json:"kind"`
+	Quality       string    `json:"quality"`
+	Value         float64   `json:"value"`
+	PreviousValue *float64  `json:"previous_value,omitempty"`
+	ObservedAt    time.Time `json:"observed_at"`
 }
 
 // PublishSOE publishes one SOE event. When Kafka is not configured it logs at
@@ -81,23 +85,27 @@ type soePayload struct {
 func (p *EventPublisher) PublishSOE(ctx context.Context, event *model.SOEEvent) error {
 	if p.writer == nil {
 		logging.Debugf(ctx, logrus.Fields{
-			"component":   "SOEEventPublisher",
-			"tenant_id":   event.TenantID,
-			"cu_code":     event.CUCode,
-			"metric_name": event.MetricName,
-			"old_value":   event.OldValue,
-			"new_value":   event.NewValue,
+			"component": "SOEEventPublisher",
+			"tenant_id": event.TenantID,
+			"cu_code":   event.CUCode,
+			"metric_id": event.MetricID,
+			"kind":      event.Kind,
+			"quality":   event.Quality,
+			"value":     event.Value,
 		}, "kafka not configured — SOE event dropped")
 		return nil
 	}
 
 	payload, err := json.Marshal(soePayload{
-		TenantID:   event.TenantID,
-		CUCode:     event.CUCode,
-		MetricName: event.MetricName,
-		OldValue:   event.OldValue,
-		NewValue:   event.NewValue,
-		OccurredAt: event.Timestamp,
+		SchemaVersion: telEvent.SchemaVersionV2,
+		TenantID:      event.TenantID,
+		CUCode:        event.CUCode,
+		MetricID:      event.MetricID,
+		Kind:          event.Kind,
+		Quality:       string(event.Quality),
+		Value:         event.Value,
+		PreviousValue: event.PreviousValue,
+		ObservedAt:    event.ObservedAt,
 	})
 	if err != nil {
 		return fmt.Errorf("marshal SOE event: %w", err)

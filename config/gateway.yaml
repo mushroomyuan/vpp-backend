@@ -44,6 +44,22 @@ database:
   conn-max-lifetime-seconds: 1800
   conn-max-idle-time-seconds: 300
 
+resource-grpc:
+  addr: 127.0.0.1:5002
+  timeout: 5s
+  circuit-breaker:
+    enabled: false
+    consecutive-failures: 5
+    min-requests: 10
+    failure-ratio: 0.5
+    open-timeout: 30s
+
+# CU point bindings. Events drop a copy; the next read lists it from Resource.
+# ttl reuses a successful list. max-age is how long that copy survives a Resource failure.
+binding-cache:
+  ttl: 30s
+  max-age: 5m
+
 telemetry-grpc:
   addr: 127.0.0.1:5003
   # Outbound-call timeout to telemetry; fills the gap when a call has no

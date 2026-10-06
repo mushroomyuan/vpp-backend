@@ -99,9 +99,7 @@ func mapMetrics(in []model.MetricValue) []*telemetrypb.MetricValue {
 	out := make([]*telemetrypb.MetricValue, 0, len(in))
 	for _, m := range in {
 		out = append(out, &telemetrypb.MetricValue{
-			// Name is the opaque string Gateway received. Telemetry accepts only
-			// a canonical MetricID; this adapter does not translate addresses.
-			MetricID: m.Name,
+			MetricID: m.MetricID,
 			Value:    m.Value,
 			Type:     mapMetricType(m.Type),
 			Quality:  mapQuality(m.Quality),

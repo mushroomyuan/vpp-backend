@@ -55,8 +55,10 @@ import (
 	gatewayemslog "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/ems_log"
 	gatewaykafkaout "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/kafka"
 	gatewaypg "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/postgres"
+	gatewayresourcegrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/resource_grpc"
 	gatewaytelemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
 	gatewayapp "github.com/mushroomyuan/vpp-backend/gateway/application"
+	gatewaybinding "github.com/mushroomyuan/vpp-backend/gateway/domain/binding"
 	gatewayinfrapg "github.com/mushroomyuan/vpp-backend/gateway/infrastructure/persistent/postgres"
 
 	resourcekafkaout "github.com/mushroomyuan/vpp-backend/resource/adapter/outbound/kafka"
@@ -116,6 +118,10 @@ type env struct {
 	Policies  decisionapp.Application
 	Cycle     *decisioncommand.RunDecisionCycle
 	Execution *decisioncommand.PlanExecutionLoop
+
+	// SentCommands is the device adapter Gateway used. Tests read the address
+	// and raw value that left the platform after inverse conversion.
+	SentCommands *recordingEMS
 }
 
 var sharedEnv *env
@@ -248,7 +254,28 @@ func buildEnv() (*env, func(), error) {
 	}
 	closers = append(closers, func() { _ = telemetryClient.Close() })
 
-	// --- Gateway application (mapping repo + log-only EMS + real telemetry gRPC client + real Kafka publisher) ---
+	// Resource starts before Gateway so uplink can list point bindings.
+	resourceApp, resourceDial, resourceClosers, err := startResource(ctx)
+	if err != nil {
+		return fail(fmt.Errorf("start resource: %w", err))
+	}
+	closers = append(closers, resourceClosers...)
+
+	gatewayResource, err := gatewayresourcegrpc.NewClient(gatewayresourcegrpc.Config{
+		Addr:        "passthrough:///bufresource-gateway",
+		DialOptions: []grpc.DialOption{grpc.WithContextDialer(resourceDial)},
+	})
+	if err != nil {
+		return fail(fmt.Errorf("dial resource for gateway: %w", err))
+	}
+	closers = append(closers, func() { _ = gatewayResource.Close() })
+	bindingCache := gatewaybinding.NewCache(gatewaybinding.CacheConfig{
+		Catalog: gatewayResource,
+		TTL:     time.Second,
+		MaxAge:  5 * time.Second,
+	})
+
+	// --- Gateway application (mapping repo + binding cache + log-only EMS + real telemetry gRPC client + real Kafka publisher) ---
 	gwPG := gatewayinfrapg.NewPostgres(platformpostgres.Config{DSN: gatewayDSN})
 	mappingRepo := gatewaypg.NewMappingRepositoryPostgres(gatewayinfrapg.NewMappingRepository(gwPG))
 	commandEvents := gatewaykafkaout.NewCommandEventPublisher(gatewaykafkaout.CommandEventPublisherConfig{
@@ -257,10 +284,12 @@ func buildEnv() (*env, func(), error) {
 	})
 	closers = append(closers, func() { _ = commandEvents.Close() })
 
+	sentCommands := &recordingEMS{next: gatewayemslog.NewEMSLogClient()}
 	gatewayApplication := gatewayapp.NewApplication(gatewayapp.Dependencies{
 		MappingRepo:     mappingRepo,
+		Bindings:        bindingCache,
 		TelemetryClient: telemetryClient,
-		EMSClient:       gatewayemslog.NewEMSLogClient(),
+		EMSClient:       sentCommands,
 		CommandEvents:   commandEvents,
 		Metrics:         noopMetrics{},
 	})
@@ -269,7 +298,7 @@ func buildEnv() (*env, func(), error) {
 	lifecycleConsumer := gatewaylifecyclekafka.NewLifecycleConsumer(
 		gatewaylifecyclekafka.LifecycleConsumerConfig{Brokers: brokers, Topic: resourceTopic, GroupID: "it-gateway-lifecycle"},
 		gatewayApplication.Commands.DisableMappingByCUCode,
-		nil,
+		bindingCache,
 	)
 	lifecycleCtx, cancelLifecycle := context.WithCancel(context.Background())
 	go func() { _ = lifecycleConsumer.Run(lifecycleCtx) }()
@@ -345,6 +374,8 @@ func buildEnv() (*env, func(), error) {
 	chain, chainClosers, err := startDecisionChain(ctx, decisionChainInput{
 		TelemetryDial: telemetryBufDialer,
 		Dispatch:      dispatchApplication,
+		Resource:      resourceApp,
+		ResourceDial:  resourceDial,
 	})
 	if err != nil {
 		return fail(fmt.Errorf("start decision chain: %w", err))
@@ -361,6 +392,7 @@ func buildEnv() (*env, func(), error) {
 		Policies:       chain.Policies,
 		Cycle:          chain.Cycle,
 		Execution:      chain.Execution,
+		SentCommands:   sentCommands,
 	}, teardown, nil
 }
 

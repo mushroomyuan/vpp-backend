@@ -20,15 +20,31 @@ func TestSOEHandle_Ingest(t *testing.T) {
 	h := &stubIngest{res: &command.IngestEventResult{Outcome: command.OutcomeOK, AlarmID: "a1"}}
 	c := &SOEConsumer{handler: h}
 	body, _ := json.Marshal(telEvent.SOEPayload{
-		TenantID: "t1", CUCode: "cu", MetricName: "brk",
-		OldValue: 0, NewValue: 1, OccurredAt: time.Unix(5, 0).UTC(),
+		SchemaVersion: telEvent.SchemaVersionV2,
+		TenantID:      "t1", CUCode: "cu", MetricID: "electrical.active_power.v1",
+		Kind: telEvent.KindDiscreteChange, Quality: telEvent.QualityGood,
+		Value: 1, ObservedAt: time.Unix(5, 0).UTC(),
 	})
 	class := c.handleMessage(context.Background(), kafka.Message{Value: body})
 	if class.Result != ResultOK || !class.Commit {
 		t.Fatalf("%+v", class)
 	}
-	if len(h.calls) != 1 || h.calls[0].Incoming.CUCode != "cu" || h.calls[0].Incoming.EventID != "" {
+	if len(h.calls) != 1 || h.calls[0].Incoming.CUCode != "cu" || h.calls[0].Incoming.MetricID != "electrical.active_power.v1" || h.calls[0].Incoming.EventID != "" {
 		t.Fatalf("%+v", h.calls)
+	}
+}
+
+func TestSOEHandle_RetiredSchemaIsPoison(t *testing.T) {
+	t.Parallel()
+	h := &stubIngest{}
+	c := &SOEConsumer{handler: h}
+	body := []byte(`{"tenant_id":"t1","cu_code":"cu","metric_name":"switch_pos","old_value":0,"new_value":1,"occurred_at":"2026-08-19T01:02:03Z"}`)
+	class := c.handleMessage(context.Background(), kafka.Message{Value: body})
+	if class.Result != ResultPoison || class.Reason != ReasonDecode || !class.Commit {
+		t.Fatalf("%+v", class)
+	}
+	if len(h.calls) != 0 {
+		t.Fatal("v1 payload must not be dual-read")
 	}
 }
 
@@ -54,8 +70,10 @@ func TestSOEHandle_RecordsIngestMetric(t *testing.T) {
 	}
 	c := &SOEConsumer{handler: &stubIngest{res: &command.IngestEventResult{Outcome: command.OutcomeOK, AlarmID: "a1"}}, metrics: m}
 	body, _ := json.Marshal(telEvent.SOEPayload{
-		TenantID: "t1", CUCode: "cu", MetricName: "brk",
-		OldValue: 0, NewValue: 1, OccurredAt: time.Unix(5, 0).UTC(),
+		SchemaVersion: telEvent.SchemaVersionV2,
+		TenantID:      "t1", CUCode: "cu", MetricID: "electrical.active_power.v1",
+		Kind: telEvent.KindDiscreteChange, Quality: telEvent.QualityGood,
+		Value: 1, ObservedAt: time.Unix(5, 0).UTC(),
 	})
 	class := c.handleMessage(context.Background(), kafka.Message{Value: body})
 	if class.Result != ResultOK {

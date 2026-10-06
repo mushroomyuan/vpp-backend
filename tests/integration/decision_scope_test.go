@@ -25,11 +25,12 @@ import (
 // TestDecision_CUAssetSiteCanonicalLoop is the cutover acceptance for Decision.
 //
 // One site holds two assets. The first asset mixes two storage CUs with a PV CU.
-// The second asset holds one more storage CU. Simulator devices emit canonical
-// MetricIDs. Gateway forwards those names unchanged. Decision then persists one
-// Objective and Plan per CU, Asset, and Site policy, and Dispatch receives one
-// task per plan. The asset and site tasks each contain every storage CU in that
-// scope and none of the PV CU.
+// The second asset holds one more storage CU. Simulator samples use the point
+// external address, which in this fixture equals the canonical MetricID with
+// scale 1. Gateway converts through the CU binding before Telemetry. Decision
+// then persists one Objective and Plan per CU, Asset, and Site policy, and
+// Dispatch receives one task per plan. The asset and site tasks each contain
+// every storage CU in that scope and none of the PV CU.
 func TestDecision_CUAssetSiteCanonicalLoop(t *testing.T) {
 	e := sharedEnv
 	ctx := context.Background()
@@ -242,7 +243,7 @@ func publishSimulatorSnapshot(ctx context.Context, e *env, tenantID, externalSys
 	snapshot := device.Snapshot()
 	metrics := make([]gatewaymodel.ExternalMetric, 0, len(snapshot))
 	for _, point := range snapshot {
-		metrics = append(metrics, gatewaymodel.ExternalMetric{Name: point.PointKey, Value: point.Value})
+		metrics = append(metrics, gatewaymodel.ExternalMetric{ExternalAddress: point.PointKey, Value: point.Value})
 	}
 	_, err := e.Gateway.Commands.ReceiveTelemetry.Handle(ctx, gatewaycommand.ReceiveTelemetry{
 		Telemetry: &gatewaymodel.ExternalTelemetry{

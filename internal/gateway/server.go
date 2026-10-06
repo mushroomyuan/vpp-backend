@@ -24,10 +24,12 @@ import (
 	emslog "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/ems_log"
 	kafkapub "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/kafka"
 	adapterpostgres "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/postgres"
+	resourcegrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/resource_grpc"
 	"github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/simulator"
 	telemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
 	"github.com/mushroomyuan/vpp-backend/gateway/application"
 	"github.com/mushroomyuan/vpp-backend/gateway/config"
+	"github.com/mushroomyuan/vpp-backend/gateway/domain/binding"
 	infrapg "github.com/mushroomyuan/vpp-backend/gateway/infrastructure/persistent/postgres"
 	"github.com/mushroomyuan/vpp-backend/platform/authn/casdoor"
 	"github.com/mushroomyuan/vpp-backend/platform/authz"
@@ -43,6 +45,7 @@ type gatewayServer struct {
 	metricsClient         *metrics.Client
 	metricsCancel         context.CancelFunc
 	telemetryClient       *telemetrygrpc.TelemetryGRPCClient
+	resourceClient        *resourcegrpc.Client
 	lifecycleConsumer     *kafkasub.LifecycleConsumer
 	commandEventPublisher *kafkapub.CommandEventPublisher
 	authzSyncer           *authz.Syncer
@@ -59,6 +62,7 @@ func createServer(
 	appCfg *config.Config,
 	dbCfg platformpostgres.Config,
 	telemetryCfg telemetrygrpc.Config,
+	resourceCfg resourcegrpc.Config,
 	simulatorCfg simulator.Config,
 ) (*gatewayServer, error) {
 	cfg := appCfg
@@ -91,6 +95,17 @@ func createServer(
 		metricsCancel()
 		return nil, fmt.Errorf("init telemetry gRPC client: %w", err)
 	}
+	resourceClient, err := resourcegrpc.NewClient(resourceCfg)
+	if err != nil {
+		metricsCancel()
+		_ = telemetryClient.Close()
+		return nil, fmt.Errorf("init resource gRPC client: %w", err)
+	}
+	bindingCache := binding.NewCache(binding.CacheConfig{
+		Catalog: resourceClient,
+		TTL:     cfg.BindingCacheTTL,
+		MaxAge:  cfg.BindingCacheMaxAge,
+	})
 
 	defaultClient := emslog.NewEMSLogClient()
 	var simClient *simulator.Client
@@ -99,6 +114,7 @@ func createServer(
 		if err != nil {
 			metricsCancel()
 			_ = telemetryClient.Close()
+			_ = resourceClient.Close()
 			return nil, fmt.Errorf("init simulator client: %w", err)
 		}
 		simClient = c
@@ -112,6 +128,7 @@ func createServer(
 
 	app := application.NewApplication(application.Dependencies{
 		MappingRepo:     mappingRepo,
+		Bindings:        bindingCache,
 		TelemetryClient: telemetryClient,
 		EMSClient:       emsClient,
 		CommandEvents:   commandEventPublisher,
@@ -125,6 +142,7 @@ func createServer(
 			GroupID: appCfg.Kafka.GroupID,
 		},
 		app.Commands.DisableMappingByCUCode,
+		bindingCache,
 	)
 
 	gatewaySvc := grpcpkg.NewServer(app)
@@ -144,6 +162,7 @@ func createServer(
 		if err != nil {
 			metricsCancel()
 			_ = telemetryClient.Close()
+			_ = resourceClient.Close()
 			return nil, fmt.Errorf("wire authz: %w", err)
 		}
 		permissionChecker = wired.checker
@@ -172,6 +191,7 @@ func createServer(
 		metricsClient:         metricsClient,
 		metricsCancel:         metricsCancel,
 		telemetryClient:       telemetryClient,
+		resourceClient:        resourceClient,
 		lifecycleConsumer:     lifecycleConsumer,
 		commandEventPublisher: commandEventPublisher,
 		authzSyncer:           authzSyncer,
@@ -335,6 +355,9 @@ func (s *preparedServer) Run() error {
 		}
 		if err := s.telemetryClient.Close(); err != nil {
 			logrus.WithError(err).Warn("telemetry gRPC client close error")
+		}
+		if err := s.resourceClient.Close(); err != nil {
+			logrus.WithError(err).Warn("resource gRPC client close error")
 		}
 		if err := s.lifecycleConsumer.Close(); err != nil {
 			logrus.WithError(err).Warn("lifecycle consumer close error")

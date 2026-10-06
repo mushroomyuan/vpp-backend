@@ -71,6 +71,7 @@ func (h updatePointHandler) Handle(ctx context.Context, cmd UpdatePoint) (struct
 			Payload: platEvent.PointUpdatedPayload{
 				PointID:  cmd.ID,
 				TenantID: cmd.TenantID,
+				CUID:     point.CUID,
 				MetricID: cmd.MetricID,
 				Revision: point.Revision,
 			},

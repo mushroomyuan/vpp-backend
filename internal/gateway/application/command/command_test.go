@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mushroomyuan/vpp-backend/api/contracts"
 	"github.com/mushroomyuan/vpp-backend/gateway/domain"
+	"github.com/mushroomyuan/vpp-backend/gateway/domain/binding"
 	"github.com/mushroomyuan/vpp-backend/gateway/domain/model"
 	"github.com/mushroomyuan/vpp-backend/gateway/domain/port"
 )
@@ -50,6 +52,25 @@ func (r *stubMappingRepo) GetByCUCode(context.Context, string, string) (*model.D
 		return nil, r.getCUErr
 	}
 	return r.byCU, nil
+}
+
+type stubBindings struct {
+	snap   binding.Snapshot
+	origin string
+	err    error
+	n      int
+}
+
+func (s *stubBindings) Load(context.Context, string, string) (binding.Snapshot, string, error) {
+	s.n++
+	if s.err != nil {
+		return binding.Snapshot{}, "", s.err
+	}
+	origin := s.origin
+	if origin == "" {
+		origin = binding.OriginFresh
+	}
+	return s.snap, origin, nil
 }
 
 type stubTelemetryClient struct {
@@ -108,20 +129,38 @@ func activeMapping() *model.DeviceMapping {
 func TestReceiveTelemetry(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
+	bindings := binding.Snapshot{Bindings: []binding.Binding{{
+		PointID: "p1", MetricID: string(contracts.MetricElectricalActivePower),
+		ExternalAddress: "HOLDING_40001", AccessMode: binding.AccessRead,
+		Scale: 0.5, Offset: 0.5, Enabled: true, Revision: 1,
+	}}}
+	sample := func(metrics ...model.ExternalMetric) *model.ExternalTelemetry {
+		if metrics == nil {
+			metrics = []model.ExternalMetric{{ExternalAddress: "HOLDING_40001", Value: 24}}
+		}
+		return &model.ExternalTelemetry{
+			TenantID: "tenant", ExternalSystem: "ems-sg", ExternalID: "dev-1",
+			Timestamp: time.Unix(1700000000, 0).UTC(),
+			Metrics:   metrics,
+		}
+	}
 
-	t.Run("success translates to standard", func(t *testing.T) {
+	t.Run("converts known and isolates unknown", func(t *testing.T) {
 		t.Parallel()
 		repo := &stubMappingRepo{byExternal: activeMapping()}
 		tel := &stubTelemetryClient{}
-		h := receiveTelemetryHandler{mappingRepo: repo, telemetryClient: tel}
+		src := &stubBindings{snap: bindings}
+		h := receiveTelemetryHandler{mappingRepo: repo, bindings: src, telemetryClient: tel}
 
-		_, err := h.Handle(ctx, ReceiveTelemetry{Telemetry: &model.ExternalTelemetry{
-			TenantID: "tenant", ExternalSystem: "ems-sg", ExternalID: "dev-1",
-			Timestamp: time.Unix(1700000000, 0).UTC(),
-			Metrics:   []model.ExternalMetric{{Name: "power", Value: 12.5}},
-		}})
+		res, err := h.Handle(ctx, ReceiveTelemetry{Telemetry: sample(
+			model.ExternalMetric{ExternalAddress: "HOLDING_40001", Value: 24},
+			model.ExternalMetric{ExternalAddress: "NOT_A_POINT", Value: 9},
+		)})
 		if err != nil {
 			t.Fatal(err)
+		}
+		if res.Accepted != 1 || res.Isolated != 1 {
+			t.Fatalf("result = %+v", res)
 		}
 		if tel.n != 1 || tel.last == nil {
 			t.Fatal("Ingest not called")
@@ -130,6 +169,7 @@ func TestReceiveTelemetry(t *testing.T) {
 			t.Fatalf("mapped fields: %+v", tel.last)
 		}
 		if len(tel.last.Metrics) != 1 ||
+			tel.last.Metrics[0].MetricID != string(contracts.MetricElectricalActivePower) ||
 			tel.last.Metrics[0].Type != model.MetricTypeAnalog ||
 			tel.last.Metrics[0].Quality != model.QualityGood ||
 			tel.last.Metrics[0].Value != 12.5 {
@@ -137,12 +177,42 @@ func TestReceiveTelemetry(t *testing.T) {
 		}
 	})
 
+	t.Run("all unknown skips telemetry", func(t *testing.T) {
+		t.Parallel()
+		tel := &stubTelemetryClient{}
+		h := receiveTelemetryHandler{
+			mappingRepo:     &stubMappingRepo{byExternal: activeMapping()},
+			bindings:        &stubBindings{snap: bindings},
+			telemetryClient: tel,
+		}
+		res, err := h.Handle(ctx, ReceiveTelemetry{Telemetry: sample(
+			model.ExternalMetric{ExternalAddress: "NOT_A_POINT", Value: 1},
+		)})
+		if err != nil || res.Accepted != 0 || res.Isolated != 1 || tel.n != 0 {
+			t.Fatalf("err=%v res=%+v ingest=%d", err, res, tel.n)
+		}
+	})
+
+	t.Run("binding load failure does not pass through", func(t *testing.T) {
+		t.Parallel()
+		tel := &stubTelemetryClient{}
+		h := receiveTelemetryHandler{
+			mappingRepo:     &stubMappingRepo{byExternal: activeMapping()},
+			bindings:        &stubBindings{err: errors.New("resource down")},
+			telemetryClient: tel,
+		}
+		if _, err := h.Handle(ctx, ReceiveTelemetry{Telemetry: sample()}); err == nil || tel.n != 0 {
+			t.Fatalf("err=%v ingest=%d", err, tel.n)
+		}
+	})
+
 	t.Run("invalid input", func(t *testing.T) {
 		t.Parallel()
-		h := receiveTelemetryHandler{mappingRepo: &stubMappingRepo{}, telemetryClient: &stubTelemetryClient{}}
+		src := &stubBindings{}
+		h := receiveTelemetryHandler{mappingRepo: &stubMappingRepo{}, bindings: src, telemetryClient: &stubTelemetryClient{}}
 		_, err := h.Handle(ctx, ReceiveTelemetry{Telemetry: &model.ExternalTelemetry{}})
-		if err == nil {
-			t.Fatal("want validation error")
+		if err == nil || src.n != 0 {
+			t.Fatal("want validation error before binding load")
 		}
 	})
 
@@ -150,13 +220,14 @@ func TestReceiveTelemetry(t *testing.T) {
 		t.Parallel()
 		repo := &stubMappingRepo{getExtErr: domain.ErrMappingNotFound}
 		tel := &stubTelemetryClient{}
-		h := receiveTelemetryHandler{mappingRepo: repo, telemetryClient: tel}
+		src := &stubBindings{}
+		h := receiveTelemetryHandler{mappingRepo: repo, bindings: src, telemetryClient: tel}
 		_, err := h.Handle(ctx, ReceiveTelemetry{Telemetry: &model.ExternalTelemetry{
 			TenantID: "t", ExternalSystem: "s", ExternalID: "e",
-			Timestamp: time.Now(), Metrics: []model.ExternalMetric{{Name: "p", Value: 1}},
+			Timestamp: time.Now(), Metrics: []model.ExternalMetric{{ExternalAddress: "p", Value: 1}},
 		}})
-		if !errors.Is(err, domain.ErrMappingNotFound) || tel.n != 0 {
-			t.Fatalf("err=%v ingest=%d", err, tel.n)
+		if !errors.Is(err, domain.ErrMappingNotFound) || tel.n != 0 || src.n != 0 {
+			t.Fatalf("err=%v ingest=%d loads=%d", err, tel.n, src.n)
 		}
 	})
 
@@ -166,11 +237,8 @@ func TestReceiveTelemetry(t *testing.T) {
 		m.Status = model.MappingStatusDisabled
 		repo := &stubMappingRepo{byExternal: m}
 		tel := &stubTelemetryClient{}
-		h := receiveTelemetryHandler{mappingRepo: repo, telemetryClient: tel}
-		_, err := h.Handle(ctx, ReceiveTelemetry{Telemetry: &model.ExternalTelemetry{
-			TenantID: "tenant", ExternalSystem: "ems-sg", ExternalID: "dev-1",
-			Timestamp: time.Now(), Metrics: []model.ExternalMetric{{Name: "p", Value: 1}},
-		}})
+		h := receiveTelemetryHandler{mappingRepo: repo, bindings: &stubBindings{}, telemetryClient: tel}
+		_, err := h.Handle(ctx, ReceiveTelemetry{Telemetry: sample()})
 		if !errors.Is(err, domain.ErrMappingDisabled) || tel.n != 0 {
 			t.Fatalf("err=%v ingest=%d", err, tel.n)
 		}
@@ -180,15 +248,20 @@ func TestReceiveTelemetry(t *testing.T) {
 		t.Parallel()
 		repo := &stubMappingRepo{byExternal: activeMapping()}
 		tel := &stubTelemetryClient{err: errors.New("downstream")}
-		h := receiveTelemetryHandler{mappingRepo: repo, telemetryClient: tel}
-		_, err := h.Handle(ctx, ReceiveTelemetry{Telemetry: &model.ExternalTelemetry{
-			TenantID: "tenant", ExternalSystem: "ems-sg", ExternalID: "dev-1",
-			Timestamp: time.Now(), Metrics: []model.ExternalMetric{{Name: "p", Value: 1}},
-		}})
+		h := receiveTelemetryHandler{mappingRepo: repo, bindings: &stubBindings{snap: bindings}, telemetryClient: tel}
+		_, err := h.Handle(ctx, ReceiveTelemetry{Telemetry: sample()})
 		if err == nil {
 			t.Fatal("want error")
 		}
 	})
+}
+
+func writableSetpoint() binding.Snapshot {
+	return binding.Snapshot{Bindings: []binding.Binding{{
+		PointID: "p1", MetricID: string(contracts.MetricElectricalActivePowerSetpoint),
+		ExternalAddress: "REG_SET_P", AccessMode: binding.AccessWrite,
+		Scale: -0.5, Offset: 1, Enabled: true, Revision: 4,
+	}}}
 }
 
 func TestExecuteCommand(t *testing.T) {
@@ -196,13 +269,15 @@ func TestExecuteCommand(t *testing.T) {
 	ctx := context.Background()
 
 	valid := ExecuteCommand{
-		CommandID: "cmd-1", TenantID: "tenant", CUCode: "cu-1", PointKey: "set_power", Value: 10,
+		CommandID: "cmd-1", TenantID: "tenant", CUCode: "cu-1",
+		PointKey: string(contracts.MetricElectricalActivePowerSetpoint), Value: -8,
 	}
 
 	t.Run("validation", func(t *testing.T) {
 		t.Parallel()
+		src := &stubBindings{}
 		h := executeCommandHandler{
-			mappingRepo: &stubMappingRepo{}, emsClient: &stubEMSClient{}, publisher: &stubPublisher{},
+			mappingRepo: &stubMappingRepo{}, bindings: src, emsClient: &stubEMSClient{}, publisher: &stubPublisher{},
 		}
 		for _, cmd := range []ExecuteCommand{
 			{TenantID: "", CUCode: "c", PointKey: "p", CommandID: "i"},
@@ -214,14 +289,19 @@ func TestExecuteCommand(t *testing.T) {
 				t.Fatalf("want error for %+v", cmd)
 			}
 		}
+		if src.n != 0 {
+			t.Fatal("validation should not load bindings")
+		}
 	})
 
-	t.Run("success publishes completed", func(t *testing.T) {
+	t.Run("success sends device address", func(t *testing.T) {
 		t.Parallel()
 		repo := &stubMappingRepo{byCU: activeMapping()}
 		ems := &stubEMSClient{}
 		pub := &stubPublisher{}
-		h := executeCommandHandler{mappingRepo: repo, emsClient: ems, publisher: pub}
+		h := executeCommandHandler{
+			mappingRepo: repo, bindings: &stubBindings{snap: writableSetpoint()}, emsClient: ems, publisher: pub,
+		}
 
 		res, err := h.Handle(ctx, valid)
 		if err != nil {
@@ -230,11 +310,42 @@ func TestExecuteCommand(t *testing.T) {
 		if res.ExternalSystem != "ems-sg" || res.ExternalID != "dev-1" {
 			t.Fatalf("res = %+v", res)
 		}
-		if ems.n != 1 || ems.lastCommand != "set_power" || ems.lastValue != 10 {
-			t.Fatalf("ems = %+v", ems)
+		// canonical -8 with scale -0.5 and offset 1 is raw 18 at REG_SET_P.
+		if ems.n != 1 || ems.lastCommand != "REG_SET_P" || ems.lastValue != 18 {
+			t.Fatalf("ems command=%q value=%v n=%d", ems.lastCommand, ems.lastValue, ems.n)
 		}
 		if pub.n != 1 || !pub.last.Success || pub.last.CommandID != "cmd-1" {
 			t.Fatalf("pub = %+v", pub.last)
+		}
+	})
+
+	t.Run("suspicious binding does not send", func(t *testing.T) {
+		t.Parallel()
+		ems := &stubEMSClient{}
+		pub := &stubPublisher{}
+		cases := []struct {
+			name string
+			src  *stubBindings
+			cmd  ExecuteCommand
+		}{
+			{name: "fallback", src: &stubBindings{snap: writableSetpoint(), origin: binding.OriginFallback}, cmd: valid},
+			{name: "revision", src: &stubBindings{snap: writableSetpoint()}, cmd: ExecuteCommand{
+				CommandID: valid.CommandID, TenantID: valid.TenantID, CUCode: valid.CUCode,
+				PointKey: valid.PointKey, Value: valid.Value, BindingRevision: 3,
+			}},
+			{name: "missing", src: &stubBindings{}, cmd: valid},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				h := executeCommandHandler{
+					mappingRepo: &stubMappingRepo{byCU: activeMapping()},
+					bindings:    tc.src, emsClient: ems, publisher: pub,
+				}
+				_, err := h.Handle(ctx, tc.cmd)
+				if !errors.Is(err, domain.ErrCommandRejected) || ems.n != 0 || pub.n != 0 {
+					t.Fatalf("err=%v ems=%d pub=%d", err, ems.n, pub.n)
+				}
+			})
 		}
 	})
 
@@ -243,6 +354,7 @@ func TestExecuteCommand(t *testing.T) {
 		repo := &stubMappingRepo{byCU: activeMapping()}
 		h := executeCommandHandler{
 			mappingRepo: repo,
+			bindings:    &stubBindings{snap: writableSetpoint()},
 			emsClient:   &stubEMSClient{},
 			publisher:   &stubPublisher{err: errors.New("kafka down")},
 		}
@@ -255,22 +367,36 @@ func TestExecuteCommand(t *testing.T) {
 	t.Run("not found and disabled", func(t *testing.T) {
 		t.Parallel()
 		ems := &stubEMSClient{}
+		src := &stubBindings{}
 		h1 := executeCommandHandler{
 			mappingRepo: &stubMappingRepo{getCUErr: domain.ErrMappingNotFound},
-			emsClient:   ems, publisher: &stubPublisher{},
+			bindings:    src, emsClient: ems, publisher: &stubPublisher{},
 		}
-		if _, err := h1.Handle(ctx, valid); !errors.Is(err, domain.ErrMappingNotFound) || ems.n != 0 {
-			t.Fatalf("not found: err=%v n=%d", err, ems.n)
+		if _, err := h1.Handle(ctx, valid); !errors.Is(err, domain.ErrMappingNotFound) || ems.n != 0 || src.n != 0 {
+			t.Fatalf("not found: err=%v n=%d loads=%d", err, ems.n, src.n)
 		}
 
 		m := activeMapping()
 		m.Disable()
 		h2 := executeCommandHandler{
 			mappingRepo: &stubMappingRepo{byCU: m},
+			bindings:    src, emsClient: ems, publisher: &stubPublisher{},
+		}
+		if _, err := h2.Handle(ctx, valid); !errors.Is(err, domain.ErrMappingDisabled) || src.n != 0 {
+			t.Fatalf("disabled: %v loads=%d", err, src.n)
+		}
+	})
+
+	t.Run("binding load failure does not send", func(t *testing.T) {
+		t.Parallel()
+		ems := &stubEMSClient{}
+		h := executeCommandHandler{
+			mappingRepo: &stubMappingRepo{byCU: activeMapping()},
+			bindings:    &stubBindings{err: errors.New("resource down")},
 			emsClient:   ems, publisher: &stubPublisher{},
 		}
-		if _, err := h2.Handle(ctx, valid); !errors.Is(err, domain.ErrMappingDisabled) {
-			t.Fatalf("disabled: %v", err)
+		if _, err := h.Handle(ctx, valid); err == nil || errors.Is(err, domain.ErrCommandRejected) || ems.n != 0 {
+			t.Fatalf("err=%v ems=%d", err, ems.n)
 		}
 	})
 }

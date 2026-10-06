@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mushroomyuan/vpp-backend/platform/decorator"
+	"github.com/mushroomyuan/vpp-backend/resource/domain/model"
 	"github.com/mushroomyuan/vpp-backend/resource/domain/port"
 )
 
@@ -20,7 +21,7 @@ type ListPoints struct {
 }
 
 type ListPointsResult struct {
-	Items      []*PointView
+	Items      []*model.Point
 	TotalCount int64
 	Offset     int
 	Limit      int
@@ -61,23 +62,8 @@ func (h listPointsHandler) Handle(ctx context.Context, q ListPoints) (*ListPoint
 	if err != nil {
 		return nil, err
 	}
-
-	items := make([]*PointView, 0, len(page.Items))
-	if len(page.Items) == 0 {
-		return &ListPointsResult{
-			Items:      items,
-			TotalCount: page.TotalCount,
-			Offset:     page.Offset,
-			Limit:      page.Limit,
-		}, nil
-	}
-
-	for _, point := range page.Items {
-		items = append(items, &PointView{Point: point})
-	}
-
 	return &ListPointsResult{
-		Items:      items,
+		Items:      page.Items,
 		TotalCount: page.TotalCount,
 		Offset:     page.Offset,
 		Limit:      page.Limit,

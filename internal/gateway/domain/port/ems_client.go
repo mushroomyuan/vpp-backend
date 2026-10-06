@@ -14,6 +14,7 @@ import "context"
 type EMSClient interface {
 	// SendCommand delivers a control command to the external device identified by
 	// (externalSystem, externalID). commandID correlates the request with async
-	// acknowledgements; command is a point key / control token; value is the setpoint.
+	// acknowledgements. command is the device external address and value is the
+	// raw setpoint, both already converted from the canonical metric.
 	SendCommand(ctx context.Context, commandID, externalSystem, externalID, command string, value float64) error
 }

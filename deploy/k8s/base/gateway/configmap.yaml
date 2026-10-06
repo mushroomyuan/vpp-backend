@@ -6,5 +6,6 @@ data:
   GATEWAY_AUTH_AUTHZ_CASDOOR_URL: http://host.docker.internal:8000
   GATEWAY_AUTH_AUTHZ_SNAPSHOT_PATH: /tmp/gateway-authz-snapshot.json
   TELEMETRY_GRPC_ADDR: telemetry.vpp.svc.cluster.local:5003
+  RESOURCE_GRPC_ADDR: resource.vpp.svc.cluster.local:5002
   SIMULATOR_ADDR: http://simulator.vpp.svc.cluster.local:8084
   DATABASE_DBNAME: gateway

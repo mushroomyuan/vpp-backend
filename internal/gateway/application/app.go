@@ -32,6 +32,7 @@ type Queries struct {
 // adapter implementations.
 type Dependencies struct {
 	MappingRepo     port.MappingRepository
+	Bindings        command.PointBindings
 	TelemetryClient port.TelemetryClient
 	EMSClient       port.EMSClient
 	CommandEvents   port.CommandEventPublisher
@@ -43,6 +44,9 @@ type Dependencies struct {
 func NewApplication(deps Dependencies) Application {
 	if deps.MappingRepo == nil {
 		panic("NewApplication: MappingRepo is required")
+	}
+	if deps.Bindings == nil {
+		panic("NewApplication: Bindings is required")
 	}
 	if deps.TelemetryClient == nil {
 		panic("NewApplication: TelemetryClient is required")
@@ -56,9 +60,9 @@ func NewApplication(deps Dependencies) Application {
 
 	return Application{
 		Commands: Commands{
-			ReceiveTelemetry: command.NewReceiveTelemetryHandler(deps.MappingRepo, deps.TelemetryClient, deps.Metrics),
+			ReceiveTelemetry: command.NewReceiveTelemetryHandler(deps.MappingRepo, deps.Bindings, deps.TelemetryClient, deps.Metrics),
 			ExecuteCommand: command.NewExecuteCommandHandler(
-				deps.MappingRepo, deps.EMSClient, deps.CommandEvents, deps.Metrics,
+				deps.MappingRepo, deps.Bindings, deps.EMSClient, deps.CommandEvents, deps.Metrics,
 			),
 			CreateMapping:          command.NewCreateMappingHandler(deps.MappingRepo, deps.Metrics),
 			DeleteMapping:          command.NewDeleteMappingHandler(deps.MappingRepo, deps.Metrics),

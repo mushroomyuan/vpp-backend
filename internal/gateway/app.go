@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	resourcegrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/resource_grpc"
 	"github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/simulator"
 	telemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
 	"github.com/mushroomyuan/vpp-backend/gateway/config"
@@ -65,9 +66,10 @@ func runApp(opts *options.Options) error {
 	appCfg := config.CreateFromOptions(opts)
 	dbCfg := dbConfigFromOptions(opts.Database)
 	telemetryCfg := telemetryConfigFromOptions(opts.TelemetryGRPC)
+	resourceCfg := resourceConfigFromOptions(opts.ResourceGRPC)
 	simulatorCfg := simulatorConfigFromOptions(opts.Simulator)
 
-	return Run(appCfg, dbCfg, telemetryCfg, simulatorCfg)
+	return Run(appCfg, dbCfg, telemetryCfg, resourceCfg, simulatorCfg)
 }
 
 func dbConfigFromOptions(o options.DatabaseOptions) platformpostgres.Config {
@@ -94,6 +96,22 @@ func telemetryConfigFromOptions(o options.TelemetryGRPCOptions) telemetrygrpc.Co
 		Breaker: resilience.NewBreaker[any](resilience.BreakerConfig{
 			Enabled:             o.CircuitBreaker.Enabled,
 			Name:                "gateway->telemetry",
+			ConsecutiveFailures: o.CircuitBreaker.ConsecutiveFailures,
+			MinRequests:         o.CircuitBreaker.MinRequests,
+			FailureRatio:        o.CircuitBreaker.FailureRatio,
+			OpenTimeout:         o.CircuitBreaker.OpenTimeout,
+			IsSuccessful:        resilience.GRPCIsSuccessful,
+		}),
+	}
+}
+
+func resourceConfigFromOptions(o options.ResourceGRPCOptions) resourcegrpc.Config {
+	return resourcegrpc.Config{
+		Addr:    o.Addr,
+		Timeout: o.Timeout,
+		Breaker: resilience.NewBreaker[any](resilience.BreakerConfig{
+			Enabled:             o.CircuitBreaker.Enabled,
+			Name:                "gateway->resource",
 			ConsecutiveFailures: o.CircuitBreaker.ConsecutiveFailures,
 			MinRequests:         o.CircuitBreaker.MinRequests,
 			FailureRatio:        o.CircuitBreaker.FailureRatio,

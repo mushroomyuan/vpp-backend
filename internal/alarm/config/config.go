@@ -52,10 +52,15 @@ type AuthzConfig struct {
 	AllowReadWhenInvalid bool
 }
 
-func CreateFromOptions(opts *options.Options) *Config {
+func CreateFromOptions(opts *options.Options) (*Config, error) {
 	a := opts.Alarm.Auth
 	az := a.Authz
 	authzEnabled := a.TrustProxyHeaders && !az.Disabled
+
+	rules := rulesFromOptions(opts.Alarm.Rules)
+	if err := rules.Validate(); err != nil {
+		return nil, err
+	}
 
 	return &Config{
 		HTTPAddr:          opts.Alarm.HTTPAddr,
@@ -70,7 +75,7 @@ func CreateFromOptions(opts *options.Options) *Config {
 			DispatchGroupID: opts.Kafka.DispatchGroupID,
 			SOEGroupID:      opts.Kafka.SOEGroupID,
 		},
-		Rules:             rulesFromOptions(opts.Alarm.Rules),
+		Rules:             rules,
 		TrustProxyHeaders: a.TrustProxyHeaders,
 		Authz: AuthzConfig{
 			Enabled:              authzEnabled,
@@ -89,7 +94,7 @@ func CreateFromOptions(opts *options.Options) *Config {
 			StaleAfter:           parseDuration(az.StaleAfter, 30*time.Minute),
 			AllowReadWhenInvalid: az.AllowReadWhenInvalid,
 		},
-	}
+	}, nil
 }
 
 func rulesFromOptions(o options.RulesOptions) service.Rules {
@@ -98,12 +103,21 @@ func rulesFromOptions(o options.RulesOptions) service.Rules {
 	if sev, err := model.ParseSeverity(o.DispatchTaskFailed.Severity); err == nil {
 		r.DispatchTaskFailed.Severity = sev
 	}
-	r.SOEDiscreteChange.Enabled = o.SOEDiscreteChange.Enabled
-	if sev, err := model.ParseSeverity(o.SOEDiscreteChange.Severity); err == nil {
-		r.SOEDiscreteChange.Severity = sev
-	}
-	r.SOEDiscreteChange.MetricNames = o.SOEDiscreteChange.MetricNames
+	r.SOEDiscreteChange = applySOERule(r.SOEDiscreteChange, o.SOEDiscreteChange)
+	r.SOEQualityBad = applySOERule(r.SOEQualityBad, o.SOEQualityBad)
+	r.SOEQualityUncertain = applySOERule(r.SOEQualityUncertain, o.SOEQualityUncertain)
+	r.SOEMetricStale = applySOERule(r.SOEMetricStale, o.SOEMetricStale)
+	r.SOERecovery = applySOERule(r.SOERecovery, o.SOERecovery)
 	return r
+}
+
+func applySOERule(base service.SOERule, o options.SOERuleOptions) service.SOERule {
+	base.Enabled = o.Enabled
+	if sev, err := model.ParseSeverity(o.Severity); err == nil {
+		base.Severity = sev
+	}
+	base.MetricIDs = o.MetricIDs
+	return base
 }
 
 func defaultStr(v, def string) string {

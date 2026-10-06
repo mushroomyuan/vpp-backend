@@ -71,9 +71,9 @@ Logging → Metrics → Tracing → 业务 Handler
 | `event/resource` | `vpp.resource.events` | CU/资源生命周期、导入完成等 |
 | `event/gateway` | `vpp.command.events` | `command.completed` |
 | `event/dispatch` | `vpp.dispatch.events` | task started / completed / failed |
-| `event/telemetry` | `vpp.soe.events` | 离散量变位（flat `SOEPayload`，无 Envelope） |
+| `event/telemetry` | `vpp.soe.events` | canonical SOE（flat `SOEPayload` schema v2，无 Envelope） |
 
-通用包装：`event.Envelope[T]`（`event_id` / `event_type` / `version` / `tenant_id` / `occurred_at` / `payload`）。**例外：** SOE 在 v1 仍是 telemetry 生产者发出的扁平 JSON，消费者直接解 `SOEPayload`，不要自行套 Envelope。
+通用包装：`event.Envelope[T]`（`event_id` / `event_type` / `version` / `tenant_id` / `occurred_at` / `payload`）。**例外：** SOE 仍是扁平 JSON。`schema_version` 必须是 `v2`，字段是 canonical `metric_id`、`kind`、`quality`、`value`、`observed_at`。消费者不双读已退役的 `metric_name` 形状。
 
 ### 7. 标识与杂项
 

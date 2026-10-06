@@ -2,11 +2,15 @@ module github.com/mushroomyuan/vpp-backend/alarm
 
 go 1.26.4
 
-replace github.com/mushroomyuan/vpp-backend/platform => ../platform
+replace (
+	github.com/mushroomyuan/vpp-backend/api/contracts => ../../api/contracts
+	github.com/mushroomyuan/vpp-backend/platform => ../platform
+)
 
 require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/jackc/pgx/v5 v5.6.0
+	github.com/mushroomyuan/vpp-backend/api/contracts v0.0.0-00010101000000-000000000000
 	github.com/mushroomyuan/vpp-backend/platform v0.0.0-00010101000000-000000000000
 	github.com/prometheus/client_golang v1.23.0
 	github.com/segmentio/kafka-go v0.4.51

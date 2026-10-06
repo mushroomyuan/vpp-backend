@@ -57,7 +57,7 @@ func testTelemetry() *model.StandardTelemetry {
 		CUCode:    "cu-1",
 		Timestamp: time.Now(),
 		Metrics: []model.MetricValue{
-			{Name: "power_kw", Value: 1.23, Type: model.MetricTypeAnalog, Quality: model.QualityGood},
+			{MetricID: "power_kw", Value: 1.23, Type: model.MetricTypeAnalog, Quality: model.QualityGood},
 		},
 	}
 }

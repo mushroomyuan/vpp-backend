@@ -5,6 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	resourcegrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/resource_grpc"
 	"github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/simulator"
 	telemetrygrpc "github.com/mushroomyuan/vpp-backend/gateway/adapter/outbound/telemetry_grpc"
 	"github.com/mushroomyuan/vpp-backend/gateway/config"
@@ -19,6 +20,7 @@ func Run(
 	appCfg *config.Config,
 	dbCfg platformpostgres.Config,
 	telemetryCfg telemetrygrpc.Config,
+	resourceCfg resourcegrpc.Config,
 	simulatorCfg simulator.Config,
 ) error {
 	logging.Init(logging.Config{ServiceName: appCfg.ServiceName})
@@ -58,7 +60,7 @@ func Run(
 		logrus.Info("consul-addr empty, skip Consul registration")
 	}
 
-	srv, err := createServer(appCfg, dbCfg, telemetryCfg, simulatorCfg)
+	srv, err := createServer(appCfg, dbCfg, telemetryCfg, resourceCfg, simulatorCfg)
 	if err != nil {
 		return err
 	}

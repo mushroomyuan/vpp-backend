@@ -53,6 +53,8 @@ if err := viper.ReadInConfig(); err != nil {
 | `decision.http-addr` | `DECISION_HTTP_ADDR` |
 | `telemetry.grpc-addr`（decision / forecast 出站） | `TELEMETRY_GRPC_ADDR` |
 | `resource.grpc-addr`（decision 出站） | `RESOURCE_GRPC_ADDR` |
+| `resource-grpc.addr`（gateway 出站） | `RESOURCE_GRPC_ADDR` |
+| `binding-cache.ttl`（gateway） | `BINDING_CACHE_TTL` |
 | `forecast.grpc-addr` | `FORECAST_GRPC_ADDR` |
 | `forecast.http-addr` | `FORECAST_HTTP_ADDR` |
 | `postgres.host`（forecast；其它服务是 `database.host`） | `POSTGRES_HOST` |

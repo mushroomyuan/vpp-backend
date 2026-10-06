@@ -77,6 +77,7 @@ type PointCreatedPayload struct {
 type PointUpdatedPayload struct {
 	PointID  string `json:"point_id"`
 	TenantID string `json:"tenant_id"`
+	CUID     string `json:"cu_id,omitempty"`
 	MetricID string `json:"metric_id"`
 	Revision int64  `json:"revision"`
 }
@@ -85,6 +86,7 @@ type PointUpdatedPayload struct {
 type PointDeletedPayload struct {
 	PointID  string `json:"point_id"`
 	TenantID string `json:"tenant_id"`
+	CUID     string `json:"cu_id,omitempty"`
 }
 
 // ResourceRenamedPayload is published when any node is renamed without

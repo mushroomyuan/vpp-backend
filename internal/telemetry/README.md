@@ -130,22 +130,9 @@ TTL:   永不过期（0）— 快照应在服务重启后继续可用
 
 每次成功 Ingest 后覆盖写入（Redis SET），读取为 O(1)。
 
-### Kafka — SOE 事件（当前为 stub）
+### Kafka — SOE 事件
 
-当 Discrete 型指标的值发生跳变时，产生一条 `SOEEvent`：
-
-```go
-type SOEEvent struct {
-    TenantID   string
-    CUCode     string
-    MetricName string
-    OldValue   float64
-    NewValue   float64
-    OccurredAt time.Time
-}
-```
-
-当前 `kafka.EventPublisher` 为 no-op stub，Kafka 基础设施就绪后替换实现即可，接口不变。
+当指标出现离散变位、质量进入 BAD / UNCERTAIN、观测间隔超过 `metric-stale-age`，或从这些状态恢复时，产生一条 schema v2 的 `SOEEvent`。`metric_id` 是契约注册表中的 canonical ID。Kafka 未配置时发布器只打日志并丢弃。
 
 ---
 

@@ -2,11 +2,11 @@
 
 VPP 平台的**告警中心**。消费已有 Kafka topic，按规则开单 / 合单，提供租户内查询、确认、关闭。告警是充血聚合，**不是事件副本**。
 
-- **入站 Kafka**：`vpp.dispatch.events`（仅 `task.failed`）+ `vpp.soe.events`（全部离散量变位）
+- **入站 Kafka**：`vpp.dispatch.events`（仅 `task.failed`）+ `vpp.soe.events`（schema v2，canonical `metric_id`）
 - **入站 HTTP**：管理端 List / Get / Ack / Close（纯 Gin，无 proto / gRPC）
 - **出站**：Postgres `alarm` 库；通知口先打日志（`Notifier`），不接邮件 / 短信
 
-本服务**不负责**：全量事件归档、消费 `vpp.command.events` / `vpp.resource.events`、规则 DSL、告警抑制风暴、SOE 自动恢复、APISIX 北向。不改 dispatch / telemetry 生产者。
+本服务**不负责**：全量事件归档、消费 `vpp.command.events` / `vpp.resource.events`、规则 DSL、告警抑制风暴、自动关闭恢复单、APISIX 北向。SOE 生产者已改为 schema v2。
 
 SQL CTE 细节见 [plan_v1.md](./plan_v1.md)；`Decision`/`Attributes`/`Evaluator`/
 fingerprint 版本的设计取舍见 [DECISION_DESIGN.md](./DECISION_DESIGN.md)。
@@ -35,7 +35,7 @@ fingerprint 版本的设计取舍见 [DECISION_DESIGN.md](./DECISION_DESIGN.md)�
 | 职责 | 说明 |
 |---|---|
 | **任务失败开单** | 消费 `task.failed` Envelope，默认 `severity=critical`，一次失败一张单 |
-| **SOE 合单** | 消费全部离散量变位；同一测点在 open 期间合并，`count` 累加 |
+| **SOE 合单** | 同一 CU + canonical metric + kind 在 open 期间合并，`count` 累加。质量、陈旧、恢复与离散变位不并成一张单 |
 | **精确一次** | `alarm_event_dedup` PK `(tenant_id, event_id)`；Kafka at-least-once 重投不重复写 |
 | **人管面** | 租户内 List / Get / Ack / Close；ack/close 乐观锁，冲突 409 |
 | **通知口** | `Notifier` port，v1 只打日志 |
@@ -54,7 +54,7 @@ fingerprint 版本的设计取舍见 [DECISION_DESIGN.md](./DECISION_DESIGN.md)�
 服务采用**六边形架构 + CQRS**，对外只暴露 **HTTP**；ingest 由两个 Kafka consumer 驱动。
 
 ```
-telemetry / dispatch（不改生产者）
+telemetry / dispatch
       │ Kafka  vpp.soe.events / vpp.dispatch.events
       ▼
 ┌─────────────────────────────────────────────────────────────┐
@@ -105,35 +105,38 @@ telemetry / dispatch（不改生产者）
 
 **Dispatch：** fingerprint 含 `event_id`，一次 `task.failed` 一张单。部分唯一索引不会把两次失败合成一条。去重完全交给 dedup 表。Kafka payload 的 `trigger_type` 只进 `DispatchAttributes` 展示（人工 / 自动），**不进** fingerprint。
 
-**SOE：** fingerprint **不含** 单次变位的时间 / 新旧值。同一断路器连跳：dedup 未命中则 `count+1`；dedup 命中则整笔成功返回、不 bump count。关闭后再变位：部分唯一索引不再命中已 closed 行，INSERT 新开一条。
+**SOE：** fingerprint **不含** 单次事件的时间 / 数值，**含 kind**。同一测点同一种事实连发：dedup 未命中则 `count+1`；dedup 命中则整笔成功返回、不 bump count。关闭后再来：部分唯一索引不再命中已 closed 行，INSERT 新开一条。BAD、UNCERTAIN、陈旧、恢复各自一张单，互不合并。
 
-### Fingerprint 是 v1 稳定契约
+### Fingerprint
 
-不要用 `|` 裸拼接（`cu_code` / `metric_name` / `task_id` 可能含分隔符）。
+不要用 `|` 裸拼接（`cu_code` / `metric_id` / `task_id` 可能含分隔符）。
+
+Dispatch 仍是 `v1:`。SOE 在键从自由文本点名换成 canonical `metric_id` + kind 时显式升到 `v2:`，不沿用 `soe:v1:`。
 
 ```
-fingerprint = "v1:" + hex(sha256(canonical UTF-8))
+dispatch fingerprint = "v1:" + hex(sha256(canonical UTF-8))
+soe fingerprint      = "v2:" + hex(sha256(canonical UTF-8))
 ```
 
 字段之间用 `\x1f`（unit separator），顺序固定：
 
 - dispatch：`dispatch` + tenant_id + task_id + event_id
-- soe：`soe` + tenant_id + cu_code + metric_name
+- soe：`soe` + kind + tenant_id + cu_code + metric_id
 
-前缀 `v1:` 标 schema。**聚合粒度一旦落库即持久化契约**：以后若改成「整 CU 一条告警」，必须新 fingerprint 版本 + 迁移，不能默默改哈希输入。
+**聚合粒度一旦落库即持久化契约**：以后若改成「整 CU 一条告警」，必须再升 fingerprint 版本，不能默默改哈希输入。
 
 ### Event ID
 
-哈希输入与 fingerprint **同一套规范**：`\x1f` 分隔，禁止裸拼接。否则 `cu="AB", metric="C"` 与 `cu="A", metric="BC"` 会得到同一个 id，去重表会把第二次真实变位吞掉。
+哈希输入与 fingerprint **同一套规范**：`\x1f` 分隔，禁止裸拼接。否则 `cu="AB", metric="C"` 与 `cu="A", metric="BC"` 会得到同一个 id，去重表会把第二次真实事件吞掉。
 
 - dispatch：用 Envelope 已有 `event_id`
-- SOE：`soe:v1:` + hex(sha256(canonical))
+- SOE：`soe:v2:` + hex(sha256(canonical))
 
 ```
-tenant_id \x1f cu_code \x1f metric_name \x1f RFC3339Nano(occurred_at) \x1f FormatFloat(old) \x1f FormatFloat(new)
+tenant_id \x1f cu_code \x1f metric_id \x1f kind \x1f RFC3339Nano(observed_at) \x1f quality \x1f FormatFloat(value) \x1f previous_or_empty
 ```
 
-`FormatFloat` = `strconv.FormatFloat(x, 'g', 17, 64)`。同一次变位重投 → 同一 id；时间或值不同 → 不同 id。
+`FormatFloat` = `strconv.FormatFloat(x, 'g', 17, 64)`。`previous_or_empty` 在没有上一值时是空字符串。同一次事实重投 → 同一 id；时间、质量或值不同 → 不同 id。展示名和单位来自 `api/contracts` 描述符，不进 fingerprint。
 
 ### 写入语义
 
@@ -156,9 +159,15 @@ ingest 侧不要先 load 再 `Touch()` 写回。乱序：较新的 SOE 先写、
 | 规则 id | 默认 | 说明 |
 |---|---|---|
 | `dispatch-task-failed` | enabled，`critical` | 仅 `task.failed` |
-| `soe-discrete-change` | enabled，`warning` | `metric-names` 空 = 全部 SOE |
+| `soe-discrete-change` | enabled，`warning` | `kind=discrete_change` 且质量 GOOD |
+| `soe-quality-bad` | enabled，`critical` | `kind=quality_bad` |
+| `soe-quality-uncertain` | enabled，`warning` | `kind=quality_uncertain` |
+| `soe-metric-stale` | enabled，`warning` | `kind=stale`。旧 good 值不是当前健康 |
+| `soe-recovery` | enabled，`info` | `kind=recovery`。单独开单，不自动关闭故障单 |
 
-配置见 [`config/alarm.yaml`](../../config/alarm.yaml)。
+`metric-ids` 空 = 契约注册表中的全部 metric。写入的 ID 必须 `ParseMetricID` 通过，厂商点名在启动时拒绝。未注册的入站 `metric_id` 按规则未命中丢弃，不回退成原字符串。
+
+配置见 [`config/alarm.yaml`](../../config/alarm.yaml)。wire 契约见 `platform/event/telemetry`，`schema_version` 必须是 `v2`。
 
 ---
 
@@ -273,7 +282,7 @@ cd internal/alarm && go run ./cmd/main.go -c ../../config/alarm.yaml
 ## 已知技术债（v1 故意不做）
 
 - **closed 行与 `alarm_event_dedup` 无限堆积。** 正确性不受影响。retention 按 `ingested_at` 删即可，v1 不跑归档 job。
-- SOE 无 Envelope；合成 event_id 依赖 `occurred_at` 精度。
+- SOE 无 Envelope；合成 event_id 依赖 `observed_at` 精度。schema 只接受 v2。
 - 单副本消费者；表已经为分区扩展预留。
-- 无 closed 自动恢复、无 webhook、无 APISIX `/alarm/*`。
+- 恢复事件单独开 info 单，不自动关闭质量 / 陈旧单。无 webhook、无 APISIX `/alarm/*`。
 - `alarm_consumer_lag` 是 Stats 水位，不是 group committed lag。

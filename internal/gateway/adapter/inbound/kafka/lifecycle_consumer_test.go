@@ -142,6 +142,79 @@ func TestHandleMessage_SkipUnknownAndBadJSON(t *testing.T) {
 	}
 }
 
+type recordInvalidator struct {
+	cus     []string
+	points  []string
+	tenants []string
+}
+
+func (r *recordInvalidator) InvalidateCU(tenantID, cuID string) {
+	r.cus = append(r.cus, tenantID+"/"+cuID)
+}
+
+func (r *recordInvalidator) InvalidatePoint(tenantID, pointID string) {
+	r.points = append(r.points, tenantID+"/"+pointID)
+}
+
+func (r *recordInvalidator) InvalidateTenant(tenantID string) {
+	r.tenants = append(r.tenants, tenantID)
+}
+
+func TestHandleMessage_PointUpdatedInvalidatesCUAndDoesNotDisable(t *testing.T) {
+	t.Parallel()
+	h := &stubDisableHandler{}
+	inv := &recordInvalidator{}
+	c := &LifecycleConsumer{handler: h, bindings: inv}
+	env := platEvent.Envelope[resEvent.PointUpdatedPayload]{
+		EventType: resEvent.TypePointUpdated, TenantID: "tenant",
+		Payload: resEvent.PointUpdatedPayload{PointID: "pt-1", CUID: "cu-1", MetricID: "m"},
+	}
+	body, _ := json.Marshal(env)
+	if err := c.handleMessage(context.Background(), kafka.Message{Value: body}); err != nil {
+		t.Fatal(err)
+	}
+	if len(h.calls) != 0 {
+		t.Fatal("point update must not disable a mapping")
+	}
+	if len(inv.cus) != 1 || inv.cus[0] != "tenant/cu-1" || len(inv.points) != 0 {
+		t.Fatalf("invalidations cus=%v points=%v", inv.cus, inv.points)
+	}
+}
+
+func TestHandleMessage_PointUpdatedWithoutCUUsesPointID(t *testing.T) {
+	t.Parallel()
+	inv := &recordInvalidator{}
+	c := &LifecycleConsumer{handler: &stubDisableHandler{}, bindings: inv}
+	env := platEvent.Envelope[resEvent.PointUpdatedPayload]{
+		EventType: resEvent.TypePointUpdated,
+		Payload:   resEvent.PointUpdatedPayload{PointID: "pt-9", TenantID: "from-payload"},
+	}
+	body, _ := json.Marshal(env)
+	if err := c.handleMessage(context.Background(), kafka.Message{Value: body}); err != nil {
+		t.Fatal(err)
+	}
+	if len(inv.points) != 1 || inv.points[0] != "from-payload/pt-9" {
+		t.Fatalf("points=%v", inv.points)
+	}
+}
+
+func TestHandleMessage_ImportPointDropsTenant(t *testing.T) {
+	t.Parallel()
+	inv := &recordInvalidator{}
+	c := &LifecycleConsumer{handler: &stubDisableHandler{}, bindings: inv}
+	env := platEvent.Envelope[resEvent.ImportCompletedPayload]{
+		EventType: resEvent.TypeImportCompleted, TenantID: "tenant",
+		Payload: resEvent.ImportCompletedPayload{TargetType: "point"},
+	}
+	body, _ := json.Marshal(env)
+	if err := c.handleMessage(context.Background(), kafka.Message{Value: body}); err != nil {
+		t.Fatal(err)
+	}
+	if len(inv.tenants) != 1 || inv.tenants[0] != "tenant" {
+		t.Fatalf("tenants=%v", inv.tenants)
+	}
+}
+
 func TestHandleMessage_HandlerError(t *testing.T) {
 	t.Parallel()
 	h := &stubDisableHandler{err: errors.New("disable failed")}

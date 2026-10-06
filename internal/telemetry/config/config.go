@@ -22,6 +22,10 @@ type Config struct {
 	Authz             AuthzConfig
 
 	RateLimit RateLimitConfig
+
+	// MetricStaleAge is how long a sample may age before the next ingest
+	// publishes it as stale. Zero is replaced with the domain default.
+	MetricStaleAge time.Duration
 }
 
 // AuthzConfig wires platform/authz for the telemetry service (C10c).
@@ -89,6 +93,7 @@ func CreateFromOptions(opts *options.Options) *Config {
 			QueryAggregation: newLimiter(opts.Telemetry.RateLimit.QueryAggregation),
 			GetFleetSnapshot: newLimiter(opts.Telemetry.RateLimit.GetFleetSnapshot),
 		},
+		MetricStaleAge: parseDuration(opts.Telemetry.MetricStaleAge, 90*time.Second),
 	}
 }
 

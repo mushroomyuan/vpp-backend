@@ -101,6 +101,7 @@ func createServer(
 		IngestLimiter:           appCfg.RateLimit.Ingest,
 		QueryAggregationLimiter: appCfg.RateLimit.QueryAggregation,
 		GetFleetSnapshotLimiter: appCfg.RateLimit.GetFleetSnapshot,
+		MetricStaleAge:          appCfg.MetricStaleAge,
 	})
 
 	var (
